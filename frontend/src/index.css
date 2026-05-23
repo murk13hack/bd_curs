@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='light'] {
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --ink: #0f172a;
+  --ink-muted: #64748b;
+  --accent: #16a34a;
+  --accent-soft: #dcfce7;
+  --border: #e2e8f0;
+  --danger: #dc2626;
+  --warning: #d97706;
+}
+
+[data-theme='dark'] {
+  --surface: #0b1220;
+  --surface-2: #111827;
+  --surface-3: #1f2937;
+  --ink: #e5e7eb;
+  --ink-muted: #94a3b8;
+  --accent: #22c55e;
+  --accent-soft: #14532d;
+  --border: #334155;
+  --danger: #f87171;
+  --warning: #fbbf24;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --surface: #0b1220;
+    --surface-2: #111827;
+    --surface-3: #1f2937;
+    --ink: #e5e7eb;
+    --ink-muted: #94a3b8;
+    --accent: #22c55e;
+    --accent-soft: #14532d;
+    --border: #334155;
+    --danger: #f87171;
+    --warning: #fbbf24;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-surface text-ink font-sans antialiased min-h-screen;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-3 text-ink hover:bg-surface-2 border border-border;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-surface-3 hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-green-500/40;
+  }
+
+  .select {
+    @apply input appearance-none;
+  }
+
+  .card {
+    @apply rounded-xl border border-border bg-surface-2 shadow-card;
+  }
+
+  .card-body {
+    @apply p-4 md:p-5;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+}
