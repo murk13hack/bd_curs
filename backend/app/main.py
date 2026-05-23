@@ -1,36 +1,46 @@
-"""FastAPI-приложение «Персональный таск-трекер» (ПТТ).
-
-Бэкенд является тонким слоем над PostgreSQL: маршрутизация HTTP, валидация,
-делегирование вычислений в БД (см. ТЗ, раздел 4.3.1). На текущей стадии — каркас
-с health-check и заглушкой /api/v1/ping; дальнейшие модули добавляются в
-``app/api`` по мере реализации подсистем (задачи, дневник, паттерны, статистика).
-"""
+"""FastAPI-приложение ПТТ."""
 
 from __future__ import annotations
 
-import os
+import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-API_PREFIX = "/api/v1"
+from app.api.v1 import api_router
+from app.config import get_settings
+from app.scheduler import start_scheduler, stop_scheduler
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("ptt")
+
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: D401
+    logger.info("Starting %s %s", settings.app_name, settings.app_version)
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+        logger.info("Stopped")
+
 
 app = FastAPI(
-    title="ПТТ — Персональный таск-трекер",
-    version="0.1.0",
-    description="REST API системы ПТТ. См. ТЗ.md.",
+    title=settings.app_name,
+    version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
-
-cors_origins = [
-    o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
-] or ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,6 +52,4 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get(f"{API_PREFIX}/ping", tags=["service"], summary="Echo")
-async def ping() -> dict[str, bool]:
-    return {"pong": True}
+app.include_router(api_router, prefix=settings.api_prefix)
