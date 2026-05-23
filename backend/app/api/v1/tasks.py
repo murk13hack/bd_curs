@@ -227,7 +227,6 @@ async def add_time_log(
         user_id=user_id,
         started_at=payload.started_at,
         ended_at=payload.ended_at,
-        duration_seconds=int((payload.ended_at - payload.started_at).total_seconds()),
         is_pomodoro=payload.is_pomodoro,
         note=payload.note,
     )

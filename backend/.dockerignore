@@ -15,6 +15,5 @@ env
 .ruff_cache
 *.egg-info
 README.md
-tests
 .idea
 .vscode

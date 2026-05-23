@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, text
+from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import SessionDep, UserIdDep
 from app.models import Goal, GoalLink
@@ -69,8 +70,7 @@ async def create_goal(
             )
         )
     await session.commit()
-    await session.refresh(goal, attribute_names=["links"])
-    return _to_read(goal)
+    return _to_read(await _reload(session, goal.id))
 
 
 @router.get("/{goal_id}", response_model=GoalRead, summary="Получить цель")
@@ -91,8 +91,7 @@ async def update_goal(
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(goal, k, v)
     await session.commit()
-    await session.refresh(goal, attribute_names=["links"])
-    return _to_read(goal)
+    return _to_read(await _reload(session, goal_id))
 
 
 @router.delete(
@@ -179,3 +178,16 @@ async def _get(session: SessionDep, goal_id: int, user_id: int) -> Goal:
     if goal is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Цель не найдена")
     return goal
+
+
+async def _reload(session: SessionDep, goal_id: int) -> Goal:
+    """Перечитать цель целиком вместе со связями после COMMIT.
+
+    После коммита триггеры могут поменять completed_at/updated_at, поэтому
+    перезагружаем объект полностью, чтобы вернуть свежие данные.
+    """
+    session.expire_all()
+    res = await session.execute(
+        select(Goal).options(selectinload(Goal.links)).where(Goal.id == goal_id)
+    )
+    return res.scalar_one()
