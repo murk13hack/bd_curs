@@ -15,9 +15,26 @@ export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
   urgent: 'Срочный',
 };
 
+export const PATTERN_MODE_LABEL: Record<import('@/api/types').PatternMode, string> = {
+  habit: 'Привычка',
+  scenario: 'Сценарий',
+  markers: 'Точки',
+};
+
+export const PATTERN_STEP_ROLE_LABEL: Record<
+  import('@/api/types').PatternStepRole,
+  string
+> = {
+  context: 'Контекст',
+  trigger: 'Триггер',
+  choice: 'Развилка',
+  action: 'Действие',
+  outcome: 'Итог',
+};
+
 export const PATTERN_TYPE_LABEL: Record<PatternType, string> = {
   positive: 'Полезная',
-  negative: 'Вредная',
+  negative: 'Отказ',
 };
 
 export const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -42,7 +59,7 @@ export const NAV_ITEMS = [
   { to: '/', label: 'Обзор', icon: 'LayoutDashboard' },
   { to: '/tasks', label: 'Задачи', icon: 'CheckSquare' },
   { to: '/diary', label: 'Дневник', icon: 'BookOpen' },
-  { to: '/patterns', label: 'Привычки', icon: 'Repeat' },
+  { to: '/patterns', label: 'Паттерны', icon: 'Repeat' },
   { to: '/calendar', label: 'Календарь', icon: 'Calendar' },
   { to: '/stats', label: 'Статистика', icon: 'BarChart3' },
   { to: '/goals', label: 'Цели', icon: 'Target' },

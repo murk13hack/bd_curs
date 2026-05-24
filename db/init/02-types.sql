@@ -35,6 +35,28 @@ CREATE TYPE pattern_log_status_enum AS ENUM (
 );
 COMMENT ON TYPE pattern_log_status_enum IS 'Статус записи журнала откликов на паттерн.';
 
+CREATE TYPE pattern_mode_enum AS ENUM (
+    'habit',     -- быстрый чеклист (сделал / удержался)
+    'scenario',  -- пошаговый сценарий дня
+    'markers'    -- точечные отметки (P3)
+);
+COMMENT ON TYPE pattern_mode_enum IS 'Режим паттерна поведения.';
+
+CREATE TYPE pattern_step_kind_enum AS ENUM (
+    'check', 'single_choice', 'note'
+);
+COMMENT ON TYPE pattern_step_kind_enum IS 'Тип шага сценария.';
+
+CREATE TYPE pattern_step_role_enum AS ENUM (
+    'context', 'trigger', 'choice', 'action', 'outcome'
+);
+COMMENT ON TYPE pattern_step_role_enum IS 'Роль шага в сценарии (для аналитики).';
+
+CREATE TYPE pattern_session_status_enum AS ENUM (
+    'in_progress', 'completed', 'abandoned'
+);
+COMMENT ON TYPE pattern_session_status_enum IS 'Статус прохождения сценария за день.';
+
 CREATE TYPE recurrence_freq_enum AS ENUM (
     'daily',
     'weekly',

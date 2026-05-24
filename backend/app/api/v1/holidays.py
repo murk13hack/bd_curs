@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.v1.deps import SessionDep
+from app.api.v1.deps import SessionDep, UserIdDep
 from app.models import Holiday
 from app.schemas.holiday import HolidayCreate, HolidayRead, HolidayUpdate
 
@@ -36,7 +36,9 @@ async def list_holidays(
     status_code=status.HTTP_201_CREATED,
     summary="Добавить праздник",
 )
-async def create_holiday(payload: HolidayCreate, session: SessionDep) -> Holiday:
+async def create_holiday(
+    payload: HolidayCreate, session: SessionDep, _user_id: UserIdDep
+) -> Holiday:
     holiday = Holiday(**payload.model_dump())
     session.add(holiday)
     try:
@@ -50,7 +52,7 @@ async def create_holiday(payload: HolidayCreate, session: SessionDep) -> Holiday
 
 @router.patch("/{holiday_id}", response_model=HolidayRead, summary="Обновить праздник")
 async def update_holiday(
-    holiday_id: int, payload: HolidayUpdate, session: SessionDep
+    holiday_id: int, payload: HolidayUpdate, session: SessionDep, _user_id: UserIdDep
 ) -> Holiday:
     holiday = await _get(session, holiday_id)
     for k, v in payload.model_dump(exclude_unset=True).items():
@@ -66,7 +68,7 @@ async def update_holiday(
     response_model=None,
     summary="Удалить праздник",
 )
-async def delete_holiday(holiday_id: int, session: SessionDep) -> None:
+async def delete_holiday(holiday_id: int, session: SessionDep, _user_id: UserIdDep) -> None:
     holiday = await _get(session, holiday_id)
     await session.delete(holiday)
     await session.commit()

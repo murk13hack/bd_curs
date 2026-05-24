@@ -3,35 +3,45 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus, Trash2, Upload } from 'lucide-react';
 import { api } from '@/api/client';
 import type { ThemeMode } from '@/hooks/use-theme';
-import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
+import { PageHeader, Spinner, ErrorBanner, Modal } from '@/components/ui/primitives';
 import { downloadJson, downloadText } from '@/lib/format';
+import { confirmDelete } from '@/lib/confirm';
 
 export function SettingsPage() {
   const qc = useQueryClient();
-  const [topicName, setTopicName] = useState('');
+  const holidayYear = new Date().getFullYear();  const [topicName, setTopicName] = useState('');
+  const [topicColor, setTopicColor] = useState('#3B82F6');
   const [tagName, setTagName] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [pendingImport, setPendingImport] = useState<{ file: File; data: unknown } | null>(null);
+  const [importMode, setImportMode] = useState<'merge' | 'restore'>('merge');
 
   const settings = useQuery({ queryKey: ['settings'], queryFn: api.settings.list });
   const topics = useQuery({ queryKey: ['topics'], queryFn: api.topics.list });
   const tags = useQuery({ queryKey: ['tags'], queryFn: api.tags.list });
   const holidays = useQuery({
-    queryKey: ['holidays', 2026],
-    queryFn: () => api.holidays.list(2026),
+    queryKey: ['holidays', holidayYear],
+    queryFn: () => api.holidays.list(holidayYear),
   });
-
   const theme =
     (settings.data?.find((s) => s.key === 'theme')?.value as ThemeMode | undefined) ?? 'system';
   const pomodoroMinutes = Number(settings.data?.find((s) => s.key === 'pomodoro_minutes')?.value ?? 25);
-
+  const pomodoroShortBreak = Number(
+    settings.data?.find((s) => s.key === 'pomodoro_short_break')?.value ?? 5,
+  );
+  const pomodoroLongBreak = Number(
+    settings.data?.find((s) => s.key === 'pomodoro_long_break')?.value ?? 15,
+  );
+  const [holidayDate, setHolidayDate] = useState('');
+  const [holidayName, setHolidayName] = useState('');
   const saveSetting = useMutation({
     mutationFn: ({ key, value }: { key: string; value: unknown }) => api.settings.upsert(key, value),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
   });
 
   const addTopic = useMutation({
-    mutationFn: () => api.topics.create({ name: topicName }),
+    mutationFn: () => api.topics.create({ name: topicName, color: topicColor }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['topics'] });
       setTopicName('');
@@ -75,15 +85,29 @@ export function SettingsPage() {
     },
   });
 
-  const importJson = useMutation({
-    mutationFn: (file: File) =>
-      file.text().then((text) => {
-        const parsed = JSON.parse(text) as { data?: unknown };
-        return api.importExport.importJson(parsed.data ?? parsed);
-      }),
+  const addHoliday = useMutation({
+    mutationFn: () =>
+      api.holidays.create({ holiday_date: holidayDate, name: holidayName, is_official: true }),
     onSuccess: () => {
-      setMessage('Импорт выполнен');
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ['holidays', holidayYear] });
+      setHolidayDate('');
+      setHolidayName('');
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const deleteHoliday = useMutation({
+    mutationFn: (id: number) => api.holidays.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holidays', holidayYear] }),
+  });
+
+  const importJson = useMutation({
+    mutationFn: ({ data, mode }: { data: unknown; mode: 'merge' | 'restore' }) =>
+      api.importExport.importJson(data, mode),
+    onSuccess: (res) => {
+      setMessage(res.mode === 'restore' ? 'Данные восстановлены' : 'Справочники импортированы');
+      setPendingImport(null);
+      void qc.invalidateQueries();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -133,9 +157,42 @@ export function SettingsPage() {
                 }
               />
             </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink-muted">Короткий перерыв (мин)</span>
+                <input
+                  type="number"
+                  className="input"
+                  min={1}
+                  max={30}
+                  value={pomodoroShortBreak}
+                  onChange={(e) =>
+                    saveSetting.mutate({
+                      key: 'pomodoro_short_break',
+                      value: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink-muted">Длинный перерыв (мин)</span>
+                <input
+                  type="number"
+                  className="input"
+                  min={1}
+                  max={60}
+                  value={pomodoroLongBreak}
+                  onChange={(e) =>
+                    saveSetting.mutate({
+                      key: 'pomodoro_long_break',
+                      value: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+            </div>
           </div>
         </section>
-
         <section className="card">
           <div className="card-body space-y-4">
             <h2 className="font-semibold">Импорт / экспорт</h2>
@@ -164,7 +221,14 @@ export function SettingsPage() {
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) importJson.mutate(f);
+                    if (!f) return;
+                    f.text()
+                      .then((text) => {
+                        const parsed = JSON.parse(text) as { data?: unknown };
+                        setPendingImport({ file: f, data: parsed.data ?? parsed });
+                        setImportMode('merge');
+                      })
+                      .catch(() => setError('Некорректный JSON'));
                   }}
                 />
               </label>
@@ -182,6 +246,13 @@ export function SettingsPage() {
                 value={topicName}
                 onChange={(e) => setTopicName(e.target.value)}
               />
+              <input
+                type="color"
+                className="h-10 w-12 cursor-pointer rounded border border-border"
+                value={topicColor}
+                onChange={(e) => setTopicColor(e.target.value)}
+                title="Цвет темы"
+              />
               <button
                 type="button"
                 className="btn-primary shrink-0"
@@ -198,7 +269,13 @@ export function SettingsPage() {
                     <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
                     {t.name}
                   </span>
-                  <button type="button" className="btn-ghost px-2" onClick={() => deleteTopic.mutate(t.id)}>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2"
+                    onClick={() => {
+                      if (confirmDelete(`тему «${t.name}»`)) deleteTopic.mutate(t.id);
+                    }}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </li>
@@ -230,7 +307,13 @@ export function SettingsPage() {
               {(tags.data ?? []).map((t) => (
                 <li key={t.id} className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-sm">
                   {t.name}
-                  <button type="button" className="btn-ghost px-1 py-0" onClick={() => deleteTag.mutate(t.id)}>
+                  <button
+                    type="button"
+                    className="btn-ghost px-1 py-0"
+                    onClick={() => {
+                      if (confirmDelete(`тег «${t.name}»`)) deleteTag.mutate(t.id);
+                    }}
+                  >
                     <Trash2 size={12} />
                   </button>
                 </li>
@@ -240,22 +323,108 @@ export function SettingsPage() {
         </section>
 
         <section className="card lg:col-span-2">
-          <div className="card-body">
-            <h2 className="mb-3 font-semibold">Праздники 2026</h2>
+          <div className="card-body space-y-3">
+            <h2 className="font-semibold">Праздники {holidayYear}</h2>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="date"
+                className="input w-auto"
+                value={holidayDate}
+                onChange={(e) => setHolidayDate(e.target.value)}
+              />
+              <input
+                className="input min-w-[12rem] flex-1"
+                placeholder="Название"
+                value={holidayName}
+                onChange={(e) => setHolidayName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-primary shrink-0"
+                disabled={!holidayDate || !holidayName.trim() || addHoliday.isPending}
+                onClick={() => addHoliday.mutate()}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
             {holidays.isLoading ? (
               <Spinner />
             ) : (
               <div className="flex flex-wrap gap-2">
                 {(holidays.data ?? []).map((h) => (
-                  <span key={h.id} className="badge bg-red-500/10 text-red-700 dark:text-red-300">
+                  <span
+                    key={h.id}
+                    className="badge inline-flex items-center gap-1 bg-red-500/10 text-red-700 dark:text-red-300"
+                  >
                     {h.holiday_date.slice(5)} — {h.name}
+                    <button
+                      type="button"
+                      className="btn-ghost px-0.5 py-0"
+                      onClick={() => {
+                        if (confirmDelete(`праздник «${h.name}»`)) deleteHoliday.mutate(h.id);
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </span>
                 ))}
               </div>
             )}
           </div>
-        </section>
-      </div>
+        </section>      </div>
+
+      <Modal
+        open={!!pendingImport}
+        title="Импорт JSON"
+        onClose={() => setPendingImport(null)}
+      >
+        <p className="mb-4 text-sm text-ink-muted">
+          Файл: {pendingImport?.file.name}. Режим «restore» заменит все ваши данные содержимым
+          бэкапа.
+        </p>
+        <div className="mb-4 space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              checked={importMode === 'merge'}
+              onChange={() => setImportMode('merge')}
+            />
+            Merge — только темы и теги (безопасно)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              checked={importMode === 'restore'}
+              onChange={() => setImportMode('restore')}
+            />
+            Restore — полное восстановление (schema v2+)
+          </label>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-secondary" onClick={() => setPendingImport(null)}>
+            Отмена
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={importJson.isPending}
+            onClick={() => {
+              if (importMode === 'restore') {
+                if (
+                  !window.confirm(
+                    'Все текущие данные будут удалены и заменены. Продолжить?',
+                  )
+                ) {
+                  return;
+                }
+              }
+              importJson.mutate({ data: pendingImport!.data, mode: importMode });
+            }}
+          >
+            Импортировать
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

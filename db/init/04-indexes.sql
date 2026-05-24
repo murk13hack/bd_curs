@@ -11,6 +11,11 @@ CREATE INDEX idx_tasks_deadline
     WHERE deadline IS NOT NULL;
 COMMENT ON INDEX idx_tasks_deadline IS 'Сортировка/фильтр «ближайшие задачи».';
 
+CREATE INDEX idx_tasks_start_at
+    ON tasks (start_at)
+    WHERE start_at IS NOT NULL;
+COMMENT ON INDEX idx_tasks_start_at IS 'Фильтр задач по началу окна выполнения.';
+
 CREATE INDEX idx_tasks_topic_status
     ON tasks (topic_id, status);
 COMMENT ON INDEX idx_tasks_topic_status IS 'Группировка задач по темам с фильтром по статусу.';
@@ -74,6 +79,11 @@ CREATE INDEX idx_pattern_logs_pending
     ON pattern_logs (scheduled_at)
     WHERE status = 'pending';
 COMMENT ON INDEX idx_pattern_logs_pending IS 'Быстрый поиск ожидающих ответа записей (для sp_close_overdue_pattern_logs).';
+
+-- ---------- pattern_steps / pattern_markers ------------------------------
+
+CREATE INDEX idx_pattern_steps_pattern ON pattern_steps (pattern_id);
+COMMENT ON INDEX idx_pattern_steps_pattern IS 'Шаги сценария по паттерну.';
 
 -- ---------- audit_log ----------------------------------------------------
 

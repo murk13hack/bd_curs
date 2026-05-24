@@ -63,7 +63,7 @@ export function Sidebar() {
 export function MobileNav() {
   return (
     <nav className="flex gap-1 overflow-x-auto border-t border-border bg-surface-2 p-2 md:hidden">
-      {NAV_ITEMS.slice(0, 6).map((item) => {
+      {NAV_ITEMS.map((item) => {
         const Icon = ICONS[item.icon];
         return (
           <NavLink
@@ -71,16 +71,15 @@ export function MobileNav() {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `flex min-w-[4.5rem] flex-col items-center gap-1 rounded-lg px-2 py-2 text-[10px] ${
+              `flex min-w-[3.25rem] shrink-0 flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5 text-[9px] leading-tight ${
                 isActive ? 'text-accent' : 'text-ink-muted'
               }`
             }
           >
-            <Icon size={18} />
+            <Icon size={16} />
             {item.label}
           </NavLink>
         );
-      })}
-    </nav>
+      })}    </nav>
   );
 }

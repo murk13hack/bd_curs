@@ -9,13 +9,28 @@ import type {
   GoalProgress,
   HeatmapPoint,
   Holiday,
+  HolisticCorrelationWeek,
+  OlapMeta,
+  OlapResult,
   Pattern,
+  PatternInsights,
+  PatternMarker,
+  PatternSchedule,
+  PatternSession,
+  PatternStep,
   PatternStreak,
   PatternStreakDetail,
+  PatternStatsRow,
+  PatternToday,
+  PriorityBreakdown,
+  RecurringRule,
+  RecurringRuleSummary,
   Tag,
   Task,
+  TaskView,
   TimeLog,
   Topic,
+  StatsOverview,
   TopicBreakdown,
   TopicTimeBreakdown,
   WeeklySummary,
@@ -106,7 +121,7 @@ export const api = {
   },
 
   tasks: {
-    list: (params: Record<string, string | number | boolean | undefined> = {}) =>
+    list: (params: { view?: TaskView; [key: string]: string | number | boolean | undefined } = {}) =>
       request<Task[]>(`/tasks${qs(params)}`),
     get: (id: number) => request<Task>(`/tasks/${id}`),
     create: (body: Record<string, unknown>) =>
@@ -116,7 +131,24 @@ export const api = {
     remove: (id: number) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
     complete: (id: number) =>
       request<Task>(`/tasks/${id}/complete`, { method: 'POST' }),
+    reopen: (id: number) =>
+      request<Task>(`/tasks/${id}/reopen`, { method: 'POST' }),
+    start: (id: number) => request<Task>(`/tasks/${id}/start`, { method: 'POST' }),
+    cancel: (id: number) => request<Task>(`/tasks/${id}/cancel`, { method: 'POST' }),
     subtasks: (id: number) => request<Task[]>(`/tasks/${id}/subtasks`),
+    getRecurring: (id: number) => request<RecurringRule>(`/tasks/${id}/recurring`),
+    attachRecurring: (id: number, body: Record<string, unknown>) =>
+      request<RecurringRule>(`/tasks/${id}/recurring`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    updateRecurring: (id: number, body: Record<string, unknown>) =>
+      request<RecurringRule>(`/tasks/${id}/recurring`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    detachRecurring: (id: number) =>
+      request<void>(`/tasks/${id}/recurring`, { method: 'DELETE' }),
     timeLogs: (id: number) => request<TimeLog[]>(`/tasks/${id}/time-logs`),
     addTimeLog: (id: number, body: Record<string, unknown>) =>
       request<TimeLog>(`/tasks/${id}/time-logs`, {
@@ -150,13 +182,49 @@ export const api = {
     addOption: (id: number, body: Record<string, unknown>) =>
       request(`/patterns/${id}/options`, { method: 'POST', body: JSON.stringify(body) }),
     addSchedule: (id: number, body: Record<string, unknown>) =>
-      request(`/patterns/${id}/schedules`, { method: 'POST', body: JSON.stringify(body) }),
+      request<PatternSchedule>(`/patterns/${id}/schedules`, { method: 'POST', body: JSON.stringify(body) }),
+    updateSchedule: (id: number, sid: number, body: Record<string, unknown>) =>
+      request<PatternSchedule>(`/patterns/${id}/schedules/${sid}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    removeSchedule: (id: number, sid: number) =>
+      request<void>(`/patterns/${id}/schedules/${sid}`, { method: 'DELETE' }),
+    replaceSteps: (id: number, steps: unknown[]) =>
+      request<PatternStep[]>(`/patterns/${id}/steps`, {
+        method: 'PUT',
+        body: JSON.stringify({ steps }),
+      }),
+    sessionToday: (id: number) => request<PatternSession>(`/patterns/${id}/sessions/today`),
+    startSessionToday: (id: number) =>
+      request<PatternSession>(`/patterns/${id}/sessions/today`, { method: 'POST' }),
+    answerStep: (id: number, sessionId: number, stepId: number, body: Record<string, unknown>) =>
+      request<PatternSession>(`/patterns/${id}/sessions/${sessionId}/steps/${stepId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    completeSession: (id: number, sessionId: number) =>
+      request<PatternSession>(`/patterns/${id}/sessions/${sessionId}/complete`, { method: 'POST' }),
+    logs: (id: number, params: { limit?: number } = {}) =>
+      request<import('./types').PatternLog[]>(`/patterns/${id}/logs${qs(params)}`),
     respond: (id: number, body: { response_option_id: number; scheduled_at?: string }) =>
       request<void>(`/patterns/${id}/responses`, {
         method: 'POST',
         body: JSON.stringify(body),
       }),
     streak: (id: number) => request<PatternStreakDetail>(`/patterns/${id}/streak`),
+    today: (id: number) => request<PatternToday>(`/patterns/${id}/today`),
+    insights: (id: number, days = 30, timeFilter = 'all') =>
+      request<PatternInsights>(`/patterns/${id}/insights${qs({ days, time_filter: timeFilter })}`),
+    markers: (id: number, limit = 50) =>
+      request<PatternMarker[]>(`/patterns/${id}/markers${qs({ limit })}`),
+    addMarker: (id: number, body: { marker_option_id: number; note?: string }) =>
+      request<PatternMarker>(`/patterns/${id}/markers`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    removeMarker: (id: number, markerId: number) =>
+      request<void>(`/patterns/${id}/markers/${markerId}`, { method: 'DELETE' }),
     streaksAll: () => request<PatternStreak[]>('/patterns/streaks/all'),
   },
 
@@ -168,10 +236,18 @@ export const api = {
   },
 
   stats: {
+    meta: () => request<OlapMeta>('/stats/meta'),
+    overview: (days = 30) => request<StatsOverview>(`/stats/overview${qs({ days })}`),
+    olap: (body: Record<string, unknown>) =>
+      request<OlapResult>('/stats/olap', { method: 'POST', body: JSON.stringify(body) }),
     topics: () => request<TopicBreakdown[]>('/stats/topics'),
+    priorities: () => request<PriorityBreakdown[]>('/stats/priorities'),
+    patterns: () => request<PatternStatsRow[]>('/stats/patterns'),
     timeDistribution: () => request<TopicTimeBreakdown[]>('/stats/time-distribution'),
     correlation: (params: { from?: string; to?: string } = {}) =>
       request<CorrelationWeek[]>(`/stats/correlation${qs(params)}`),
+    holistic: (params: { from?: string; to?: string } = {}) =>
+      request<HolisticCorrelationWeek[]>(`/stats/holistic${qs(params)}`),
     weekly: (params: { from?: string; to?: string; limit?: number } = {}) =>
       request<WeeklySummary[]>(`/stats/weekly${qs(params)}`),
     completionRate: (from: string, to: string, topic_id?: number) =>
@@ -196,10 +272,28 @@ export const api = {
     progress: (id: number) => request<GoalProgress>(`/goals/${id}/progress`),
   },
 
+  recurringRules: {
+    list: () => request<RecurringRuleSummary[]>('/recurring-rules'),
+    get: (id: number) => request<RecurringRule>(`/recurring-rules/${id}`),
+    update: (id: number, body: Record<string, unknown>) =>
+      request<RecurringRule>(`/recurring-rules/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    remove: (id: number) => request<void>(`/recurring-rules/${id}`, { method: 'DELETE' }),
+  },
+
   importExport: {
     exportJson: () => request<ExportResponse>('/export/json'),
-    importJson: (data: unknown) =>
-      request('/import/json', { method: 'POST', body: JSON.stringify({ data }) }),
-    exportTasksCsv: () => fetch(`${BASE}/export/csv/tasks`).then((r) => r.text()),
+    importJson: (data: unknown, mode: 'merge' | 'restore' = 'merge') =>
+      request<{ status: string; mode: string }>('/import/json', {
+        method: 'POST',
+        body: JSON.stringify({ data, mode }),
+      }),
+    exportTasksCsv: async () => {
+      const res = await fetch(`${BASE}/export/csv/tasks`);
+      if (!res.ok) throw new ApiError(res.statusText, res.status);
+      return res.text();
+    },
   },
 };

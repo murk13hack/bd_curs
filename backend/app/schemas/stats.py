@@ -1,10 +1,11 @@
-"""DTO статистики."""
+"""DTO статистики и OLAP."""
 
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TopicBreakdown(BaseModel):
@@ -28,6 +29,19 @@ class CorrelationWeek(BaseModel):
     days_count: int
 
 
+class HolisticCorrelationWeek(BaseModel):
+    week_start: date
+    avg_mood: float | None
+    avg_energy: float | None
+    avg_task_rate: float | None
+    avg_pattern_clean_rate: float | None
+    avg_minutes: float | None
+    corr_mood_tasks: float | None
+    corr_mood_patterns: float | None
+    corr_energy_tasks: float | None
+    days_count: int
+
+
 class WeeklySummary(BaseModel):
     week_start: date
     tasks_total: int
@@ -35,6 +49,12 @@ class WeeklySummary(BaseModel):
     tasks_overdue: int
     minutes_logged: int
     diary_entries: int
+    avg_mood: float | None = None
+    avg_energy: float | None = None
+    patterns_scheduled: int = 0
+    patterns_success: int = 0
+    marker_events: int = 0
+    marker_bad_events: int = 0
 
 
 class TopicTimeBreakdown(BaseModel):
@@ -42,3 +62,66 @@ class TopicTimeBreakdown(BaseModel):
     topic_name: str
     minutes: int
     pomodoro_minutes: int
+
+
+class PriorityBreakdown(BaseModel):
+    priority: str
+    total: int
+    done: int
+    overdue: int
+    completion_rate: float
+
+
+class PatternStatsRow(BaseModel):
+    pattern_id: int
+    title: str
+    pattern_type: str
+    pattern_mode: str
+    current_streak: int
+    max_streak: int
+    scheduled_days_30d: int
+    success_days_30d: int
+    clean_rate_30d: float
+
+
+class StatsOverview(BaseModel):
+    days: int
+    date_from: str
+    date_to: str
+    tasks_total: int
+    tasks_done: int
+    tasks_overdue: int
+    task_completion_rate: float
+    minutes_logged: int
+    pomodoro_minutes: int
+    diary_entries: int
+    avg_mood: float | None
+    avg_energy: float | None
+    patterns_scheduled: int
+    patterns_success: int
+    pattern_clean_rate: float
+    marker_events: int
+    marker_bad_events: int
+    activity_score: int
+    active_days: int
+
+
+class OlapQuery(BaseModel):
+    dimensions: list[str] = Field(default_factory=list, max_length=3)
+    measures: list[str] = Field(min_length=1, max_length=12)
+    date_from: date | None = None
+    date_to: date | None = None
+    filters: dict[str, str] = Field(default_factory=dict)
+
+
+class OlapResult(BaseModel):
+    date_from: str
+    date_to: str
+    dimensions: list[str]
+    measures: list[str]
+    rows: list[dict[str, Any]]
+
+
+class OlapMeta(BaseModel):
+    dimensions: list[dict[str, str]]
+    measures: list[dict[str, str]]

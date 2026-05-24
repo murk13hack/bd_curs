@@ -5,7 +5,7 @@ import { api } from '@/api/client';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import { fmtDate, toIsoDate } from '@/lib/format';
 import { ENERGY_EMOJI, MOOD_EMOJI } from '@/lib/labels';
-
+import { confirmDelete } from '@/lib/confirm';
 export function DiaryPage() {
   const qc = useQueryClient();
   const today = toIsoDate(new Date());
@@ -14,8 +14,10 @@ export function DiaryPage() {
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<number | ''>('');
   const [energy, setEnergy] = useState<number | ''>('');
+  const [tagIds, setTagIds] = useState<number[]>([]);
   const [error, setError] = useState('');
 
+  const tags = useQuery({ queryKey: ['tags'], queryFn: api.tags.list });
   const entries = useQuery({
     queryKey: ['diary'],
     queryFn: () => api.diary.list(),
@@ -38,8 +40,8 @@ export function DiaryPage() {
         content,
         mood: mood || null,
         energy: energy || null,
-      };
-      if (current.data) return api.diary.update(current.data.id, body);
+        tag_ids: tagIds,
+      };      if (current.data) return api.diary.update(current.data.id, body);
       return api.diary.create(body);
     },
     onSuccess: () => {
@@ -66,11 +68,12 @@ export function DiaryPage() {
       setContent(current.data.content);
       setMood(current.data.mood ?? '');
       setEnergy(current.data.energy ?? '');
+      setTagIds(current.data.tag_ids ?? []);
     } else if (!current.isLoading && current.isError) {
       setContent('');
       setMood('');
       setEnergy('');
-    }
+      setTagIds([]);    }
   }, [current.data, current.isLoading, current.isError, selectedDate]);
 
   return (
@@ -96,8 +99,8 @@ export function DiaryPage() {
             setContent('');
             setMood('');
             setEnergy('');
-          }}
-        />
+            setTagIds([]);
+          }}        />
       </div>
 
       {searchQ.trim().length >= 2 && (
@@ -144,8 +147,27 @@ export function DiaryPage() {
                   <MoodPicker label="Настроение" value={mood} onChange={setMood} emojis={MOOD_EMOJI} />
                   <MoodPicker label="Энергия" value={energy} onChange={setEnergy} emojis={ENERGY_EMOJI} />
                 </div>
-                <div className="flex gap-2">
-                  <button
+                {(tags.data ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {(tags.data ?? []).map((tag) => (
+                      <label key={tag.id} className="flex items-center gap-1 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={tagIds.includes(tag.id)}
+                          onChange={(e) =>
+                            setTagIds((prev) =>
+                              e.target.checked
+                                ? [...prev, tag.id]
+                                : prev.filter((id) => id !== tag.id),
+                            )
+                          }
+                        />
+                        {tag.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">                  <button
                     type="button"
                     className="btn-primary"
                     disabled={!content.trim() || saveMut.isPending}
@@ -158,8 +180,9 @@ export function DiaryPage() {
                       type="button"
                       className="btn-danger"
                       disabled={deleteMut.isPending}
-                      onClick={() => deleteMut.mutate()}
-                    >
+                      onClick={() => {
+                        if (confirmDelete('запись дневника')) deleteMut.mutate();
+                      }}                    >
                       Удалить
                     </button>
                   )}

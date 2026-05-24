@@ -12,6 +12,7 @@ from sqlalchemy import select, text
 from app.api.v1.deps import SessionDep, UserIdDep
 from app.models import Task, Topic
 from app.schemas.import_export import ExportPayload, ImportPayload
+from app.services.data_import import import_user_data
 
 router = APIRouter(tags=["import-export"])
 
@@ -37,13 +38,9 @@ async def export_json(session: SessionDep, user_id: UserIdDep) -> ExportPayload:
 async def import_json(
     payload: ImportPayload, session: SessionDep, user_id: UserIdDep
 ) -> dict[str, str]:
-    await session.execute(
-        text("CALL sp_import_user_data(:uid, CAST(:doc AS jsonb))").bindparams(
-            uid=user_id, doc=__import__("json").dumps(payload.data)
-        )
-    )
+    result = await import_user_data(session, user_id, payload.data, payload.mode)
     await session.commit()
-    return {"status": "imported"}
+    return result
 
 
 @router.get(

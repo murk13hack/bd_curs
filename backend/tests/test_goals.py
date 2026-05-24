@@ -56,11 +56,19 @@ async def test_goal_progress(client: AsyncClient, topic_id: int) -> None:
     ).json()
     r = await client.get(f"/api/v1/goals/{goal['id']}/progress")
     assert r.status_code == 200
-    assert r.json()["progress"] == 0
+    body = r.json()
+    assert body["progress"] == 0
+    assert body["done_units"] == 0
+    assert body["target_value"] == 2
+    assert body["remaining_units"] == 2
+    assert len(body["links"]) == 2
 
     await client.post(f"/api/v1/tasks/{tasks[0]['id']}/complete")
     r = await client.get(f"/api/v1/goals/{goal['id']}/progress")
-    assert r.json()["progress"] == 50.0
+    body = r.json()
+    assert body["progress"] == 50.0
+    assert body["done_units"] == 1
+    assert body["remaining_units"] == 1
 
 
 async def test_complete_goal_sets_completed_at(client: AsyncClient) -> None:

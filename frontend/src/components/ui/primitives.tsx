@@ -53,11 +53,13 @@ export function Modal({
   title,
   children,
   onClose,
+  wide,
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   if (!open) return null;
   return (
@@ -68,7 +70,11 @@ export function Modal({
         aria-label="Закрыть"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface p-5 shadow-xl">
+      <div
+        className={`relative z-10 w-full rounded-xl border border-border bg-surface p-5 shadow-xl ${
+          wide ? 'max-w-3xl max-h-[90vh] overflow-y-auto' : 'max-w-lg'
+        }`}
+      >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button type="button" className="btn-ghost px-2 py-1" onClick={onClose}>

@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.common import TaskPriority, TaskStatus
 from app.schemas.recurring_rule import RecurringRuleCreate
+
+TaskView = Literal["active", "completed", "all"]
+
+
+def _validate_task_window(
+    start_at: datetime | None, deadline: datetime | None
+) -> None:
+    if start_at is not None and deadline is not None and start_at >= deadline:
+        raise ValueError("start_at must be earlier than deadline")
 
 
 class TaskBase(BaseModel):
@@ -15,6 +25,7 @@ class TaskBase(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     description: str | None = None
     priority: TaskPriority = "medium"
+    start_at: datetime | None = None
     deadline: datetime | None = None
     planned_minutes: int | None = Field(default=None, gt=0)
     parent_task_id: int | None = None
@@ -24,6 +35,11 @@ class TaskCreate(TaskBase):
     tag_ids: list[int] = Field(default_factory=list)
     recurring: RecurringRuleCreate | None = None
 
+    @model_validator(mode="after")
+    def _validate_window(self) -> "TaskCreate":
+        _validate_task_window(self.start_at, self.deadline)
+        return self
+
 
 class TaskUpdate(BaseModel):
     topic_id: int | None = None
@@ -31,10 +47,16 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     priority: TaskPriority | None = None
     status: TaskStatus | None = None
+    start_at: datetime | None = None
     deadline: datetime | None = None
     planned_minutes: int | None = Field(default=None, gt=0)
     is_archived: bool | None = None
     tag_ids: list[int] | None = None
+
+    @model_validator(mode="after")
+    def _validate_window(self) -> "TaskUpdate":
+        _validate_task_window(self.start_at, self.deadline)
+        return self
 
 
 class TaskRead(TaskBase):

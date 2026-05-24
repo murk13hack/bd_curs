@@ -11,6 +11,7 @@ from app.api.v1 import (
     holidays,
     import_export,
     patterns,
+    recurring_rules,
     service,
     settings,
     stats,
@@ -26,6 +27,7 @@ api_router.include_router(tags.router)
 api_router.include_router(holidays.router)
 api_router.include_router(settings.router)
 api_router.include_router(tasks.router)
+api_router.include_router(recurring_rules.router)
 api_router.include_router(diary.router)
 api_router.include_router(patterns.router)
 api_router.include_router(calendar.router)

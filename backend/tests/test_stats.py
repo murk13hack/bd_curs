@@ -83,3 +83,43 @@ async def test_time_distribution_with_pomodoro(
     row = next(it for it in r.json() if it["topic_id"] == topic_id)
     assert row["minutes"] >= 25
     assert row["pomodoro_minutes"] >= 25
+
+
+async def test_stats_overview_and_olap(client: AsyncClient, topic_id: int) -> None:
+    deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    await client.post(
+        "/api/v1/tasks",
+        json={"topic_id": topic_id, "title": "olap task", "deadline": deadline},
+    )
+    await client.post(
+        "/api/v1/diary",
+        json={"entry_date": date.today().isoformat(), "content": "stats", "mood": 4, "energy": 3},
+    )
+
+    r = await client.get("/api/v1/stats/overview", params={"days": 30})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tasks_total"] >= 1
+    assert "pattern_clean_rate" in body
+
+    r = await client.get("/api/v1/stats/meta")
+    assert r.status_code == 200
+    assert len(r.json()["dimensions"]) >= 4
+
+    r = await client.post(
+        "/api/v1/stats/olap",
+        json={
+            "dimensions": ["weekday"],
+            "measures": ["tasks_total", "completion_rate", "avg_mood"],
+        },
+    )
+    assert r.status_code == 200
+    olap = r.json()
+    assert "rows" in olap
+    assert olap["measures"] == ["tasks_total", "completion_rate", "avg_mood"]
+
+    r = await client.get("/api/v1/stats/holistic")
+    assert r.status_code == 200
+
+    r = await client.get("/api/v1/stats/patterns")
+    assert r.status_code == 200

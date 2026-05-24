@@ -9,9 +9,13 @@ from app.models.task import Task, TaskTag, TaskTimeLog
 from app.models.diary import DiaryEntry, DiaryTag
 from app.models.pattern import (
     BehaviorPattern,
+    PatternDaySession,
+    PatternLog,
     PatternResponseOption,
     PatternSchedule,
-    PatternLog,
+    PatternMarker,
+    PatternStep,
+    PatternStepAnswer,
 )
 from app.models.goal import Goal, GoalLink
 from app.models.holiday import Holiday
@@ -31,6 +35,10 @@ __all__ = [
     "BehaviorPattern",
     "PatternResponseOption",
     "PatternSchedule",
+    "PatternStep",
+    "PatternDaySession",
+    "PatternStepAnswer",
+    "PatternMarker",
     "PatternLog",
     "Goal",
     "GoalLink",

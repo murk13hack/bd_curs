@@ -180,6 +180,13 @@ BEGIN
     IF NEW.status = 'done'
        AND OLD.status IS DISTINCT FROM NEW.status
        AND NEW.recurring_rule_id IS NOT NULL THEN
+        IF EXISTS (
+            SELECT 1 FROM tasks
+             WHERE recurring_rule_id = NEW.recurring_rule_id
+               AND status IN ('pending', 'in_progress', 'overdue')
+        ) THEN
+            RETURN NEW;
+        END IF;
         v_next := fn_next_recurring_date(NEW.recurring_rule_id, current_date);
         IF v_next IS NOT NULL THEN
             INSERT INTO tasks (
@@ -267,15 +274,35 @@ CREATE TRIGGER trg_goal_completed
 COMMENT ON FUNCTION fn_goal_check_completion()
     IS 'Поддерживает консистентность is_completed/completed_at цели.';
 
--- ---------- 10. trg_pattern_to_task --------------------------------------
+-- ---------- 10. trg_pattern_to_task_on_response --------------------------
 
-CREATE OR REPLACE FUNCTION fn_pattern_to_task()
+DROP TRIGGER IF EXISTS trg_pattern_to_task ON pattern_schedules;
+DROP FUNCTION IF EXISTS fn_pattern_to_task();
+
+CREATE OR REPLACE FUNCTION fn_pattern_to_task_on_response()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     v_pattern behavior_patterns%ROWTYPE;
+    v_day     DATE;
 BEGIN
+    IF NEW.status <> 'answered' THEN
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'UPDATE' AND OLD.status = 'answered' THEN
+        RETURN NEW;
+    END IF;
     SELECT * INTO v_pattern FROM behavior_patterns WHERE id = NEW.pattern_id;
-    IF v_pattern.auto_create_task THEN
+    IF NOT COALESCE(v_pattern.auto_create_task, FALSE) THEN
+        RETURN NEW;
+    END IF;
+    v_day := date_trunc('day', NEW.scheduled_at)::date;
+    IF NOT EXISTS (
+        SELECT 1 FROM tasks t
+         WHERE t.user_id = v_pattern.user_id
+           AND t.title = v_pattern.title
+           AND t.deadline IS NOT NULL
+           AND t.deadline::date = v_day
+    ) THEN
         INSERT INTO tasks (user_id, topic_id, title, description, priority, deadline)
         VALUES (
             v_pattern.user_id,
@@ -283,20 +310,19 @@ BEGIN
             v_pattern.title,
             'Авто-задача из паттерна #' || v_pattern.id,
             'medium',
-            current_date::timestamptz + NEW.time_of_day
-        )
-        ON CONFLICT DO NOTHING;
+            v_day::timestamptz + INTERVAL '23 hours 59 minutes'
+        );
     END IF;
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_pattern_to_task
-    AFTER INSERT ON pattern_schedules
-    FOR EACH ROW EXECUTE FUNCTION fn_pattern_to_task();
+CREATE TRIGGER trg_pattern_to_task_on_response
+    AFTER INSERT OR UPDATE OF status ON pattern_logs
+    FOR EACH ROW EXECUTE FUNCTION fn_pattern_to_task_on_response();
 
-COMMENT ON FUNCTION fn_pattern_to_task()
-    IS 'Если паттерн помечен auto_create_task — создаёт привязанную задачу при добавлении расписания.';
+COMMENT ON FUNCTION fn_pattern_to_task_on_response()
+    IS 'auto_create_task: создаёт задачу при ответе habit (1 раз в день).';
 
 DO $$
 BEGIN

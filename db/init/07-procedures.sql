@@ -24,6 +24,26 @@ $$;
 COMMENT ON PROCEDURE sp_complete_task(BIGINT)
     IS 'Атомарно отметить задачу выполненной с проставлением completed_at = now().';
 
+-- ---------- 1b. sp_reopen_task -------------------------------------------
+
+CREATE OR REPLACE PROCEDURE sp_reopen_task(p_task_id BIGINT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE tasks
+       SET status       = 'in_progress',
+           completed_at = NULL,
+           updated_at   = now()
+     WHERE id = p_task_id
+       AND status IN ('done', 'overdue');
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'sp_reopen_task: задача % не найдена или не в статусе done/overdue', p_task_id;
+    END IF;
+END;
+$$;
+COMMENT ON PROCEDURE sp_reopen_task(BIGINT)
+    IS 'Вернуть выполненную/просроченную задачу в работу, сбросив completed_at.';
+
 -- ---------- 2. sp_log_pattern_response -----------------------------------
 
 CREATE OR REPLACE PROCEDURE sp_log_pattern_response(
@@ -35,23 +55,25 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_existing_id BIGINT;
+    v_day         DATE := date_trunc('day', p_scheduled_at)::date;
 BEGIN
-    -- Если для этого pattern_id+scheduled_at уже есть pending — обновим, иначе вставим.
     SELECT id INTO v_existing_id
       FROM pattern_logs
      WHERE pattern_id = p_pattern_id
-       AND date_trunc('minute', scheduled_at) = date_trunc('minute', p_scheduled_at)
+       AND date_trunc('day', scheduled_at)::date = v_day
+     ORDER BY id DESC
      LIMIT 1;
 
     IF v_existing_id IS NOT NULL THEN
         UPDATE pattern_logs
            SET response_option_id = p_response_option_id,
                answered_at        = now(),
-               status             = 'answered'
+               status             = 'answered',
+               scheduled_at       = v_day::timestamptz
          WHERE id = v_existing_id;
     ELSE
         INSERT INTO pattern_logs (pattern_id, response_option_id, scheduled_at, answered_at, status)
-        VALUES (p_pattern_id, p_response_option_id, p_scheduled_at, now(), 'answered');
+        VALUES (p_pattern_id, p_response_option_id, v_day::timestamptz, now(), 'answered');
     END IF;
 END;
 $$;
@@ -70,8 +92,7 @@ BEGIN
     -- Для каждого активного правила, чей next_run_at <= p_date, создаём экземпляр-задачу
     -- путём копирования последней связанной задачи (её title/description/topic_id).
     FOR rec IN
-        SELECT rr.id        AS rule_id,
-               rr.next_run_at,
+        SELECT rr.id AS rule_id,
                (
                    SELECT t.id FROM tasks t
                     WHERE t.recurring_rule_id = rr.id
@@ -81,7 +102,12 @@ BEGIN
          WHERE rr.is_active = TRUE
            AND (rr.next_run_at IS NULL OR rr.next_run_at::date <= p_date)
     LOOP
-        IF rec.source_task_id IS NOT NULL THEN
+        IF rec.source_task_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM tasks t
+                WHERE t.recurring_rule_id = rec.rule_id
+                  AND t.status IN ('pending', 'in_progress', 'overdue')
+           ) THEN
             INSERT INTO tasks (
                 user_id, topic_id, recurring_rule_id,
                 title, description, priority,
@@ -153,11 +179,17 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     p_json := jsonb_build_object(
-        'schema_version', 1,
+        'schema_version', 2,
         'exported_at',    now(),
         'user',           (SELECT to_jsonb(u) FROM users u WHERE u.id = p_user_id),
         'topics',         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM topics  x WHERE x.user_id = p_user_id), '[]'::jsonb),
         'tags',           COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM tags    x WHERE x.user_id = p_user_id), '[]'::jsonb),
+        'recurring_rules', COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM recurring_rules x
+                                     WHERE x.id IN (
+                                         SELECT DISTINCT t.recurring_rule_id FROM tasks t
+                                          WHERE t.user_id = p_user_id AND t.recurring_rule_id IS NOT NULL
+                                     )), '[]'::jsonb),
         'tasks',          COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM tasks   x WHERE x.user_id = p_user_id), '[]'::jsonb),
         'task_tags',      COALESCE((SELECT jsonb_agg(to_jsonb(x))
                                       FROM task_tags x
@@ -165,6 +197,10 @@ BEGIN
                                      WHERE t.user_id = p_user_id), '[]'::jsonb),
         'task_time_logs', COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM task_time_logs x WHERE x.user_id = p_user_id), '[]'::jsonb),
         'diary_entries',  COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM diary_entries  x WHERE x.user_id = p_user_id), '[]'::jsonb),
+        'diary_tags',     COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM diary_tags x
+                                      JOIN diary_entries de ON de.id = x.entry_id
+                                     WHERE de.user_id = p_user_id), '[]'::jsonb),
         'patterns',       COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM behavior_patterns x WHERE x.user_id = p_user_id), '[]'::jsonb),
         'pattern_options',COALESCE((SELECT jsonb_agg(to_jsonb(x))
                                       FROM pattern_response_options x
@@ -174,9 +210,26 @@ BEGIN
                                       FROM pattern_schedules x
                                       JOIN behavior_patterns bp ON bp.id = x.pattern_id
                                      WHERE bp.user_id = p_user_id), '[]'::jsonb),
+        'pattern_steps',  COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM pattern_steps x
+                                      JOIN behavior_patterns bp ON bp.id = x.pattern_id
+                                     WHERE bp.user_id = p_user_id), '[]'::jsonb),
         'pattern_logs',   COALESCE((SELECT jsonb_agg(to_jsonb(x))
                                       FROM pattern_logs x
                                       JOIN behavior_patterns bp ON bp.id = x.pattern_id
+                                     WHERE bp.user_id = p_user_id), '[]'::jsonb),
+        'pattern_markers', COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM pattern_markers x
+                                      JOIN behavior_patterns bp ON bp.id = x.pattern_id
+                                     WHERE bp.user_id = p_user_id), '[]'::jsonb),
+        'pattern_day_sessions', COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM pattern_day_sessions x
+                                      JOIN behavior_patterns bp ON bp.id = x.pattern_id
+                                     WHERE bp.user_id = p_user_id), '[]'::jsonb),
+        'pattern_step_answers', COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM pattern_step_answers x
+                                      JOIN pattern_day_sessions s ON s.id = x.session_id
+                                      JOIN behavior_patterns bp ON bp.id = s.pattern_id
                                      WHERE bp.user_id = p_user_id), '[]'::jsonb),
         'goals',          COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM goals x WHERE x.user_id = p_user_id), '[]'::jsonb),
         'goal_links',     COALESCE((SELECT jsonb_agg(to_jsonb(x))

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { api } from '@/api/client';
-import { PageHeader, Spinner } from '@/components/ui/primitives';
+import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import { fmtDate, pct, toIsoDate } from '@/lib/format';
 import { STATUS_COLOR, TASK_STATUS_LABEL } from '@/lib/labels';
 
@@ -12,8 +12,8 @@ export function DashboardPage() {
   const monthEnd = toIsoDate(endOfMonth(new Date()));
 
   const tasks = useQuery({
-    queryKey: ['tasks', { archived: false }],
-    queryFn: () => api.tasks.list({ archived: false, limit: 200 }),
+    queryKey: ['tasks', { view: 'active', archived: false }],
+    queryFn: () => api.tasks.list({ view: 'active', archived: false, limit: 200 }),
   });
   const streaks = useQuery({
     queryKey: ['pattern-streaks'],
@@ -29,7 +29,7 @@ export function DashboardPage() {
     retry: false,
   });
 
-  const pending = (tasks.data ?? []).filter((t) => t.status === 'pending' || t.status === 'in_progress');
+  const pending = tasks.data ?? [];
   const doneToday = (tasks.data ?? []).filter(
     (t) => t.completed_at && t.completed_at.slice(0, 10) === today,
   );
@@ -40,6 +40,12 @@ export function DashboardPage() {
         title="Обзор"
         subtitle={`Сегодня ${format(new Date(), 'dd.MM.yyyy')}`}
       />
+
+      {(tasks.isError || streaks.isError || completion.isError) && (
+        <div className="mb-4">
+          <ErrorBanner message="Не удалось загрузить часть данных обзора" />
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Активных задач" value={String(pending.length)} />
@@ -65,6 +71,8 @@ export function DashboardPage() {
             </div>
             {tasks.isLoading ? (
               <Spinner />
+            ) : tasks.isError ? (
+              <p className="text-sm text-ink-muted">Не удалось загрузить задачи</p>
             ) : pending.length === 0 ? (
               <p className="text-sm text-ink-muted">Нет активных задач — отличная работа!</p>
             ) : (
@@ -100,6 +108,8 @@ export function DashboardPage() {
             </div>
             {streaks.isLoading ? (
               <Spinner />
+            ) : streaks.isError ? (
+              <p className="text-sm text-ink-muted">Не удалось загрузить привычки</p>
             ) : (streaks.data ?? []).length === 0 ? (
               <p className="text-sm text-ink-muted">Создайте первый паттерн поведения.</p>
             ) : (

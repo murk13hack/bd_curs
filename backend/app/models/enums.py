@@ -38,6 +38,40 @@ PatternLogStatusEnum = ENUM(
     create_type=False,
 )
 
+PatternModeEnum = ENUM(
+    "habit",
+    "scenario",
+    "markers",
+    name="pattern_mode_enum",
+    create_type=False,
+)
+
+PatternStepKindEnum = ENUM(
+    "check",
+    "single_choice",
+    "note",
+    name="pattern_step_kind_enum",
+    create_type=False,
+)
+
+PatternStepRoleEnum = ENUM(
+    "context",
+    "trigger",
+    "choice",
+    "action",
+    "outcome",
+    name="pattern_step_role_enum",
+    create_type=False,
+)
+
+PatternSessionStatusEnum = ENUM(
+    "in_progress",
+    "completed",
+    "abandoned",
+    name="pattern_session_status_enum",
+    create_type=False,
+)
+
 RecurrenceFreqEnum = ENUM(
     "daily",
     "weekly",

@@ -15,9 +15,8 @@ export function PomodoroPage() {
   const pomodoro = usePomodoro();
   const tasks = useQuery({
     queryKey: ['tasks', 'pomodoro'],
-    queryFn: () => api.tasks.list({ status: 'pending', limit: 50 }),
+    queryFn: () => api.tasks.list({ view: 'active', limit: 50 }),
   });
-
   const mins = Math.floor(pomodoro.remainingSec / 60)
     .toString()
     .padStart(2, '0');

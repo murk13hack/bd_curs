@@ -35,7 +35,103 @@ $$;
 COMMENT ON FUNCTION fn_day_color(NUMERIC)
     IS 'HEX-цвет для дня в календаре (градиент серый → зелёный по проценту выполнения).';
 
--- ---------- 2. fn_calculate_streak ---------------------------------------
+-- ---------- 2. fn_pattern_is_scheduled -----------------------------------
+
+CREATE OR REPLACE FUNCTION fn_pattern_is_scheduled(p_pattern_id BIGINT, p_day DATE)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_cnt INT;
+    v_dow_bit INT;
+BEGIN
+    SELECT COUNT(*)::INT INTO v_cnt FROM pattern_schedules WHERE pattern_id = p_pattern_id;
+    IF v_cnt = 0 THEN RETURN TRUE; END IF;
+    v_dow_bit := 1 << (EXTRACT(ISODOW FROM p_day)::INT - 1);
+    RETURN EXISTS (
+        SELECT 1 FROM pattern_schedules s
+         WHERE s.pattern_id = p_pattern_id
+           AND (s.dow_mask & v_dow_bit) > 0
+           AND (s.day_of_month IS NULL OR s.day_of_month = EXTRACT(DAY FROM p_day)::INT)
+    );
+END;
+$$;
+
+-- ---------- 3. fn_pattern_day_has_answer / fn_pattern_day_success --------
+
+CREATE OR REPLACE FUNCTION fn_pattern_day_has_answer(p_pattern_id BIGINT, p_day DATE)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_mode pattern_mode_enum;
+BEGIN
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
+    IF v_mode = 'scenario' THEN
+        RETURN EXISTS (
+            SELECT 1 FROM pattern_day_sessions s
+             WHERE s.pattern_id = p_pattern_id AND s.session_date = p_day
+               AND s.status IN ('in_progress', 'completed')
+        );
+    END IF;
+    IF v_mode = 'markers' THEN
+        RETURN EXISTS (
+            SELECT 1 FROM pattern_markers pm
+             WHERE pm.pattern_id = p_pattern_id
+               AND pm.occurred_at::date = p_day
+        );
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM pattern_logs pl
+         WHERE pl.pattern_id = p_pattern_id
+           AND date_trunc('day', pl.scheduled_at)::date = p_day
+           AND pl.status = 'answered'
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_pattern_day_success(p_pattern_id BIGINT, p_day DATE)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_mode pattern_mode_enum;
+    v_ok   BOOLEAN;
+BEGIN
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
+    IF v_mode = 'scenario' THEN
+        SELECT outcome_success INTO v_ok
+          FROM pattern_day_sessions
+         WHERE pattern_id = p_pattern_id AND session_date = p_day AND status = 'completed';
+        RETURN COALESCE(v_ok, FALSE);
+    END IF;
+    IF v_mode = 'markers' THEN
+        RETURN NOT EXISTS (
+            SELECT 1
+              FROM pattern_markers pm
+              JOIN pattern_response_options o ON o.id = pm.marker_option_id
+             WHERE pm.pattern_id = p_pattern_id
+               AND pm.occurred_at::date = p_day
+               AND o.is_success = FALSE
+        );
+    END IF;
+    SELECT bool_or(
+               pl.status = 'answered'
+               AND COALESCE(
+                   (SELECT is_success FROM pattern_response_options o
+                     WHERE o.id = pl.response_option_id), FALSE)
+           ) INTO v_ok
+      FROM pattern_logs pl
+     WHERE pl.pattern_id = p_pattern_id
+       AND date_trunc('day', pl.scheduled_at)::date = p_day;
+    RETURN COALESCE(v_ok, FALSE);
+END;
+$$;
+
+-- ---------- 4. fn_calculate_streak ---------------------------------------
 
 CREATE OR REPLACE FUNCTION fn_calculate_streak(p_pattern_id BIGINT)
 RETURNS INT
@@ -43,63 +139,50 @@ LANGUAGE plpgsql
 STABLE
 AS $$
 DECLARE
-    v_type   pattern_type_enum;
-    v_streak INT  := 0;
-    v_day    DATE;
-    v_ok     BOOLEAN;
+    v_streak INT := 0;
+    v_day    DATE := current_date;
+    v_mode   pattern_mode_enum;
 BEGIN
-    SELECT pattern_type INTO v_type FROM behavior_patterns WHERE id = p_pattern_id;
-    IF v_type IS NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM behavior_patterns WHERE id = p_pattern_id) THEN
         RETURN 0;
     END IF;
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
 
-    -- Серия = длина непрерывной последовательности успешных дней, заканчивающейся
-    -- сегодня или вчера. Идём назад по дням и останавливаемся при первой неудаче.
-    v_day := current_date;
     LOOP
-        SELECT
-            CASE WHEN v_type = 'positive' THEN day_success ELSE NOT day_success END
-          INTO v_ok
-          FROM (
-            SELECT bool_or(
-                       status = 'answered'
-                       AND COALESCE(
-                           (SELECT is_success FROM pattern_response_options o
-                             WHERE o.id = pl.response_option_id),
-                           FALSE
-                       )
-                   ) AS day_success
-              FROM pattern_logs pl
-             WHERE pattern_id = p_pattern_id
-               AND date_trunc('day', scheduled_at)::date = v_day
-          ) sub;
+        IF NOT fn_pattern_is_scheduled(p_pattern_id, v_day) THEN
+            v_day := v_day - 1;
+            IF v_day < current_date - 3650 THEN EXIT; END IF;
+            CONTINUE;
+        END IF;
 
-        IF v_ok IS NULL THEN
-            -- В этот день записей нет. Допускаем «дыру» только для текущего дня
-            -- (на текущий день расписание ещё могло не сработать).
-            IF v_day = current_date THEN
-                v_day := v_day - 1;
-                CONTINUE;
-            ELSE
-                EXIT;
+        IF v_mode <> 'markers' THEN
+            IF NOT fn_pattern_day_has_answer(p_pattern_id, v_day) THEN
+                IF v_day = current_date THEN
+                    v_day := v_day - 1;
+                    CONTINUE;
+                ELSE
+                    EXIT;
+                END IF;
             END IF;
         END IF;
 
-        IF v_ok THEN
+        IF fn_pattern_day_success(p_pattern_id, v_day) THEN
             v_streak := v_streak + 1;
-            v_day    := v_day - 1;
+            v_day := v_day - 1;
         ELSE
             EXIT;
         END IF;
+
+        IF v_day < current_date - 3650 THEN EXIT; END IF;
     END LOOP;
 
     RETURN v_streak;
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_streak(BIGINT)
-    IS 'Текущая серия успешных дней по паттерну. Учитывает positive/negative.';
+    IS 'Текущая серия успешных дней. is_success на опциях уже задаёт семантику для negative.';
 
--- ---------- 3. fn_calculate_max_streak -----------------------------------
+-- ---------- 5. fn_calculate_max_streak -----------------------------------
 
 CREATE OR REPLACE FUNCTION fn_calculate_max_streak(p_pattern_id BIGINT)
 RETURNS INT
@@ -107,50 +190,80 @@ LANGUAGE plpgsql
 STABLE
 AS $$
 DECLARE
-    v_type   pattern_type_enum;
-    v_max_streak INT := 0;
+    v_max INT := 0;
+    v_cur INT := 0;
+    d     DATE := current_date - 3650;
+    v_mode pattern_mode_enum;
 BEGIN
-    SELECT pattern_type INTO v_type FROM behavior_patterns WHERE id = p_pattern_id;
-    IF v_type IS NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM behavior_patterns WHERE id = p_pattern_id) THEN
         RETURN 0;
     END IF;
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
 
-    WITH days AS (
-        SELECT DISTINCT date_trunc('day', scheduled_at)::date AS d,
-               bool_or(
-                   status = 'answered' AND COALESCE(
-                       (SELECT is_success FROM pattern_response_options o
-                         WHERE o.id = pl.response_option_id),
-                       FALSE
-                   )
-               ) AS day_success
-          FROM pattern_logs pl
-         WHERE pattern_id = p_pattern_id
-         GROUP BY date_trunc('day', scheduled_at)::date
-    ),
-    days_norm AS (
-        SELECT d,
-               CASE WHEN v_type = 'positive' THEN day_success ELSE NOT day_success END AS ok
-          FROM days
-    ),
-    grp AS (
-        SELECT d, ok,
-               d - (ROW_NUMBER() OVER (PARTITION BY ok ORDER BY d))::INT AS grp_key
-          FROM days_norm
-         WHERE ok = TRUE
-    )
-    SELECT COALESCE(MAX(cnt), 0) INTO v_max_streak
-      FROM (
-        SELECT COUNT(*) AS cnt FROM grp GROUP BY grp_key
-      ) sub;
+    WHILE d <= current_date LOOP
+        IF fn_pattern_is_scheduled(p_pattern_id, d) THEN
+            IF v_mode = 'markers' THEN
+                IF fn_pattern_day_success(p_pattern_id, d) THEN
+                    v_cur := v_cur + 1;
+                    IF v_cur > v_max THEN v_max := v_cur; END IF;
+                ELSE
+                    v_cur := 0;
+                END IF;
+            ELSIF fn_pattern_day_has_answer(p_pattern_id, d)
+               AND fn_pattern_day_success(p_pattern_id, d) THEN
+                v_cur := v_cur + 1;
+                IF v_cur > v_max THEN v_max := v_cur; END IF;
+            ELSIF fn_pattern_day_has_answer(p_pattern_id, d) OR d < current_date THEN
+                v_cur := 0;
+            END IF;
+        END IF;
+        d := d + 1;
+    END LOOP;
 
-    RETURN v_max_streak;
+    RETURN v_max;
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_max_streak(BIGINT)
-    IS 'Максимальная серия успешных дней в истории паттерна (оконные функции).';
+    IS 'Максимальная серия успешных дней в истории паттерна.';
 
--- ---------- 4. fn_calculate_anti_streak ----------------------------------
+-- ---------- 6. fn_pattern_clean_days_30d ---------------------------------
+
+CREATE OR REPLACE FUNCTION fn_pattern_clean_days_30d(p_pattern_id BIGINT)
+RETURNS TABLE(scheduled_days INT, success_days INT, clean_rate NUMERIC)
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_sched INT := 0;
+    v_succ  INT := 0;
+    d       DATE := current_date - 29;
+    v_mode  pattern_mode_enum;
+BEGIN
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
+
+    WHILE d <= current_date LOOP
+        IF fn_pattern_is_scheduled(p_pattern_id, d) THEN
+            v_sched := v_sched + 1;
+            IF v_mode = 'markers' THEN
+                IF fn_pattern_day_success(p_pattern_id, d) THEN
+                    v_succ := v_succ + 1;
+                END IF;
+            ELSIF fn_pattern_day_has_answer(p_pattern_id, d)
+               AND fn_pattern_day_success(p_pattern_id, d) THEN
+                v_succ := v_succ + 1;
+            END IF;
+        END IF;
+        d := d + 1;
+    END LOOP;
+    scheduled_days := v_sched;
+    success_days := v_succ;
+    clean_rate := CASE WHEN v_sched = 0 THEN 0
+                       ELSE ROUND(100.0 * v_succ / v_sched, 2) END;
+    RETURN NEXT;
+END;
+$$;
+
+-- ---------- 7. fn_calculate_anti_streak ----------------------------------
 
 CREATE OR REPLACE FUNCTION fn_calculate_anti_streak(p_pattern_id BIGINT)
 RETURNS INT
@@ -281,8 +394,9 @@ AS $$
 DECLARE
     v_target INT;
     v_done   INT := 0;
+    v_since  DATE;
 BEGIN
-    SELECT target_value INTO v_target FROM goals WHERE id = p_goal_id;
+    SELECT target_value, created_at::date INTO v_target, v_since FROM goals WHERE id = p_goal_id;
     IF v_target IS NULL OR v_target = 0 THEN
         RETURN 0::percentage;
     END IF;
@@ -294,16 +408,40 @@ BEGIN
      WHERE gl.goal_id = p_goal_id
        AND t.status = 'done';
 
-    -- Для patterns учитываем выполненные дни (answered + success).
+    -- Для patterns: habit + markers + scenario (через fn_pattern_day_success / sessions).
     v_done := v_done + COALESCE(
         (
-            SELECT COUNT(DISTINCT date_trunc('day', pl.scheduled_at)::date)
-              FROM goal_links gl
-              JOIN pattern_logs pl ON gl.target_type = 'pattern' AND pl.pattern_id = gl.target_id
-              JOIN pattern_response_options ro ON ro.id = pl.response_option_id
-             WHERE gl.goal_id = p_goal_id
-               AND pl.status = 'answered'
-               AND ro.is_success = TRUE
+            SELECT COUNT(DISTINCT day)::INT FROM (
+                SELECT date_trunc('day', pl.scheduled_at)::date AS day
+                  FROM goal_links gl
+                  JOIN behavior_patterns bp ON bp.id = gl.target_id AND bp.pattern_mode = 'habit'
+                  JOIN pattern_logs pl ON pl.pattern_id = gl.target_id
+                  JOIN pattern_response_options ro ON ro.id = pl.response_option_id
+                 WHERE gl.goal_id = p_goal_id
+                   AND gl.target_type = 'pattern'
+                   AND pl.status = 'answered'
+                   AND ro.is_success = TRUE
+                   AND pl.scheduled_at::date >= v_since
+                UNION
+                SELECT d.day::date AS day
+                  FROM goal_links gl
+                  JOIN behavior_patterns bp ON bp.id = gl.target_id AND bp.pattern_mode = 'markers'
+                  CROSS JOIN generate_series(v_since, current_date, '1 day') AS d(day)
+                 WHERE gl.goal_id = p_goal_id
+                   AND gl.target_type = 'pattern'
+                   AND fn_pattern_is_scheduled(gl.target_id, d.day::date)
+                   AND fn_pattern_day_success(gl.target_id, d.day::date)
+                UNION
+                SELECT s.session_date AS day
+                  FROM goal_links gl
+                  JOIN behavior_patterns bp ON bp.id = gl.target_id AND bp.pattern_mode = 'scenario'
+                  JOIN pattern_day_sessions s ON s.pattern_id = gl.target_id
+                 WHERE gl.goal_id = p_goal_id
+                   AND gl.target_type = 'pattern'
+                   AND s.status = 'completed'
+                   AND s.outcome_success = TRUE
+                   AND s.session_date >= v_since
+            ) contrib
         ),
         0
     );
@@ -312,7 +450,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_goal_progress(BIGINT)
-    IS 'Процент выполнения цели на основании привязанных задач и паттернов.';
+    IS 'Прогресс цели: задачи done + успешные дни habit/markers/scenario.';
 
 -- ---------- 9. fn_next_recurring_date ------------------------------------
 

@@ -8,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/api/client';
 import { usePomodoroSettings } from '@/hooks/use-theme';
 
 type Phase = 'work' | 'short_break' | 'long_break' | 'idle';
@@ -43,8 +45,21 @@ function loadState(): PomodoroState | null {
   }
 }
 
+async function persistWorkLog(taskId: number, startedMs: number, durationSec: number) {
+  if (durationSec < 30) return;
+  const ended = new Date();
+  const started = new Date(startedMs);
+  await api.tasks.addTimeLog(taskId, {
+    started_at: started.toISOString(),
+    ended_at: ended.toISOString(),
+    is_pomodoro: true,
+  });
+}
+
 export function PomodoroProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
   const { workMinutes, shortBreak, longBreak } = usePomodoroSettings();
+  const workStartRef = useRef<number | null>(null);
   const [state, setState] = useState<PomodoroState>(() => {
     const saved = loadState();
     return (
@@ -75,9 +90,31 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     [workMinutes, shortBreak, longBreak],
   );
 
+  const flushWorkLog = useCallback(
+    async (taskId: number | null, elapsedSec: number) => {
+      if (!taskId || !workStartRef.current) return;
+      try {
+        await persistWorkLog(taskId, workStartRef.current, elapsedSec);
+        await qc.invalidateQueries({ queryKey: ['stats'] });
+        await qc.invalidateQueries({ queryKey: ['stats-time'] });
+      } catch {
+        /* ignore network errors for timer UX */
+      } finally {
+        workStartRef.current = null;
+      }
+    },
+    [qc],
+  );
+
+  const markWorkStart = useCallback(() => {
+    workStartRef.current = Date.now();
+  }, []);
+
   const nextPhase = useCallback(
     (current: PomodoroState): PomodoroState => {
       if (current.phase === 'work') {
+        const elapsed = current.totalSec - current.remainingSec;
+        void flushWorkLog(current.taskId, elapsed);
         const cycles = current.cycles + 1;
         const isLong = cycles % 4 === 0;
         const phase: Phase = isLong ? 'long_break' : 'short_break';
@@ -85,6 +122,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         return { ...current, phase, cycles, totalSec, remainingSec: totalSec, running: true };
       }
       const totalSec = phaseDuration('work');
+      markWorkStart();
       return {
         ...current,
         phase: 'work',
@@ -93,7 +131,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: true,
       };
     },
-    [phaseDuration],
+    [phaseDuration, flushWorkLog, markWorkStart],
   );
 
   useEffect(() => {
@@ -126,6 +164,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const start = useCallback(
     (taskId?: number, taskTitle = '') => {
       const totalSec = phaseDuration('work');
+      markWorkStart();
       setState({
         phase: 'work',
         taskId: taskId ?? null,
@@ -136,12 +175,21 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: true,
       });
     },
-    [phaseDuration],
+    [phaseDuration, markWorkStart],
   );
 
   const pause = useCallback(() => setState((s) => ({ ...s, running: false })), []);
-  const resume = useCallback(() => setState((s) => ({ ...s, running: true })), []);
+  const resume = useCallback(() => {
+    if (state.phase === 'work' && !workStartRef.current) {
+      markWorkStart();
+    }
+    setState((s) => ({ ...s, running: true }));
+  }, [state.phase, markWorkStart]);
   const reset = useCallback(() => {
+    if (state.phase === 'work' && state.taskId) {
+      void flushWorkLog(state.taskId, state.totalSec - state.remainingSec);
+    }
+    workStartRef.current = null;
     const totalSec = phaseDuration('work');
     setState({
       phase: 'idle',
@@ -152,7 +200,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       cycles: 0,
       running: false,
     });
-  }, [phaseDuration]);
+  }, [phaseDuration, flushWorkLog, state]);
   const skip = useCallback(() => setState((s) => nextPhase(s)), [nextPhase]);
 
   const value = useMemo(

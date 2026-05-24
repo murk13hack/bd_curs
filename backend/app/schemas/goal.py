@@ -51,3 +51,15 @@ class GoalRead(GoalBase):
 class GoalProgress(BaseModel):
     goal_id: int
     progress: float
+    done_units: int
+    target_value: int
+    remaining_units: int
+    links: list["GoalLinkDetail"] = Field(default_factory=list)
+
+
+class GoalLinkDetail(BaseModel):
+    target_type: GoalLinkTarget
+    target_id: int
+    title: str
+    contributed: bool
+    detail: str | None = None

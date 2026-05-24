@@ -50,6 +50,16 @@ async def test_list_filter_by_q(client: AsyncClient, topic_id: int) -> None:
     titles = [t["title"] for t in r.json()]
     assert titles == ["купить хлеб"]
 
+    r = await client.get("/api/v1/tasks", params={"q": "хле"})
+    assert r.status_code == 200
+    titles = [t["title"] for t in r.json()]
+    assert titles == ["купить хлеб"]
+
+    r = await client.get("/api/v1/tasks", params={"q": "посуд"})
+    assert r.status_code == 200
+    titles = [t["title"] for t in r.json()]
+    assert titles == ["помыть посуду"]
+
 
 async def test_complete_pending_task(client: AsyncClient, topic_id: int) -> None:
     created = (
@@ -171,3 +181,77 @@ async def test_delete_task(client: AsyncClient, topic_id: int) -> None:
     assert r.status_code == 204
     r = await client.get(f"/api/v1/tasks/{created['id']}")
     assert r.status_code == 404
+
+
+async def test_create_with_start_at(client: AsyncClient, topic_id: int) -> None:
+    start = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+    deadline = start + timedelta(hours=2)
+    r = await client.post(
+        "/api/v1/tasks",
+        json={
+            "topic_id": topic_id,
+            "title": "scheduled",
+            "start_at": start.isoformat(),
+            "deadline": deadline.isoformat(),
+        },
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["start_at"] is not None
+    assert body["deadline"] is not None
+
+
+async def test_start_at_after_deadline_422(client: AsyncClient, topic_id: int) -> None:
+    start = datetime.now(tz=timezone.utc) + timedelta(days=2)
+    deadline = datetime.now(tz=timezone.utc) + timedelta(days=1)
+    r = await client.post(
+        "/api/v1/tasks",
+        json={
+            "topic_id": topic_id,
+            "title": "bad window",
+            "start_at": start.isoformat(),
+            "deadline": deadline.isoformat(),
+        },
+    )
+    assert r.status_code == 422
+
+
+async def test_list_view_active_and_completed(
+    client: AsyncClient, topic_id: int
+) -> None:
+    pending = (
+        await client.post(
+            "/api/v1/tasks", json={"topic_id": topic_id, "title": "active one"}
+        )
+    ).json()
+    done = (
+        await client.post(
+            "/api/v1/tasks", json={"topic_id": topic_id, "title": "done one"}
+        )
+    ).json()
+    await client.post(f"/api/v1/tasks/{done['id']}/complete")
+
+    active = (await client.get("/api/v1/tasks", params={"view": "active"})).json()
+    completed = (
+        await client.get("/api/v1/tasks", params={"view": "completed"})
+    ).json()
+    active_ids = {t["id"] for t in active}
+    completed_ids = {t["id"] for t in completed}
+    assert pending["id"] in active_ids
+    assert done["id"] in completed_ids
+    assert pending["id"] not in completed_ids
+    assert done["id"] not in active_ids
+
+
+async def test_reopen_completed_task(client: AsyncClient, topic_id: int) -> None:
+    created = (
+        await client.post(
+            "/api/v1/tasks", json={"topic_id": topic_id, "title": "reopen me"}
+        )
+    ).json()
+    await client.post(f"/api/v1/tasks/{created['id']}/complete")
+    r = await client.post(f"/api/v1/tasks/{created['id']}/reopen")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "in_progress"
+    assert body["completed_at"] is None
