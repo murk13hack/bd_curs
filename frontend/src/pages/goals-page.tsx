@@ -5,7 +5,7 @@ import { api } from '@/api/client';
 import type { Goal, GoalLinkTarget } from '@/api/types';
 import { PageHeader, Modal, Spinner, EmptyState, ErrorBanner } from '@/components/ui/primitives';
 import { FormField } from '@/components/ui/form-field';
-import { fmtDate, pct, toIsoDateTimeLocal } from '@/lib/format';
+import { fmtDate, pct } from '@/lib/format';
 import { PATTERN_MODE_LABEL } from '@/lib/labels';
 import { confirmDelete } from '@/lib/confirm';
 
@@ -300,7 +300,7 @@ function GoalFormModal({
       setTitle(goal.title);
       setDescription(goal.description ?? '');
       setTargetValue(String(goal.target_value));
-      setDeadline(goal.deadline ? toIsoDateTimeLocal(new Date(goal.deadline)) : '');
+      setDeadline(goal.deadline ? goal.deadline.slice(0, 10) : '');
     } else {
       setTitle('');
       setDescription('');
@@ -316,7 +316,7 @@ function GoalFormModal({
         title,
         description: description || null,
         target_value: Number(targetValue) || 1,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
+        deadline: deadline ? deadline.slice(0, 10) : null,
       };
       if (goal) return api.goals.update(goal.id, body);
       return api.goals.create(body);
@@ -366,15 +366,14 @@ function GoalFormModal({
             Например: 10 — выполнить 10 привязанных задач или 10 успешных дней привычки
           </span>
         </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">Срок (необязательно)</span>
+        <FormField label="Срок (необязательно)" hint="Только дата, без времени">
           <input
-            type="datetime-local"
+            type="date"
             className="input"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
           />
-        </label>
+        </FormField>
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Отмена

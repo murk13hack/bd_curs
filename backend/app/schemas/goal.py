@@ -3,10 +3,27 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.common import GoalLinkTarget
+
+
+def _coerce_optional_date(value: Any) -> date | None:
+    """Принимает YYYY-MM-DD или ISO datetime (обрезает до даты)."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        raw = value.strip()
+        if 'T' in raw:
+            raw = raw.split('T', 1)[0]
+        return date.fromisoformat(raw)
+    raise TypeError('deadline должен быть датой YYYY-MM-DD')
 
 
 class GoalLinkBase(BaseModel):
@@ -24,6 +41,11 @@ class GoalBase(BaseModel):
     deadline: date | None = None
     target_value: int = Field(default=1, gt=0)
 
+    @field_validator('deadline', mode='before')
+    @classmethod
+    def parse_deadline(cls, value: Any) -> date | None:
+        return _coerce_optional_date(value)
+
 
 class GoalCreate(GoalBase):
     links: list[GoalLinkBase] = Field(default_factory=list)
@@ -35,6 +57,11 @@ class GoalUpdate(BaseModel):
     deadline: date | None = None
     target_value: int | None = Field(default=None, gt=0)
     is_completed: bool | None = None
+
+    @field_validator('deadline', mode='before')
+    @classmethod
+    def parse_deadline(cls, value: Any) -> date | None:
+        return _coerce_optional_date(value)
 
 
 class GoalRead(GoalBase):

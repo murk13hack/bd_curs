@@ -5,6 +5,19 @@ from __future__ import annotations
 from httpx import AsyncClient
 
 
+async def test_create_goal_deadline_datetime_coerced(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/goals",
+        json={
+            "title": "dated goal",
+            "target_value": 1,
+            "deadline": "2003-02-01T22:01:00.000Z",
+        },
+    )
+    assert r.status_code == 201
+    assert r.json()["deadline"] == "2003-02-01"
+
+
 async def test_create_goal_with_links(
     client: AsyncClient, topic_id: int
 ) -> None:
