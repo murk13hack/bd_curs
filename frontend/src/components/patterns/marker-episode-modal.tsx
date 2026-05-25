@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Pattern, PatternOption } from '@/api/types';
 import { Modal, ErrorBanner } from '@/components/ui/primitives';
 import { FormField } from '@/components/ui/form-field';
+import { EpisodeTypeAddForm } from '@/components/patterns/episode-type-add-form';
 
 type Props = {
   pattern: Pattern;
@@ -20,10 +22,16 @@ export function MarkerEpisodeModal({
   pending,
   error,
 }: Props) {
-  const negative = pattern.options.filter((o) => !o.is_success);
-  const positive = pattern.options.filter((o) => o.is_success);
+  const qc = useQueryClient();
+  const [options, setOptions] = useState<PatternOption[]>(pattern.options);
+  const negative = options.filter((o) => !o.is_success);
+  const positive = options.filter((o) => o.is_success);
   const [selected, setSelected] = useState<PatternOption | null>(null);
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (open) setOptions(pattern.options);
+  }, [open, pattern.options]);
 
   const reset = () => {
     setSelected(null);
@@ -72,6 +80,25 @@ export function MarkerEpisodeModal({
             />
           </section>
         )}
+
+        {options.length === 0 && (
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            Сначала добавьте хотя бы один тип эпизода ниже.
+          </p>
+        )}
+
+        <EpisodeTypeAddForm
+          patternId={pattern.id}
+          patternType={pattern.pattern_type}
+          optionsCount={options.length}
+          compact
+          onAdded={(opt) => {
+            setOptions((prev) => [...prev, opt]);
+            setSelected(opt);
+            void qc.invalidateQueries({ queryKey: ['patterns'] });
+            void qc.invalidateQueries({ queryKey: ['pattern', pattern.id] });
+          }}
+        />
 
         <FormField label="Заметка" hint="Необязательно">
           <textarea

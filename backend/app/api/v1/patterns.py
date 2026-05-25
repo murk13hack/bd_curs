@@ -946,9 +946,15 @@ async def get_streak(
 
 async def _get(session: SessionDep, pattern_id: int, user_id: int) -> BehaviorPattern:
     res = await session.execute(
-        select(BehaviorPattern).where(
+        select(BehaviorPattern)
+        .where(
             BehaviorPattern.id == pattern_id,
             BehaviorPattern.user_id == user_id,
+        )
+        .options(
+            selectinload(BehaviorPattern.options),
+            selectinload(BehaviorPattern.schedules),
+            selectinload(BehaviorPattern.steps),
         )
     )
     pattern = res.scalar_one_or_none()

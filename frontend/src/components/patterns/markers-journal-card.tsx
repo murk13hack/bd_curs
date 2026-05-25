@@ -55,11 +55,20 @@ export function MarkersJournalCard({
       }),
     onSuccess: () => {
       invalidate();
+      qc.invalidateQueries({ queryKey: ['patterns'] });
+      qc.invalidateQueries({ queryKey: ['pattern', pattern.id] });
       setEpisodeOpen(false);
       setEpisodeError('');
     },
     onError: (e: Error) => setEpisodeError(e.message),
   });
+
+  const patternLive = useQuery({
+    queryKey: ['pattern', pattern.id],
+    queryFn: () => api.patterns.get(pattern.id),
+    staleTime: 5_000,
+  });
+  const activePattern = patternLive.data ?? pattern;
 
   const removeMut = useMutation({
     mutationFn: (markerId: number) => api.patterns.removeMarker(pattern.id, markerId),
@@ -255,7 +264,7 @@ export function MarkersJournalCard({
       </article>
 
       <MarkerEpisodeModal
-        pattern={pattern}
+        pattern={activePattern}
         open={episodeOpen}
         onClose={() => setEpisodeOpen(false)}
         pending={addMut.isPending}

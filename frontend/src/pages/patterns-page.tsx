@@ -21,6 +21,10 @@ import type {
 } from '@/api/types';
 import { PageHeader, Modal, Spinner, EmptyState, ErrorBanner } from '@/components/ui/primitives';
 import { FieldGroup, FormField } from '@/components/ui/form-field';
+import {
+  EpisodeTypeAddForm,
+  EpisodeTypeSuccessField,
+} from '@/components/patterns/episode-type-add-form';
 import { HabitDailyCard } from '@/components/patterns/habit-daily-card';
 import { MarkersJournalCard } from '@/components/patterns/markers-journal-card';
 import { ScenarioBuilder } from '@/components/patterns/scenario-builder';
@@ -869,18 +873,17 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
                         }}
                       />
                     </FormField>
-                    <label className="flex items-center gap-1 text-xs pt-5">
-                      <input
-                        type="checkbox"
+                    <div className="pt-1">
+                      <EpisodeTypeSuccessField
                         checked={o.is_success}
-                        onChange={(e) => {
+                        onChange={(v) => {
                           const next = [...markerOptions];
-                          next[i] = { ...o, is_success: e.target.checked };
+                          next[i] = { ...o, is_success: v };
                           setMarkerOptions(next);
                         }}
+                        id={`create-marker-success-${i}`}
                       />
-                      Успех дня
-                    </label>
+                    </div>
                     <button
                       type="button"
                       className="btn-ghost px-1"
@@ -941,18 +944,17 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
                         }}
                       />
                     </FormField>
-                    <label className="flex items-center gap-1 text-xs pt-5">
-                      <input
-                        type="checkbox"
+                    <div className="pt-1">
+                      <EpisodeTypeSuccessField
                         checked={o.is_success}
-                        onChange={(e) => {
+                        onChange={(v) => {
                           const next = [...habitOptions];
-                          next[i] = { ...o, is_success: e.target.checked };
+                          next[i] = { ...o, is_success: v };
                           setHabitOptions(next);
                         }}
+                        id={`create-habit-success-${i}`}
                       />
-                      Успех дня
-                    </label>
+                    </div>
                     <button
                       type="button"
                       className="btn-ghost px-1"
@@ -1019,23 +1021,12 @@ function PatternEditModal({ pattern, onClose }: { pattern: Pattern; onClose: () 
   );
   const [error, setError] = useState('');
   const [autoCreateTask, setAutoCreateTask] = useState(pattern.auto_create_task);
-  const [newOptionLabel, setNewOptionLabel] = useState('');
-  const [newOptionSuccess, setNewOptionSuccess] = useState(true);
+  const [options, setOptions] = useState<Pattern['options']>(() => [...pattern.options]);
   const isScenario = pattern.pattern_mode === 'scenario';
 
-  const addOptionMut = useMutation({
-    mutationFn: () =>
-      api.patterns.addOption(pattern.id, {
-        label: newOptionLabel.trim(),
-        is_success: newOptionSuccess,
-        sort_order: pattern.options.length,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['patterns'] });
-      setNewOptionLabel('');
-    },
-    onError: (e: Error) => setError(e.message),
-  });
+  useEffect(() => {
+    setOptions([...pattern.options]);
+  }, [pattern.id, pattern.options]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -1118,47 +1109,32 @@ function PatternEditModal({ pattern, onClose }: { pattern: Pattern; onClose: () 
               <div className="space-y-2 text-sm">
                 <OptionBadgeList
                   label="Негативные"
-                  options={pattern.options.filter((o) => !o.is_success)}
+                  options={options.filter((o) => !o.is_success)}
                 />
                 <OptionBadgeList
                   label="Поддерживающие"
-                  options={pattern.options.filter((o) => o.is_success)}
+                  options={options.filter((o) => o.is_success)}
                 />
               </div>
             ) : (
               <ul className="flex flex-wrap gap-2 text-sm">
-                {pattern.options.map((o) => (
+                {options.map((o) => (
                   <li key={o.id} className="badge bg-surface-3">
                     {o.label} {o.is_success ? '✓' : '✗'}
                   </li>
                 ))}
               </ul>
             )}
-            <div className="flex flex-wrap items-end gap-2">
-              <FormField label="Новый вариант" className="min-w-0 flex-1">
-                <input
-                  className="input"
-                  value={newOptionLabel}
-                  onChange={(e) => setNewOptionLabel(e.target.value)}
-                />
-              </FormField>
-              <label className="flex shrink-0 items-center gap-1 pb-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newOptionSuccess}
-                  onChange={(e) => setNewOptionSuccess(e.target.checked)}
-                />
-                Успех дня
-              </label>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={!newOptionLabel.trim() || addOptionMut.isPending}
-                onClick={() => addOptionMut.mutate()}
-              >
-                Добавить
-              </button>
-            </div>
+            <EpisodeTypeAddForm
+              patternId={pattern.id}
+              patternType={pattern.pattern_type}
+              optionsCount={options.length}
+              onAdded={(opt) => {
+                setOptions((prev) => [...prev, opt]);
+                void qc.invalidateQueries({ queryKey: ['patterns'] });
+                void qc.invalidateQueries({ queryKey: ['pattern', pattern.id] });
+              }}
+            />
           </div>
         )}
         {pattern.pattern_mode === 'habit' && (

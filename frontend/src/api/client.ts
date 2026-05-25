@@ -184,7 +184,10 @@ export const api = {
       request<Pattern>(`/patterns/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
     remove: (id: number) => request<void>(`/patterns/${id}`, { method: 'DELETE' }),
     addOption: (id: number, body: Record<string, unknown>) =>
-      request(`/patterns/${id}/options`, { method: 'POST', body: JSON.stringify(body) }),
+      request<import('./types').PatternOption>(`/patterns/${id}/options`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     addSchedule: (id: number, body: Record<string, unknown>) =>
       request<PatternSchedule>(`/patterns/${id}/schedules`, { method: 'POST', body: JSON.stringify(body) }),
     updateSchedule: (id: number, sid: number, body: Record<string, unknown>) =>
