@@ -18,3 +18,12 @@ export function formatOlapMeasure(measureId: string, value: number): string {
   if (measureId === 'avg_mood' || measureId === 'avg_energy') return value.toFixed(1);
   return String(value);
 }
+
+/** Подпись оси Y для выбранной меры OLAP */
+export function olapYAxisLabel(measureId: string): string {
+  if (OLAP_PERCENT_MEASURES.has(measureId)) return 'Значение, %';
+  if (measureId === 'avg_mood' || measureId === 'avg_energy') return 'Средний балл (1–5)';
+  if (measureId === 'minutes_logged' || measureId === 'pomodoro_minutes') return 'Минуты';
+  if (measureId === 'active_days') return 'Дней';
+  return 'Количество';
+}

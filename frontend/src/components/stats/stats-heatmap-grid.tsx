@@ -36,6 +36,7 @@ export function StatsHeatmapGrid({ points }: { points: Point[] }) {
   }
 
   return (
+    <div className="space-y-3">
     <div className="overflow-x-auto">
       <div className="inline-flex flex-col gap-1">
         <div className="grid grid-cols-7 gap-1 text-[10px] text-ink-muted pl-8">
@@ -66,6 +67,20 @@ export function StatsHeatmapGrid({ points }: { points: Point[] }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+      <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-muted">
+        <span>Ось слева — начало недели</span>
+        <span className="text-ink-muted/50">·</span>
+        <span>Ячейка = один день</span>
+        <span className="text-ink-muted/50">·</span>
+        <span className="inline-flex items-center gap-1">
+          Интенсивность:
+          <span className="h-3 w-3 rounded-sm border border-border/50 bg-[rgba(22,163,74,0.06)]" />
+          <span className="h-3 w-3 rounded-sm border border-border/50 bg-[rgba(22,163,74,0.5)]" />
+          <span className="h-3 w-3 rounded-sm border border-border/50 bg-[rgba(22,163,74,0.95)]" />
+          <span>0 → макс. событий за период</span>
+        </span>
       </div>
     </div>
   );

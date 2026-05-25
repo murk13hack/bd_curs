@@ -20,6 +20,13 @@ import {
 } from 'recharts';
 import { api, ApiError } from '@/api/client';
 import type { HolisticCorrelationWeek, OlapMeta, PatternStreak, StatsOverview } from '@/api/types';
+import {
+  AxisLabelX,
+  AxisLabelYLeft,
+  AxisLabelYRight,
+  ChartCaption,
+  statsChartMargin,
+} from '@/components/stats/stats-chart-labels';
 import { StatsHeatmapGrid } from '@/components/stats/stats-heatmap-grid';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import {
@@ -33,6 +40,7 @@ import { fmtDate, minutesLabel, pct } from '@/lib/format';
 import {
   formatOlapMeasure,
   OLAP_PERCENT_MEASURES,
+  olapYAxisLabel,
   statsPeriodRange,
 } from '@/lib/stats-period';
 
@@ -173,24 +181,61 @@ export function StatsPage() {
             empty={!weekly.isLoading && !weekly.isError && !weeklyHasData}
             emptyMessage="Нет задач и записей дневника за период"
             className="lg:col-span-2"
+            caption="По каждой неделе: зелёные столбцы — число выполненных задач (левая ось, шт.); фиолетовые — доля «чистых» дней паттернов от запланированных (правая ось, %); линия — среднее настроение из дневника (правая ось, баллы 1–5)."
           >
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={weeklyChart}>
+            <ResponsiveContainer width="100%" height={340}>
+              <ComposedChart
+                data={weeklyChart}
+                margin={statsChartMargin({ right: 88, left: 56, bottom: 44 })}
+              >
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="left" domain={[0, 'auto']} />
-                <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="tasks_done" name="Выполнено задач" fill="#16a34a" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval="preserveStartEnd">
+                  <AxisLabelX value="Неделя (начало)" />
+                </XAxis>
+                <YAxis yAxisId="count" domain={[0, 'auto']} allowDecimals={false} width={48}>
+                  <AxisLabelYLeft value="Задач, шт." />
+                </YAxis>
+                <YAxis
+                  yAxisId="pct"
+                  orientation="right"
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}%`}
+                  width={44}
+                >
+                  <AxisLabelYRight value="% паттернов" />
+                </YAxis>
+                <YAxis
+                  yAxisId="mood"
+                  orientation="right"
+                  domain={[0, 5]}
+                  tickCount={6}
+                  width={40}
+                  tick={{ fontSize: 10 }}
+                >
+                  <AxisLabelYRight value="Настроение" />
+                </YAxis>
+                <Tooltip
+                  formatter={(v: number, name: string) => {
+                    if (name.includes('%') || name.includes('чистых')) return pct(v);
+                    if (name.includes('Настроение')) return v?.toFixed?.(1) ?? v;
+                    return `${v} шт.`;
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                 <Bar
-                  yAxisId="left"
+                  yAxisId="count"
+                  dataKey="tasks_done"
+                  name="Выполнено задач (шт.)"
+                  fill="#16a34a"
+                />
+                <Bar
+                  yAxisId="pct"
                   dataKey="pattern_clean_pct"
                   name="% чистых дней (паттерны)"
                   fill="#8b5cf6"
                 />
                 <Line
-                  yAxisId="right"
+                  yAxisId="mood"
                   type="monotone"
                   dataKey="mood"
                   name="Настроение (1–5)"
@@ -208,6 +253,7 @@ export function StatsPage() {
             errorMessage={queryError(heatmap.error)}
             empty={!heatmap.isLoading && !heatmap.isError && (heatmap.data ?? []).length === 0}
             emptyMessage="Нет событий за период"
+            caption="Календарь активности: в каждой ячейке — один день, цвет — суммарный счётчик событий (задачи, дневник, паттерны, метки). Чем темнее зелёный, тем больше действий в этот день."
           >
             <StatsHeatmapGrid points={heatmap.data ?? []} />
           </ChartCard>
@@ -219,23 +265,27 @@ export function StatsPage() {
             errorMessage={queryError(timeDist.error)}
             empty={!timeDist.isLoading && !timeDist.isError && (timeDist.data ?? []).length === 0}
             emptyMessage="Нет учтённого времени — добавьте time-log к задачам"
+            caption="Доля учтённого времени по темам за период. Размер сектора — минуты из time-log (не Pomodoro). Подписи на секторах — тема и длительность."
           >
             <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
+              <PieChart margin={{ top: 8, bottom: 8 }}>
                 <Pie
                   data={timeDist.data ?? []}
                   dataKey="minutes"
                   nameKey="topic_name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={72}
                   label={({ name, value }) => `${name}: ${minutesLabel(value as number)}`}
                 >
                   {(timeDist.data ?? []).map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v: number) => minutesLabel(v)} />
+                <Tooltip
+                  formatter={(v: number) => [minutesLabel(v), 'Учтённое время']}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -306,14 +356,19 @@ function TasksTab({
         loading={loading}
         empty={!loading && !topicsError && topics.length === 0}
         emptyMessage="Нет задач с дедлайном за период"
+        caption="Доля выполненных задач с дедлайном в периоде по каждой теме: выполнено ÷ (выполнено + просрочено + в работе). Ось Y — проценты 0–100%."
       >
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={topics}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={topics} margin={statsChartMargin({ bottom: 48, left: 48 })}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis dataKey="topic_name" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-            <Tooltip formatter={(v: number) => pct(v)} />
-            <Bar dataKey="completion_rate" name="%" fill="#16a34a" />
+            <XAxis dataKey="topic_name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={56}>
+              <AxisLabelX value="Тема" />
+            </XAxis>
+            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={44}>
+              <AxisLabelYLeft value="% выполнено" />
+            </YAxis>
+            <Tooltip formatter={(v: number) => [pct(v), '% выполнения']} />
+            <Bar dataKey="completion_rate" name="% выполнения" fill="#16a34a" />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -323,18 +378,25 @@ function TasksTab({
         loading={loading}
         empty={!loading && !prioritiesError && priorities.length === 0}
         emptyMessage="Нет задач за период"
+        caption="Сложенные столбцы — число задач (шт.), не проценты: зелёный — выполнено, красный — просрочено с дедлайном в выбранном периоде."
       >
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart
             data={priorities.map((p) => ({
               ...p,
               label: TASK_PRIORITY_LABEL[p.priority as keyof typeof TASK_PRIORITY_LABEL] ?? p.priority,
             }))}
+            margin={statsChartMargin({ bottom: 40, left: 48 })}
           >
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-            <YAxis />
-            <Tooltip />
+            <XAxis dataKey="label" tick={{ fontSize: 11 }}>
+              <AxisLabelX value="Приоритет" />
+            </XAxis>
+            <YAxis allowDecimals={false} width={44}>
+              <AxisLabelYLeft value="Задач, шт." />
+            </YAxis>
+            <Tooltip formatter={(v: number, name: string) => [`${v} шт.`, name]} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="done" name="Выполнено" stackId="a" fill="#16a34a" />
             <Bar dataKey="overdue" name="Просрочено" stackId="a" fill="#ef4444" />
           </BarChart>
@@ -404,24 +466,32 @@ function DiaryTab({
         className="lg:col-span-2"
         empty={!loading && !holisticError && !hasChart}
         emptyMessage="Ведите дневник (настроение) и отмечайте задачи/паттерны — тогда появятся графики"
+        caption="Средние за календарную неделю: оранжевая линия — настроение из дневника (левая ось, 1–5); зелёная и фиолетовая — % выполненных задач и % «чистых» дней паттернов (правая ось, 0–100%). Показатели на разных шкалах, чтобы не смешивать баллы и проценты."
       >
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart data={chartData} margin={statsChartMargin({ right: 56, left: 52, bottom: 44 })}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis yAxisId="mood" domain={[0, 5]} tickCount={6} />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} interval="preserveStartEnd">
+              <AxisLabelX value="Неделя (начало)" />
+            </XAxis>
+            <YAxis yAxisId="mood" domain={[0, 5]} tickCount={6} width={48}>
+              <AxisLabelYLeft value="Настроение (1–5)" />
+            </YAxis>
             <YAxis
               yAxisId="pct"
               orientation="right"
               domain={[0, 100]}
               tickFormatter={(v) => `${v}%`}
-            />
+              width={48}
+            >
+              <AxisLabelYRight value="% задач и паттернов" />
+            </YAxis>
             <Tooltip
               formatter={(v: number, name: string) =>
-                name === 'Настроение (1–5)' ? v.toFixed(1) : pct(v)
+                name === 'Настроение (1–5)' ? [v.toFixed(1), 'балл'] : [pct(v), '%']
               }
             />
-            <Legend />
+            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
             <Line
               yAxisId="mood"
               type="monotone"
@@ -455,6 +525,7 @@ function DiaryTab({
         loading={loading}
         empty={!loading && holistic.length === 0}
         emptyMessage="Нет недель с данными"
+        caption="Таблица: средние за неделю и коэффициенты Пирсона (−1…1) между показателями по дням внутри недели. «—» — мало данных или нет вариации."
       >
         <DataTable
           headers={[
@@ -481,7 +552,10 @@ function DiaryTab({
       </ChartCard>
 
       {correlation.length > 0 && (
-        <ChartCard title="Корреляция настроения и выполнения задач (классический срез)">
+        <ChartCard
+          title="Корреляция настроения и выполнения задач (классический срез)"
+          caption="Альтернативный срез: дни с записью дневника и задачами по дедлайну в ту же неделю. % задач — доля выполненных с дедлайном."
+        >
           <DataTable
             headers={['Неделя', 'Настроение', 'Энергия', '% задач', 'Настр.↔задачи', 'Энерг.↔задачи']}
             rows={correlation.slice(-12).map((r) => [
@@ -539,14 +613,23 @@ function PatternsTab({
         loading={loading}
         empty={!loading && chartRows.length === 0}
         emptyMessage="Нет дней по расписанию — задайте напоминания в паттерне"
+        caption="Горизонтальные полосы: % успешных дней за последние 30 календарных дней по расписанию каждого паттерна (успешные ÷ запланированные). Ось X — только проценты."
       >
-        <ResponsiveContainer width="100%" height={Math.max(200, chartRows.length * 36)}>
-          <BarChart data={chartRows} layout="vertical" margin={{ left: 8, right: 16 }}>
+        <ResponsiveContainer width="100%" height={Math.max(220, chartRows.length * 40)}>
+          <BarChart
+            data={chartRows}
+            layout="vertical"
+            margin={{ top: 8, right: 48, bottom: 36, left: 128 }}
+          >
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-            <YAxis type="category" dataKey="title" tick={{ fontSize: 11 }} width={120} />
-            <Tooltip formatter={(v: number) => pct(v)} />
-            <Bar dataKey="clean_rate_30d" name="Чистота %" fill="#8b5cf6" />
+            <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`}>
+              <AxisLabelX value="% чистых дней" />
+            </XAxis>
+            <YAxis type="category" dataKey="title" tick={{ fontSize: 11 }} width={116}>
+              <AxisLabelYLeft value="Паттерн" />
+            </YAxis>
+            <Tooltip formatter={(v: number) => [pct(v), 'Чистота за 30 д']} />
+            <Bar dataKey="clean_rate_30d" name="% чистых дней" fill="#8b5cf6" />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -640,6 +723,12 @@ function OlapBuilder({
     });
   }, [queryMut.data, dim, measure]);
 
+  const dimLabel =
+    meta.data?.dimensions.find((d) => d.id === dim)?.label ?? 'Измерение';
+  const measureLabel =
+    meta.data?.measures.find((m) => m.id === measure)?.label ?? 'Значение';
+  const yAxisLabel = olapYAxisLabel(measure);
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {meta.isError && <ErrorBanner message={`OLAP meta: ${queryError(meta.error)}`} />}
@@ -704,18 +793,36 @@ function OlapBuilder({
         empty={!queryMut.isPending && chartData.length === 0 && !queryMut.isError}
         emptyMessage="Нет строк за период и фильтры — смените меру или период"
         className="lg:col-span-2"
+        caption={`Срез «${measureLabel}» по измерению «${dimLabel}» за выбранный период. Ось Y — ${yAxisLabel.toLowerCase()}; значения в таблице совпадают с подписями оси.`}
       >
         <>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData}>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={chartData}
+              margin={statsChartMargin({
+                bottom: 48,
+                left: 52,
+                right: 24,
+              })}
+            >
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-18} textAnchor="end" height={52}>
+                <AxisLabelX value={dimLabel} />
+              </XAxis>
               <YAxis
+                width={48}
                 domain={OLAP_PERCENT_MEASURES.has(measure) ? [0, 100] : ['auto', 'auto']}
-                tickFormatter={(v) => (OLAP_PERCENT_MEASURES.has(measure) ? `${v}%` : String(v))}
+                tickFormatter={(v) =>
+                  OLAP_PERCENT_MEASURES.has(measure) ? `${v}%` : String(v)
+                }
+                allowDecimals={!OLAP_PERCENT_MEASURES.has(measure)}
+              >
+                <AxisLabelYLeft value={yAxisLabel} />
+              </YAxis>
+              <Tooltip
+                formatter={(v: number) => [formatOlapMeasure(measure, v), measureLabel]}
               />
-              <Tooltip formatter={(v: number) => formatOlapMeasure(measure, v)} />
-              <Bar dataKey="value" fill="#3b82f6" />
+              <Bar dataKey="value" name={measureLabel} fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
           <DataTable
@@ -767,6 +874,7 @@ function ChartCard({
   errorMessage,
   empty,
   emptyMessage,
+  caption,
   children,
   className = '',
 }: {
@@ -776,6 +884,8 @@ function ChartCard({
   errorMessage?: string;
   empty?: boolean;
   emptyMessage?: string;
+  /** Пояснение под графиком (только при успешной отрисовке) */
+  caption?: string;
   children: ReactNode;
   className?: string;
 }) {
@@ -792,7 +902,10 @@ function ChartCard({
         ) : empty ? (
           <p className="py-12 text-center text-sm text-ink-muted">{emptyMessage ?? 'Нет данных'}</p>
         ) : (
-          children
+          <>
+            {children}
+            {caption ? <ChartCaption>{caption}</ChartCaption> : null}
+          </>
         )}
       </div>
     </section>
