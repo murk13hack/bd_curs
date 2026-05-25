@@ -42,6 +42,38 @@ class HolisticCorrelationWeek(BaseModel):
     days_count: int
 
 
+class MoodBucketStat(BaseModel):
+    bucket: str
+    label: str
+    days: int
+    avg_task_rate: float | None
+    avg_pattern_rate: float | None
+
+
+class DiaryScatterDay(BaseModel):
+    day: str
+    mood: float
+    energy: float | None
+    task_rate: float | None
+    pattern_rate: float | None
+
+
+class DiaryInsights(BaseModel):
+    date_from: str
+    date_to: str
+    diary_days: int
+    corr_mood_tasks: float | None
+    corr_mood_patterns: float | None
+    corr_energy_tasks: float | None
+    corr_mood_energy: float | None
+    corr_mood_tasks_same_day: float | None
+    same_day_diary_task_days: int
+    mood_buckets: list[MoodBucketStat]
+    insights: list[str]
+    scatter_days: list[DiaryScatterDay]
+    weeks: list[HolisticCorrelationWeek]
+
+
 class WeeklySummary(BaseModel):
     week_start: date
     tasks_total: int

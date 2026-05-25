@@ -100,15 +100,13 @@ UI: редактор повторения в задаче — все четыр�
 
 ## Миграции на существующей БД
 
-```powershell
-docker cp db/migrations/007_pattern_logic_fixes.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/007_pattern_logic_fixes.sql
-docker cp db/migrations/008_marker_day_closures.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/008_marker_day_closures.sql
-docker cp db/migrations/009_db_backend_sync.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/009_db_backend_sync.sql
-docker cp db/migrations/010_recurring_custom_interval.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/010_recurring_custom_interval.sql
+Актуальный набор для уже развёрнутого volume: **007 → 011** (включая исправление streak/markers в `011`).
+
+Fedora / bash:
+
+```bash
+chmod +x scripts/apply-migrations.sh
+./scripts/apply-migrations.sh
 ```
 
-Свежий `docker compose up` с пустым volume использует актуальные `db/init/*.sql`.
+Свежий `docker compose up` с пустым volume использует актуальные `db/init/*.sql` — миграции **не нужны**.

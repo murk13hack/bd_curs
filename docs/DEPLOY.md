@@ -167,7 +167,16 @@ foreach ($f in $migrations) {
 }
 ```
 
-Linux / macOS / Git Bash:
+Linux / Fedora (рекомендуется):
+
+```bash
+chmod +x scripts/deploy-fedora.sh scripts/apply-migrations.sh
+./scripts/deploy-fedora.sh          # git pull + build + миграции 007–011
+# только миграции:
+./scripts/apply-migrations.sh
+```
+
+Ручной цикл (без скрипта):
 
 ```bash
 for f in \
@@ -182,6 +191,8 @@ do
   docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f "/tmp/$f"
 done
 ```
+
+**Обновления только UI/статистики** (без изменений в `db/migrations/`) — достаточно `git pull` и `docker compose up -d --build`, миграции не нужны.
 
 Проверка:
 

@@ -316,6 +316,38 @@ export interface CorrelationWeek {
   days_count: number;
 }
 
+export interface MoodBucketStat {
+  bucket: string;
+  label: string;
+  days: number;
+  avg_task_rate: number | null;
+  avg_pattern_rate: number | null;
+}
+
+export interface DiaryScatterDay {
+  day: string;
+  mood: number;
+  energy: number | null;
+  task_rate: number | null;
+  pattern_rate: number | null;
+}
+
+export interface DiaryInsights {
+  date_from: string;
+  date_to: string;
+  diary_days: number;
+  corr_mood_tasks: number | null;
+  corr_mood_patterns: number | null;
+  corr_energy_tasks: number | null;
+  corr_mood_energy: number | null;
+  corr_mood_tasks_same_day: number | null;
+  same_day_diary_task_days: number;
+  mood_buckets: MoodBucketStat[];
+  insights: string[];
+  scatter_days: DiaryScatterDay[];
+  weeks: HolisticCorrelationWeek[];
+}
+
 export interface GoalLink {
   target_type: GoalLinkTarget;
   target_id: number;

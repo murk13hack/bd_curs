@@ -16,7 +16,8 @@ import {
   YAxis,
 } from 'recharts';
 import { api, ApiError } from '@/api/client';
-import type { HolisticCorrelationWeek, OlapMeta, PatternStreak, StatsOverview } from '@/api/types';
+import type { DiaryInsights, OlapMeta, PatternStreak, StatsOverview } from '@/api/types';
+import { DiaryLinksSection } from '@/components/stats/diary-links-section';
 import {
   AxisLabelX,
   AxisLabelYLeft,
@@ -25,7 +26,6 @@ import {
 } from '@/components/stats/stats-chart-labels';
 import { StatsHeatmapGrid } from '@/components/stats/stats-heatmap-grid';
 import {
-  DIARY_WEEKLY_SERIES,
   OVERVIEW_WEEKLY_SERIES,
   StatsWeeklyMiniGrid,
 } from '@/components/stats/stats-weekly-mini-charts';
@@ -85,13 +85,10 @@ export function StatsPage() {
     queryKey: ['pattern-streaks'],
     queryFn: api.patterns.streaksAll,
   });
-  const holistic = useQuery({
-    queryKey: ['stats-holistic', period],
-    queryFn: () => api.stats.holistic(periodParams),
-  });
-  const correlation = useQuery({
-    queryKey: ['stats-correlation', period],
-    queryFn: () => api.stats.correlation(periodParams),
+  const diaryInsights = useQuery({
+    queryKey: ['stats-diary-insights', period],
+    queryFn: () => api.stats.diaryInsights(periodParams),
+    enabled: tab === 'diary',
   });
   const heatmap = useQuery({
     queryKey: ['stats-heatmap', period],
@@ -255,12 +252,9 @@ export function StatsPage() {
 
       {tab === 'diary' && (
         <DiaryTab
-          holistic={holistic.data ?? []}
-          correlation={correlation.data ?? []}
-          loading={holistic.isLoading || correlation.isLoading}
-          holisticError={holistic.isError ? queryError(holistic.error) : undefined}
-          correlationError={correlation.isError ? queryError(correlation.error) : undefined}
-          periodLabel={`${period} д`}
+          data={diaryInsights.data}
+          loading={diaryInsights.isLoading}
+          error={diaryInsights.isError ? queryError(diaryInsights.error) : undefined}
         />
       )}
 
@@ -368,101 +362,38 @@ function TasksTab({
 }
 
 function DiaryTab({
-  holistic,
-  correlation,
+  data,
   loading,
-  holisticError,
-  correlationError,
-  periodLabel,
+  error,
 }: {
-  holistic: HolisticCorrelationWeek[];
-  correlation: import('@/api/types').CorrelationWeek[];
+  data?: DiaryInsights;
   loading: boolean;
-  holisticError?: string;
-  correlationError?: string;
-  periodLabel: string;
+  error?: string;
 }) {
-  const chartData = holistic.map((w) => ({
-    name: fmtDate(w.week_start),
-    mood: w.avg_mood,
-    tasks: w.avg_task_rate,
-    patterns: w.avg_pattern_clean_rate,
-  }));
-  const hasChart = chartData.some(
-    (w) => w.mood != null || w.tasks != null || w.patterns != null,
-  );
-
-  return (
-    <div className="grid gap-6">
-      <p className="text-xs text-ink-muted">
-        Недельные средние за {periodLabel}. Корреляции Пирсона считаются по дням внутри недели;
-        нужны записи дневника и вариативность показателей.
-      </p>
-      {holisticError && <ErrorBanner message={`Сводка: ${holisticError}`} />}
-      {correlationError && <ErrorBanner message={`Корреляция (задачи): ${correlationError}`} />}
-
-      <ChartCard
-        title="Недели: дневник, задачи, паттерны"
-        loading={loading}
-        className="lg:col-span-2"
-        empty={!loading && !holisticError && !hasChart}
-        emptyMessage="Ведите дневник (настроение) и отмечайте задачи/паттерны — тогда появятся графики"
-        caption="Средние за календарную неделю — три мини-графика: настроение (1–5), доля выполненных задач (%), доля чистых дней паттернов (%)."
-      >
-        <StatsWeeklyMiniGrid rows={chartData} series={DIARY_WEEKLY_SERIES} />
-      </ChartCard>
-
-      <ChartCard
-        title="Корреляции по неделям"
-        loading={loading}
-        empty={!loading && holistic.length === 0}
-        emptyMessage="Нет недель с данными"
-        caption="Таблица: средние за неделю и коэффициенты Пирсона (−1…1) между показателями по дням внутри недели. «—» — мало данных или нет вариации."
-      >
-        <DataTable
-          headers={[
-            'Неделя',
-            'Настроение',
-            'Задачи %',
-            'Паттерны %',
-            'Настр. → задачи',
-            'Настр. → паттерны',
-            'Энергия → задачи',
-            'Дней',
-          ]}
-          rows={holistic.slice(-16).map((r) => [
-            fmtDate(r.week_start),
-            r.avg_mood?.toFixed(1) ?? '—',
-            r.avg_task_rate != null ? pct(r.avg_task_rate) : '—',
-            r.avg_pattern_clean_rate != null ? pct(r.avg_pattern_clean_rate) : '—',
-            r.corr_mood_tasks?.toFixed(2) ?? '—',
-            r.corr_mood_patterns?.toFixed(2) ?? '—',
-            r.corr_energy_tasks?.toFixed(2) ?? '—',
-            String(r.days_count),
-          ])}
-        />
-      </ChartCard>
-
-      {correlation.length > 0 && (
-        <ChartCard
-          title="Корреляция настроения и выполнения задач (классический срез)"
-          caption="Альтернативный срез: дни с записью дневника и задачами по дедлайну в ту же неделю. % задач — доля выполненных с дедлайном."
-        >
-          <DataTable
-            headers={['Неделя', 'Настроение', 'Энергия', '% задач', 'Настр.↔задачи', 'Энерг.↔задачи']}
-            rows={correlation.slice(-12).map((r) => [
-              fmtDate(r.week_start),
-              r.avg_mood?.toFixed(1) ?? '—',
-              r.avg_energy?.toFixed(1) ?? '—',
-              r.avg_completion_rate != null ? pct(r.avg_completion_rate) : '—',
-              r.corr_mood_rate?.toFixed(2) ?? '—',
-              r.corr_energy_rate?.toFixed(2) ?? '—',
-            ])}
-          />
-        </ChartCard>
-      )}
-    </div>
-  );
+  if (error) {
+    return <ErrorBanner message={error} />;
+  }
+  if (loading) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+  if (!data || (data.diary_days === 0 && data.weeks.length === 0)) {
+    return (
+      <div className="mx-auto max-w-3xl rounded-lg border border-border bg-surface-2 px-6 py-10 text-center">
+        <p className="text-sm text-ink-muted">
+          Записей дневника с настроением за период нет. Добавьте записи в разделе «Дневник» — здесь
+          появятся связи с задачами и паттернами.
+        </p>
+        <Link to="/diary" className="btn-primary mt-4 inline-flex">
+          Открыть дневник
+        </Link>
+      </div>
+    );
+  }
+  return <DiaryLinksSection data={data} />;
 }
 
 function PatternsTab({

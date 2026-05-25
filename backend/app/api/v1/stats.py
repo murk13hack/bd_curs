@@ -10,7 +10,10 @@ from sqlalchemy import text
 from app.api.v1.deps import SessionDep, UserIdDep
 from app.schemas.stats import (
     CorrelationWeek,
+    DiaryInsights,
     HolisticCorrelationWeek,
+    MoodBucketStat,
+    DiaryScatterDay,
     OlapMeta,
     OlapQuery,
     OlapResult,
@@ -21,6 +24,7 @@ from app.schemas.stats import (
     TopicTimeBreakdown,
     WeeklySummary,
 )
+from app.services.diary_insights import fetch_diary_insights
 from app.services.olap import fetch_overview, olap_meta, run_olap_query
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -261,31 +265,14 @@ async def holistic_correlation(
     from_: date | None = Query(default=None, alias="from"),
     to: date | None = None,
 ) -> list[HolisticCorrelationWeek]:
+    """Недели только по дням с записью дневника (view v_mood_holistic_correlation)."""
     date_from, date_to = _resolve_period(days, from_, to)
     sql = (
-        "SELECT date_trunc('week', day)::date AS week_start,"
-        " AVG(mood)::NUMERIC(4,2) AS avg_mood,"
-        " AVG(energy)::NUMERIC(4,2) AS avg_energy,"
-        " AVG(CASE WHEN tasks_total > 0"
-        "     THEN 100.0 * tasks_done / tasks_total END)::NUMERIC(5,2) AS avg_task_rate,"
-        " AVG(CASE WHEN patterns_scheduled > 0"
-        "     THEN 100.0 * patterns_success / patterns_scheduled END)::NUMERIC(5,2)"
-        "     AS avg_pattern_clean_rate,"
-        " AVG(minutes_logged)::NUMERIC(8,2) AS avg_minutes,"
-        " corr(mood::numeric,"
-        "      CASE WHEN tasks_total > 0 THEN 100.0 * tasks_done / tasks_total END)"
-        "     AS corr_mood_tasks,"
-        " corr(mood::numeric,"
-        "      CASE WHEN patterns_scheduled > 0"
-        "     THEN 100.0 * patterns_success / patterns_scheduled END)"
-        "     AS corr_mood_patterns,"
-        " corr(energy::numeric,"
-        "      CASE WHEN tasks_total > 0 THEN 100.0 * tasks_done / tasks_total END)"
-        "     AS corr_energy_tasks,"
-        " COUNT(*)::INT AS days_count "
-        "FROM v_olap_daily_facts "
-        "WHERE user_id = :uid AND day BETWEEN :f AND :t "
-        "GROUP BY date_trunc('week', day)::date "
+        "SELECT week_start, avg_mood, avg_energy, avg_task_rate,"
+        " avg_pattern_clean_rate, avg_minutes,"
+        " corr_mood_tasks, corr_mood_patterns, corr_energy_tasks, days_count "
+        "FROM v_mood_holistic_correlation "
+        "WHERE user_id = :uid AND week_start >= :f AND week_start <= :t "
         "ORDER BY week_start"
     )
     res = await session.execute(
@@ -306,6 +293,37 @@ async def holistic_correlation(
         )
         for r in res
     ]
+
+
+@router.get(
+    "/diary-insights",
+    response_model=DiaryInsights,
+    summary="Дневник: связи, выводы, точки для графика",
+)
+async def diary_insights(
+    session: SessionDep,
+    user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = None,
+) -> DiaryInsights:
+    date_from, date_to = _resolve_period(days, from_, to)
+    raw = await fetch_diary_insights(session, user_id, date_from, date_to)
+    return DiaryInsights(
+        date_from=raw["date_from"],
+        date_to=raw["date_to"],
+        diary_days=raw["diary_days"],
+        corr_mood_tasks=raw["corr_mood_tasks"],
+        corr_mood_patterns=raw["corr_mood_patterns"],
+        corr_energy_tasks=raw["corr_energy_tasks"],
+        corr_mood_energy=raw["corr_mood_energy"],
+        corr_mood_tasks_same_day=raw["corr_mood_tasks_same_day"],
+        same_day_diary_task_days=raw["same_day_diary_task_days"],
+        mood_buckets=[MoodBucketStat(**b) for b in raw["mood_buckets"]],
+        insights=raw["insights"],
+        scatter_days=[DiaryScatterDay(**d) for d in raw["scatter_days"]],
+        weeks=[HolisticCorrelationWeek(**w) for w in raw["weeks"]],
+    )
 
 
 @router.get("/weekly", response_model=list[WeeklySummary])

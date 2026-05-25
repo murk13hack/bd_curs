@@ -25,6 +25,26 @@ async def test_holistic_period(client: AsyncClient, topic_id: int) -> None:
     assert r.status_code == 200
 
 
+async def test_diary_insights(client: AsyncClient, topic_id: int) -> None:
+    today = date.today().isoformat()
+    deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=2)).isoformat()
+    await client.post(
+        "/api/v1/diary",
+        json={"entry_date": today, "content": "insight", "mood": 4, "energy": 4},
+    )
+    await client.post(
+        "/api/v1/tasks",
+        json={"topic_id": topic_id, "title": "corr task", "deadline": deadline},
+    )
+    r = await client.get("/api/v1/stats/diary-insights", params={"days": 30})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["diary_days"] >= 1
+    assert "insights" in body and len(body["insights"]) >= 1
+    assert "mood_buckets" in body
+    assert "scatter_days" in body
+
+
 async def test_topics_breakdown(client: AsyncClient, topic_id: int) -> None:
     deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
     for _ in range(3):

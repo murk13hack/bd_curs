@@ -2,6 +2,7 @@ import type {
   AppSetting,
   CalendarDay,
   CorrelationWeek,
+  DiaryInsights,
   DiaryEntry,
   DiarySearchHit,
   ExportResponse,
@@ -262,6 +263,8 @@ export const api = {
       request<CorrelationWeek[]>(`/stats/correlation${qs(params)}`),
     holistic: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<HolisticCorrelationWeek[]>(`/stats/holistic${qs(params)}`),
+    diaryInsights: (params: { days?: number; from?: string; to?: string } = {}) =>
+      request<DiaryInsights>(`/stats/diary-insights${qs(params)}`),
     weekly: (params: { days?: number; from?: string; to?: string; limit?: number } = {}) =>
       request<WeeklySummary[]>(`/stats/weekly${qs(params)}`),
     completionRate: (from: string, to: string, topic_id?: number) =>
