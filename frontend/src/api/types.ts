@@ -63,6 +63,9 @@ export interface Task {
   created_at: string;
   updated_at: string;
   tag_ids: number[];
+  subtask_total?: number | null;
+  subtask_done?: number | null;
+  subtask_progress?: number | null;
 }
 
 export interface RecurringRule {
@@ -361,6 +364,7 @@ export interface PatternToday {
   markers_today_count?: number;
   last_marker_label?: string | null;
   last_marker_at?: string | null;
+  day_declared_clean?: boolean;
 }
 
 export interface PatternSession {

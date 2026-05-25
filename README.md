@@ -12,7 +12,7 @@
 - **Календарь** — заливка дней по прогрессу, праздники РФ, heatmap года
 - **Статистика** — разрезы по темам/неделям, корреляция настроения (Recharts)
 - **Цели** — прогресс через `fn_goal_progress`
-- **Import/Export** — JSON (процедуры `sp_export/import_user_data`), CSV задач
+- **Import/Export** — JSON: экспорт полный; импорт merge (темы/теги) или restore (все сущности); CSV задач
 
 Бизнес-логика расчётов — в PostgreSQL: 18 таблиц, view, функции, процедуры, триггеры, индексы, FTS.
 
@@ -112,4 +112,6 @@ docker exec -i ptt-db pg_restore -U ptt -d ptt --clean --if-exists < backups/bac
 
 - [ТЗ.md](./ТЗ.md) — полное техническое задание
 - [docs/DEPLOY.md](./docs/DEPLOY.md) — развёртывание, troubleshooting, dev-режим
+- [docs/PATTERNS_SCENARIO.md](./docs/PATTERNS_SCENARIO.md) — режим «Сценарий»: типы шагов, роли, юзер-кейсы, аудит логики
+- [docs/DB_SYNC.md](./docs/DB_SYNC.md) — соответствие таблиц, функций, view и процедур API
 - OpenAPI — http://localhost:8000/docs

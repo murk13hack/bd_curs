@@ -256,6 +256,17 @@ CREATE TABLE pattern_markers (
 CREATE INDEX idx_pattern_markers_pattern_occurred ON pattern_markers (pattern_id, occurred_at DESC);
 COMMENT ON TABLE pattern_markers IS 'Точечные отметки эпизодов (режим markers). Много записей в день.';
 
+-- ---------- 13e. pattern_marker_day_closures ------------------------------
+
+CREATE TABLE pattern_marker_day_closures (
+    id           BIGSERIAL PRIMARY KEY,
+    pattern_id   BIGINT NOT NULL REFERENCES behavior_patterns(id) ON DELETE CASCADE,
+    closure_date DATE NOT NULL,
+    declared_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pattern_marker_day_closures_uniq UNIQUE (pattern_id, closure_date)
+);
+COMMENT ON TABLE pattern_marker_day_closures IS 'Явно: за день не было эпизодов (markers).';
+
 -- ---------- 14. goals -----------------------------------------------------
 
 CREATE TABLE goals (

@@ -144,6 +144,45 @@ $$;
 COMMENT ON PROCEDURE sp_close_overdue_pattern_logs(TIMESTAMPTZ)
     IS 'Перевести просроченные ожидания ответа в статус missed.';
 
+-- ---------- 4b. sp_ensure_habit_logs_for_day ------------------------------
+
+CREATE OR REPLACE PROCEDURE sp_ensure_habit_logs_for_day(p_day DATE DEFAULT current_date)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    r RECORD;
+    v_ts TIMESTAMPTZ;
+BEGIN
+    FOR r IN
+        SELECT bp.id AS pattern_id
+          FROM behavior_patterns bp
+         WHERE bp.pattern_mode = 'habit'
+           AND fn_pattern_is_scheduled(bp.id, p_day)
+    LOOP
+        IF EXISTS (
+            SELECT 1 FROM pattern_logs pl
+             WHERE pl.pattern_id = r.pattern_id
+               AND date_trunc('day', pl.scheduled_at)::date = p_day
+        ) THEN
+            CONTINUE;
+        END IF;
+
+        SELECT (p_day::timestamp + COALESCE(
+                    (SELECT min(s.time_of_day)
+                       FROM pattern_schedules s
+                      WHERE s.pattern_id = r.pattern_id),
+                    TIME '12:00:00'
+                )) AT TIME ZONE 'UTC'
+          INTO v_ts;
+
+        INSERT INTO pattern_logs (pattern_id, scheduled_at, status)
+        VALUES (r.pattern_id, v_ts, 'pending');
+    END LOOP;
+END;
+$$;
+COMMENT ON PROCEDURE sp_ensure_habit_logs_for_day(DATE)
+    IS 'Создать pending-запись habit на день по расписанию (для sp_close_overdue_pattern_logs).';
+
 -- ---------- 5. sp_archive_old_audit --------------------------------------
 
 CREATE OR REPLACE PROCEDURE sp_archive_old_audit(p_keep_days INT DEFAULT 365)
@@ -220,6 +259,10 @@ BEGIN
                                      WHERE bp.user_id = p_user_id), '[]'::jsonb),
         'pattern_markers', COALESCE((SELECT jsonb_agg(to_jsonb(x))
                                       FROM pattern_markers x
+                                      JOIN behavior_patterns bp ON bp.id = x.pattern_id
+                                     WHERE bp.user_id = p_user_id), '[]'::jsonb),
+        'pattern_marker_day_closures', COALESCE((SELECT jsonb_agg(to_jsonb(x))
+                                      FROM pattern_marker_day_closures x
                                       JOIN behavior_patterns bp ON bp.id = x.pattern_id
                                      WHERE bp.user_id = p_user_id), '[]'::jsonb),
         'pattern_day_sessions', COALESCE((SELECT jsonb_agg(to_jsonb(x))

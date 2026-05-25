@@ -4,6 +4,7 @@ import { Download, Plus, Trash2, Upload } from 'lucide-react';
 import { api } from '@/api/client';
 import type { ThemeMode } from '@/hooks/use-theme';
 import { PageHeader, Spinner, ErrorBanner, Modal } from '@/components/ui/primitives';
+import { FormField } from '@/components/ui/form-field';
 import { downloadJson, downloadText } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
 
@@ -239,20 +240,22 @@ export function SettingsPage() {
         <section className="card">
           <div className="card-body space-y-3">
             <h2 className="font-semibold">Темы</h2>
-            <div className="flex gap-2">
-              <input
-                className="input"
-                placeholder="Новая тема"
-                value={topicName}
-                onChange={(e) => setTopicName(e.target.value)}
-              />
+            <div className="flex flex-wrap items-end gap-2">
+              <FormField label="Название темы" className="min-w-0 flex-1">
+                <input
+                  className="input"
+                  value={topicName}
+                  onChange={(e) => setTopicName(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Цвет">
               <input
                 type="color"
                 className="h-10 w-12 cursor-pointer rounded border border-border"
                 value={topicColor}
                 onChange={(e) => setTopicColor(e.target.value)}
-                title="Цвет темы"
               />
+              </FormField>
               <button
                 type="button"
                 className="btn-primary shrink-0"
@@ -288,12 +291,13 @@ export function SettingsPage() {
           <div className="card-body space-y-3">
             <h2 className="font-semibold">Теги</h2>
             <div className="flex gap-2">
-              <input
-                className="input"
-                placeholder="Новый тег"
-                value={tagName}
-                onChange={(e) => setTagName(e.target.value)}
-              />
+              <FormField label="Название тега" className="min-w-0 flex-1">
+                <input
+                  className="input"
+                  value={tagName}
+                  onChange={(e) => setTagName(e.target.value)}
+                />
+              </FormField>
               <button
                 type="button"
                 className="btn-primary shrink-0"
@@ -325,19 +329,22 @@ export function SettingsPage() {
         <section className="card lg:col-span-2">
           <div className="card-body space-y-3">
             <h2 className="font-semibold">Праздники {holidayYear}</h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-end gap-2">
+              <FormField label="Дата">
               <input
                 type="date"
                 className="input w-auto"
                 value={holidayDate}
                 onChange={(e) => setHolidayDate(e.target.value)}
               />
+              </FormField>
+              <FormField label="Название" className="min-w-[12rem] flex-1">
               <input
-                className="input min-w-[12rem] flex-1"
-                placeholder="Название"
+                className="input"
                 value={holidayName}
                 onChange={(e) => setHolidayName(e.target.value)}
               />
+              </FormField>
               <button
                 type="button"
                 className="btn-primary shrink-0"
@@ -389,7 +396,7 @@ export function SettingsPage() {
               checked={importMode === 'merge'}
               onChange={() => setImportMode('merge')}
             />
-            Merge — только темы и теги (безопасно)
+            Merge — добавить/обновить только темы и теги
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -397,7 +404,7 @@ export function SettingsPage() {
               checked={importMode === 'restore'}
               onChange={() => setImportMode('restore')}
             />
-            Restore — полное восстановление (schema v2+)
+            Restore — заменить все данные из бэкапа (задачи, паттерны, дневник…)
           </label>
         </div>
         <div className="flex justify-end gap-2">

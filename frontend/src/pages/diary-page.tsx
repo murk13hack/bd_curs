@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { api } from '@/api/client';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
+import { FormField } from '@/components/ui/form-field';
 import { fmtDate, toIsoDate } from '@/lib/format';
 import { ENERGY_EMOJI, MOOD_EMOJI } from '@/lib/labels';
 import { confirmDelete } from '@/lib/confirm';
@@ -80,27 +81,31 @@ export function DiaryPage() {
     <div>
       <PageHeader title="Дневник" subtitle="Записи, настроение и полнотекстовый поиск" />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+      <div className="mb-4 flex flex-wrap gap-3">
+        <FormField label="Поиск" className="min-w-[200px] flex-1">
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink-muted" />
+            <input
+              className="input pl-9"
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+            />
+          </div>
+        </FormField>
+        <FormField label="Дата записи">
           <input
-            className="input pl-9"
-            placeholder="Поиск по записям (FTS)…"
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
+            type="date"
+            className="input w-auto"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setContent('');
+              setMood('');
+              setEnergy('');
+              setTagIds([]);
+            }}
           />
-        </div>
-        <input
-          type="date"
-          className="input w-auto"
-          value={selectedDate}
-          onChange={(e) => {
-            setSelectedDate(e.target.value);
-            setContent('');
-            setMood('');
-            setEnergy('');
-            setTagIds([]);
-          }}        />
+        </FormField>
       </div>
 
       {searchQ.trim().length >= 2 && (
@@ -137,17 +142,19 @@ export function DiaryPage() {
               <Spinner />
             ) : (
               <>
-                <textarea
-                  className="input min-h-48"
-                  placeholder="Как прошёл день?"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
+                <FormField label="Текст записи">
+                  <textarea
+                    className="input min-h-48"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                  />
+                </FormField>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <MoodPicker label="Настроение" value={mood} onChange={setMood} emojis={MOOD_EMOJI} />
                   <MoodPicker label="Энергия" value={energy} onChange={setEnergy} emojis={ENERGY_EMOJI} />
                 </div>
                 {(tags.data ?? []).length > 0 && (
+                  <FormField label="Теги">
                   <div className="flex flex-wrap gap-2">
                     {(tags.data ?? []).map((tag) => (
                       <label key={tag.id} className="flex items-center gap-1 text-sm">
@@ -166,6 +173,7 @@ export function DiaryPage() {
                       </label>
                     ))}
                   </div>
+                  </FormField>
                 )}
                 <div className="flex gap-2">                  <button
                     type="button"

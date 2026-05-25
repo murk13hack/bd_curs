@@ -12,6 +12,7 @@ import {
 import { api } from '@/api/client';
 import type { Pattern, PatternTimeBucketStat } from '@/api/types';
 import { Modal, Spinner, ErrorBanner } from '@/components/ui/primitives';
+import { FieldGroup } from '@/components/ui/form-field';
 import { PatternCalendarGrid } from '@/components/patterns/pattern-day-strip';
 import { rateLabel } from '@/lib/pattern-templates';
 
@@ -60,20 +61,23 @@ export function PatternPictureModal({ pattern, onClose }: Props) {
   return (
     <Modal open title={`Картина · ${pattern.title}`} onClose={onClose} wide>
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {PERIODS.map((p) => (
-            <button
-              key={p.days}
-              type="button"
-              className={days === p.days ? 'btn-primary text-xs' : 'btn-secondary text-xs'}
-              onClick={() => setDays(p.days)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <FieldGroup legend="Период">
+          <div className="flex flex-wrap gap-2">
+            {PERIODS.map((p) => (
+              <button
+                key={p.days}
+                type="button"
+                className={days === p.days ? 'btn-primary text-xs' : 'btn-secondary text-xs'}
+                onClick={() => setDays(p.days)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </FieldGroup>
 
-        <div className="flex flex-wrap gap-2">
+        <FieldGroup legend="Время суток">
+          <div className="flex flex-wrap gap-2">
           {TIME_FILTERS.map((f) => (
             <button
               key={f.id}
@@ -86,7 +90,8 @@ export function PatternPictureModal({ pattern, onClose }: Props) {
               {f.label}
             </button>
           ))}
-        </div>
+          </div>
+        </FieldGroup>
 
         {insights.isLoading ? (
           <div className="flex justify-center py-12">

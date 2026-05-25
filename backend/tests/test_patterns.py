@@ -285,6 +285,77 @@ async def test_pattern_insights_scenario(client: AsyncClient) -> None:
     assert isinstance(body["insights"], list)
 
 
+async def test_markers_declare_clean_day(client: AsyncClient) -> None:
+    p = (
+        await client.post(
+            "/api/v1/patterns",
+            json={
+                "title": "Markers clean",
+                "pattern_type": "negative",
+                "pattern_mode": "markers",
+            },
+        )
+    ).json()
+    pid = p["id"]
+    r = await client.post(f"/api/v1/patterns/{pid}/markers/declare-clean-day")
+    assert r.status_code == 204
+    today = (await client.get(f"/api/v1/patterns/{pid}/today")).json()
+    assert today["day_declared_clean"] is True
+    assert today["is_success_today"] is True
+    streak = (await client.get(f"/api/v1/patterns/{pid}/streak")).json()
+    assert streak["current_streak"] >= 1
+
+
+async def test_markers_empty_day_not_success(client: AsyncClient) -> None:
+    p = (
+        await client.post(
+            "/api/v1/patterns",
+            json={
+                "title": "Markers empty",
+                "pattern_type": "negative",
+                "pattern_mode": "markers",
+            },
+        )
+    ).json()
+    today = (await client.get(f"/api/v1/patterns/{p['id']}/today")).json()
+    assert today["markers_today_count"] == 0
+    assert today["is_success_today"] is None
+
+    streak = (await client.get(f"/api/v1/patterns/{p['id']}/streak")).json()
+    assert streak["current_streak"] == 0
+
+
+async def test_scenario_in_progress_today_status(client: AsyncClient) -> None:
+    created = (
+        await client.post(
+            "/api/v1/patterns",
+            json={
+                "title": "In progress scenario",
+                "pattern_type": "negative",
+                "pattern_mode": "scenario",
+                "steps": [
+                    {
+                        "title": "Outcome",
+                        "step_kind": "single_choice",
+                        "step_role": "outcome",
+                        "marks_success": True,
+                        "choices": [
+                            {"id": "ok", "label": "Clean", "is_success": True},
+                        ],
+                    },
+                ],
+            },
+        )
+    ).json()
+    pid = created["id"]
+    await client.post(f"/api/v1/patterns/{pid}/sessions/today")
+    today = (await client.get(f"/api/v1/patterns/{pid}/today")).json()
+    assert today["status"] == "in_progress"
+    assert today["is_success_today"] is None
+    streak = (await client.get(f"/api/v1/patterns/{pid}/streak")).json()
+    assert streak["current_streak"] == 0
+
+
 async def test_pattern_today_endpoint(client: AsyncClient) -> None:
     p = await _create_boolean_pattern(client)
     r = await client.get(f"/api/v1/patterns/{p['id']}/today")
@@ -294,6 +365,7 @@ async def test_pattern_today_endpoint(client: AsyncClient) -> None:
     assert body["is_scheduled_today"] is True
     assert body["status"] == "pending"
     assert body["can_respond"] is True
+    assert body.get("log_status") == "pending"
 
     success_id = next(o["id"] for o in p["options"] if o["is_success"])
     await client.post(

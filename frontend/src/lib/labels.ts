@@ -21,6 +21,12 @@ export const PATTERN_MODE_LABEL: Record<import('@/api/types').PatternMode, strin
   markers: 'Точки',
 };
 
+export const PATTERN_MODE_HINT: Record<import('@/api/types').PatternMode, string> = {
+  habit: 'Один итог за день',
+  scenario: 'Цепочка шагов',
+  markers: 'Журнал эпизодов',
+};
+
 export const PATTERN_STEP_ROLE_LABEL: Record<
   import('@/api/types').PatternStepRole,
   string
@@ -32,9 +38,33 @@ export const PATTERN_STEP_ROLE_LABEL: Record<
   outcome: 'Итог',
 };
 
+export const PATTERN_STEP_KIND_LABEL: Record<
+  import('@/api/types').PatternStepKind,
+  string
+> = {
+  single_choice: 'Выбор варианта',
+  check: 'Да / нет',
+  note: 'Текст',
+};
+
 export const PATTERN_TYPE_LABEL: Record<PatternType, string> = {
-  positive: 'Полезная',
-  negative: 'Отказ',
+  positive: 'Полезное поведение',
+  negative: 'Отказ / абстиненция',
+};
+
+/** Подписи фильтров OLAP и дневника в статистике */
+export const MOOD_BUCKET_LABEL: Record<string, string> = {
+  '': 'Любое',
+  low: 'Низкое (1–2)',
+  mid: 'Среднее (3)',
+  high: 'Высокое (4–5)',
+};
+
+export const ENERGY_BUCKET_LABEL: Record<string, string> = {
+  '': 'Любая',
+  low: 'Низкая (1–2)',
+  mid: 'Средняя (3)',
+  high: 'Высокая (4–5)',
 };
 
 export const STATUS_COLOR: Record<TaskStatus, string> = {

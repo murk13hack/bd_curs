@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { FormField } from '@/components/ui/form-field';
 import { DOW_LABELS, dowArrayFromMask, dowMaskFromArray } from '@/lib/pattern-templates';
 
 export type ScheduleRow = {
@@ -21,24 +22,28 @@ export function ScheduleEditor({ rows, onChange }: Props) {
         return (
           <div key={row.id ?? `new-${i}`} className="rounded-lg border border-border p-3 space-y-2">
             <div className="flex gap-2">
-              <input
-                type="time"
-                className="input flex-1"
-                value={row.time}
-                onChange={(e) => {
-                  const next = [...rows];
-                  next[i] = { ...next[i], time: e.target.value };
-                  onChange(next);
-                }}
-              />
+              <FormField label="Время" className="flex-1">
+                <input
+                  type="time"
+                  className="input w-full"
+                  value={row.time}
+                  onChange={(e) => {
+                    const next = [...rows];
+                    next[i] = { ...next[i], time: e.target.value };
+                    onChange(next);
+                  }}
+                />
+              </FormField>
               <button
                 type="button"
-                className="btn-ghost px-2"
+                className="btn-ghost self-end px-2"
+                title="Удалить напоминание"
                 onClick={() => onChange(rows.filter((_, j) => j !== i))}
               >
                 <X size={16} />
               </button>
             </div>
+            <FormField label="Дни недели">
             <div className="flex flex-wrap gap-1">
               {DOW_LABELS.map((label, di) => (
                 <button
@@ -59,6 +64,7 @@ export function ScheduleEditor({ rows, onChange }: Props) {
                 </button>
               ))}
             </div>
+            </FormField>
           </div>
         );
       })}

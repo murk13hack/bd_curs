@@ -63,7 +63,7 @@ CREATE TYPE recurrence_freq_enum AS ENUM (
     'monthly',
     'custom'
 );
-COMMENT ON TYPE recurrence_freq_enum IS 'Частота повторения. Для custom параметры берутся из recurring_rules.params.';
+COMMENT ON TYPE recurrence_freq_enum IS 'Частота повторения. custom: params.interval_days (каждые N дней, N>=1).';
 
 CREATE TYPE audit_action_enum AS ENUM (
     'insert',

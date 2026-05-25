@@ -72,8 +72,9 @@ BEGIN
     IF v_mode = 'scenario' THEN
         RETURN EXISTS (
             SELECT 1 FROM pattern_day_sessions s
-             WHERE s.pattern_id = p_pattern_id AND s.session_date = p_day
-               AND s.status IN ('in_progress', 'completed')
+             WHERE s.pattern_id = p_pattern_id
+               AND s.session_date = p_day
+               AND s.status = 'completed'
         );
     END IF;
     IF v_mode = 'markers' THEN
@@ -81,6 +82,9 @@ BEGIN
             SELECT 1 FROM pattern_markers pm
              WHERE pm.pattern_id = p_pattern_id
                AND pm.occurred_at::date = p_day
+        ) OR EXISTS (
+            SELECT 1 FROM pattern_marker_day_closures c
+             WHERE c.pattern_id = p_pattern_id AND c.closure_date = p_day
         );
     END IF;
     RETURN EXISTS (
@@ -109,13 +113,25 @@ BEGIN
         RETURN COALESCE(v_ok, FALSE);
     END IF;
     IF v_mode = 'markers' THEN
-        RETURN NOT EXISTS (
+        IF EXISTS (
             SELECT 1
               FROM pattern_markers pm
               JOIN pattern_response_options o ON o.id = pm.marker_option_id
              WHERE pm.pattern_id = p_pattern_id
                AND pm.occurred_at::date = p_day
                AND o.is_success = FALSE
+        ) THEN
+            RETURN FALSE;
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM pattern_markers pm
+             WHERE pm.pattern_id = p_pattern_id AND pm.occurred_at::date = p_day
+        ) THEN
+            RETURN TRUE;
+        END IF;
+        RETURN EXISTS (
+            SELECT 1 FROM pattern_marker_day_closures c
+             WHERE c.pattern_id = p_pattern_id AND c.closure_date = p_day
         );
     END IF;
     SELECT bool_or(
@@ -153,6 +169,42 @@ BEGIN
             v_day := v_day - 1;
             IF v_day < current_date - 3650 THEN EXIT; END IF;
             CONTINUE;
+        END IF;
+
+        IF v_mode = 'habit' AND v_day = current_date THEN
+            IF EXISTS (
+                SELECT 1 FROM pattern_logs pl
+                 WHERE pl.pattern_id = p_pattern_id
+                   AND date_trunc('day', pl.scheduled_at)::date = v_day
+                   AND pl.status = 'pending'
+            ) AND NOT EXISTS (
+                SELECT 1 FROM pattern_logs pl
+                 WHERE pl.pattern_id = p_pattern_id
+                   AND date_trunc('day', pl.scheduled_at)::date = v_day
+                   AND pl.status = 'answered'
+            ) THEN
+                v_day := v_day - 1;
+                IF v_day < current_date - 3650 THEN EXIT; END IF;
+                CONTINUE;
+            END IF;
+        END IF;
+
+        IF v_mode = 'scenario' AND v_day = current_date THEN
+            IF EXISTS (
+                SELECT 1 FROM pattern_day_sessions s
+                 WHERE s.pattern_id = p_pattern_id
+                   AND s.session_date = v_day
+                   AND s.status = 'in_progress'
+            ) AND NOT EXISTS (
+                SELECT 1 FROM pattern_day_sessions s
+                 WHERE s.pattern_id = p_pattern_id
+                   AND s.session_date = v_day
+                   AND s.status = 'completed'
+            ) THEN
+                v_day := v_day - 1;
+                IF v_day < current_date - 3650 THEN EXIT; END IF;
+                CONTINUE;
+            END IF;
         END IF;
 
         IF v_mode <> 'markers' THEN
@@ -263,7 +315,61 @@ BEGIN
 END;
 $$;
 
--- ---------- 7. fn_calculate_anti_streak ----------------------------------
+-- ---------- 7. fn_pattern_day_is_failure -----------------------------------
+
+CREATE OR REPLACE FUNCTION fn_pattern_day_is_failure(p_pattern_id BIGINT, p_day DATE)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_mode pattern_mode_enum;
+BEGIN
+    SELECT pattern_mode INTO v_mode FROM behavior_patterns WHERE id = p_pattern_id;
+    IF NOT fn_pattern_is_scheduled(p_pattern_id, p_day) THEN
+        RETURN FALSE;
+    END IF;
+    IF v_mode = 'scenario' THEN
+        RETURN EXISTS (
+            SELECT 1 FROM pattern_day_sessions s
+             WHERE s.pattern_id = p_pattern_id
+               AND s.session_date = p_day
+               AND s.status = 'completed'
+               AND COALESCE(s.outcome_success, FALSE) = FALSE
+        );
+    END IF;
+    IF v_mode = 'markers' THEN
+        RETURN EXISTS (
+            SELECT 1
+              FROM pattern_markers pm
+              JOIN pattern_response_options o ON o.id = pm.marker_option_id
+             WHERE pm.pattern_id = p_pattern_id
+               AND pm.occurred_at::date = p_day
+               AND o.is_success = FALSE
+        );
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM pattern_logs pl
+         WHERE pl.pattern_id = p_pattern_id
+           AND date_trunc('day', pl.scheduled_at)::date = p_day
+           AND (
+               pl.status = 'missed'
+               OR (
+                   pl.status = 'answered'
+                   AND NOT COALESCE(
+                       (SELECT is_success FROM pattern_response_options o
+                         WHERE o.id = pl.response_option_id),
+                       FALSE
+                   )
+               )
+           )
+    );
+END;
+$$;
+COMMENT ON FUNCTION fn_pattern_day_is_failure(BIGINT, DATE)
+    IS 'День с зафиксированным срывом/пропуском (для anti_streak).';
+
+-- ---------- 8. fn_calculate_anti_streak ----------------------------------
 
 CREATE OR REPLACE FUNCTION fn_calculate_anti_streak(p_pattern_id BIGINT)
 RETURNS INT
@@ -273,19 +379,41 @@ AS $$
 DECLARE
     v_type pattern_type_enum;
     v_streak INT := 0;
+    v_day    DATE := current_date;
 BEGIN
     SELECT pattern_type INTO v_type FROM behavior_patterns WHERE id = p_pattern_id;
     IF v_type IS NULL OR v_type <> 'negative' THEN
         RETURN 0;
     END IF;
 
-    -- Для negative-паттерна «анти-серия» — длина непрерывной серии дней БЕЗ срыва,
-    -- то есть совпадает с fn_calculate_streak; вынесено отдельной функцией для семантики.
-    RETURN fn_calculate_streak(p_pattern_id);
+    LOOP
+        IF NOT fn_pattern_is_scheduled(p_pattern_id, v_day) THEN
+            v_day := v_day - 1;
+            IF v_day < current_date - 3650 THEN EXIT; END IF;
+            CONTINUE;
+        END IF;
+
+        IF v_day = current_date AND NOT fn_pattern_day_is_failure(p_pattern_id, v_day) THEN
+            v_day := v_day - 1;
+            IF v_day < current_date - 3650 THEN EXIT; END IF;
+            CONTINUE;
+        END IF;
+
+        IF fn_pattern_day_is_failure(p_pattern_id, v_day) THEN
+            v_streak := v_streak + 1;
+            v_day := v_day - 1;
+        ELSE
+            EXIT;
+        END IF;
+
+        IF v_day < current_date - 3650 THEN EXIT; END IF;
+    END LOOP;
+
+    RETURN v_streak;
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_anti_streak(BIGINT)
-    IS 'Длина анти-серии (дней без срыва) для negative-паттерна.';
+    IS 'Текущая серия подряд идущих дней со срывом/пропуском (negative).';
 
 -- ---------- 5. fn_completion_rate ----------------------------------------
 
@@ -347,44 +475,9 @@ $$;
 COMMENT ON FUNCTION fn_search_diary(BIGINT, TEXT, INT)
     IS 'Полнотекстовый поиск по дневнику с подсветкой совпадений.';
 
--- ---------- 7. fn_mood_productivity_corr ---------------------------------
+-- Корреляция настроения: v_mood_productivity_correlation (API GET /stats/correlation).
 
-CREATE OR REPLACE FUNCTION fn_mood_productivity_corr(
-    p_user_id BIGINT,
-    p_from    DATE,
-    p_to      DATE
-) RETURNS NUMERIC
-LANGUAGE sql
-STABLE
-AS $$
-    WITH days AS (
-        SELECT d::date AS day FROM generate_series(p_from, p_to, '1 day') d
-    ),
-    daily AS (
-        SELECT
-            days.day,
-            (SELECT mood   FROM diary_entries de
-              WHERE de.user_id = p_user_id AND de.entry_date = days.day) AS mood,
-            (
-                SELECT CASE
-                    WHEN COUNT(*) = 0 THEN NULL
-                    ELSE 100.0 * COUNT(*) FILTER (WHERE status = 'done') / COUNT(*)
-                END
-                  FROM tasks t
-                 WHERE t.user_id = p_user_id
-                   AND t.deadline IS NOT NULL
-                   AND t.deadline::date = days.day
-            ) AS rate
-          FROM days
-    )
-    SELECT corr(mood::numeric, rate)
-      FROM daily
-     WHERE mood IS NOT NULL AND rate IS NOT NULL;
-$$;
-COMMENT ON FUNCTION fn_mood_productivity_corr(BIGINT, DATE, DATE)
-    IS 'Коэффициент корреляции Пирсона между настроением (дневник) и долей выполненных задач.';
-
--- ---------- 8. fn_goal_progress ------------------------------------------
+-- ---------- 7. fn_goal_progress ------------------------------------------
 
 CREATE OR REPLACE FUNCTION fn_goal_progress(p_goal_id BIGINT)
 RETURNS percentage
@@ -452,7 +545,7 @@ $$;
 COMMENT ON FUNCTION fn_goal_progress(BIGINT)
     IS 'Прогресс цели: задачи done + успешные дни habit/markers/scenario.';
 
--- ---------- 9. fn_next_recurring_date ------------------------------------
+-- ---------- 8. fn_next_recurring_date ------------------------------------
 
 CREATE OR REPLACE FUNCTION fn_next_recurring_date(
     p_rule_id BIGINT,
@@ -494,58 +587,19 @@ BEGIN
         v_d := (date_trunc('month', p_from) + INTERVAL '1 month')::date
                + (v_dom - 1) * INTERVAL '1 day';
         RETURN v_d::date;
+    ELSIF v_freq = 'custom' THEN
+        RETURN p_from + GREATEST(COALESCE((v_params->>'interval_days')::INT, 1), 1);
     ELSE
-        -- custom: пока заглушка — следующий день.
-        RETURN p_from + 1;
+        RETURN NULL;
     END IF;
 END;
 $$;
 COMMENT ON FUNCTION fn_next_recurring_date(BIGINT, DATE)
-    IS 'Следующая дата повторения по правилу.';
+    IS 'Следующая дата повторения: daily/weekly/monthly/custom (params.interval_days).';
 
--- ---------- 10. fn_topic_time_breakdown ----------------------------------
+-- Время по темам: v_topic_time_distribution (API GET /stats/time-distribution).
 
-CREATE OR REPLACE FUNCTION fn_topic_time_breakdown(
-    p_user_id BIGINT,
-    p_from    DATE,
-    p_to      DATE
-) RETURNS TABLE (
-    topic_id   BIGINT,
-    topic_name TEXT,
-    minutes    INT,
-    share      NUMERIC
-)
-LANGUAGE sql
-STABLE
-AS $$
-    WITH agg AS (
-        SELECT t.topic_id,
-               COALESCE(SUM(ttl.duration_seconds), 0) / 60 AS minutes
-          FROM tasks t
-          LEFT JOIN task_time_logs ttl
-                 ON ttl.task_id = t.id
-                AND ttl.started_at::date BETWEEN p_from AND p_to
-         WHERE t.user_id = p_user_id
-         GROUP BY t.topic_id
-    ),
-    total AS (
-        SELECT COALESCE(SUM(minutes), 0) AS sum_min FROM agg
-    )
-    SELECT a.topic_id,
-           tp.name,
-           a.minutes::INT,
-           CASE WHEN total.sum_min = 0 THEN 0
-                ELSE ROUND(100.0 * a.minutes / total.sum_min, 2)
-           END AS share
-      FROM agg a
-      JOIN topics tp ON tp.id = a.topic_id
-      CROSS JOIN total
-     ORDER BY a.minutes DESC;
-$$;
-COMMENT ON FUNCTION fn_topic_time_breakdown(BIGINT, DATE, DATE)
-    IS 'Распределение фактического времени по темам за период.';
-
--- ---------- 11. fn_get_calendar_stats ------------------------------------
+-- ---------- 9. fn_get_calendar_stats -------------------------------------
 
 CREATE OR REPLACE FUNCTION fn_get_calendar_stats(
     p_user_id BIGINT,
@@ -611,5 +665,5 @@ COMMENT ON FUNCTION fn_get_calendar_stats(BIGINT, INT, INT)
 
 DO $$
 BEGIN
-    RAISE NOTICE 'PTT 05-functions: 11 functions created';
+    RAISE NOTICE 'PTT 05-functions: 9 functions created';
 END $$;

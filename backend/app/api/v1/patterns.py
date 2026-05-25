@@ -14,6 +14,7 @@ from app.models import (
     PatternDaySession,
     PatternLog,
     PatternMarker,
+    PatternMarkerDayClosure,
     PatternResponseOption,
     PatternSchedule,
     PatternStep,
@@ -116,6 +117,8 @@ def _compute_outcome(
     ans = answers.get(outcome.id)
     if ans is None:
         return None
+    if outcome.step_kind == "note":
+        return False
     if outcome.step_kind == "check":
         return bool(ans.checked)
     if outcome.step_kind == "single_choice" and ans.choice_id:
@@ -419,8 +422,8 @@ async def pattern_today(
             st = "pending"
             can = True
         elif sess.status == "completed":
-            st = "answered"
-            can = True
+            st = "completed"
+            can = False
         else:
             st = "in_progress"
             can = True
@@ -448,25 +451,49 @@ async def pattern_today(
             .order_by(PatternMarker.occurred_at.desc())
         )
         rows = res.all()
+        closure_res = await session.execute(
+            select(PatternMarkerDayClosure).where(
+                PatternMarkerDayClosure.pattern_id == pattern_id,
+                PatternMarkerDayClosure.closure_date == today,
+            )
+        )
+        declared_clean = closure_res.scalar_one_or_none() is not None
         has_bad = any(not opt.is_success for _, opt in rows)
         if not is_scheduled:
             st, can = "not_scheduled", False
+        elif declared_clean and not rows:
+            st, can = "answered", False
         elif not rows:
             st, can = "pending", True
         else:
             st, can = "answered", True
         last = rows[0] if rows else None
+        if not is_scheduled:
+            success_today = None
+        elif has_bad:
+            success_today = False
+        elif rows or declared_clean:
+            success_today = True
+        else:
+            success_today = None
         return PatternTodayRead(
             pattern_id=pattern_id,
             day=today.isoformat(),
             is_scheduled_today=is_scheduled,
             status=st,
             can_respond=can,
-            is_success_today=not has_bad if rows else (True if is_scheduled else None),
+            is_success_today=success_today,
             markers_today_count=len(rows),
             last_marker_label=last[1].label if last else None,
             last_marker_at=last[0].occurred_at if last else None,
+            day_declared_clean=declared_clean,
         )
+
+    if pattern.pattern_mode == "habit" and is_scheduled:
+        await session.execute(
+            text("CALL sp_ensure_habit_logs_for_day(:d)").bindparams(d=today)
+        )
+        await session.commit()
 
     res = await session.execute(
         text(
@@ -753,13 +780,20 @@ async def add_marker(
     opt = next((o for o in pattern.options if o.id == payload.marker_option_id), None)
     if opt is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Метка не найдена")
+    occurred = payload.occurred_at or datetime.now(tz=timezone.utc)
     marker = PatternMarker(
         pattern_id=pattern_id,
         marker_option_id=payload.marker_option_id,
-        occurred_at=payload.occurred_at or datetime.now(tz=timezone.utc),
+        occurred_at=occurred,
         note=payload.note,
     )
     session.add(marker)
+    await session.execute(
+        delete(PatternMarkerDayClosure).where(
+            PatternMarkerDayClosure.pattern_id == pattern_id,
+            PatternMarkerDayClosure.closure_date == occurred.date(),
+        )
+    )
     await session.commit()
     await session.refresh(marker)
     return PatternMarkerRead(
@@ -771,6 +805,74 @@ async def add_marker(
         occurred_at=marker.occurred_at,
         note=marker.note,
     )
+
+
+@router.post(
+    "/{pattern_id}/markers/declare-clean-day",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def declare_clean_day(
+    pattern_id: int,
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> None:
+    pattern = await _get(session, pattern_id, user_id)
+    if pattern.pattern_mode != "markers":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Только для режима markers")
+    today = date.today()
+    has_bad = await session.execute(
+        select(PatternMarker.id)
+        .join(
+            PatternResponseOption,
+            PatternResponseOption.id == PatternMarker.marker_option_id,
+        )
+        .where(
+            PatternMarker.pattern_id == pattern_id,
+            PatternMarker.occurred_at >= datetime.combine(today, datetime.min.time()).replace(
+                tzinfo=timezone.utc
+            ),
+            PatternResponseOption.is_success.is_(False),
+        )
+        .limit(1)
+    )
+    if has_bad.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Нельзя закрыть день: уже есть негативные отметки",
+        )
+    existing = await session.execute(
+        select(PatternMarkerDayClosure).where(
+            PatternMarkerDayClosure.pattern_id == pattern_id,
+            PatternMarkerDayClosure.closure_date == today,
+        )
+    )
+    if existing.scalar_one_or_none() is None:
+        session.add(PatternMarkerDayClosure(pattern_id=pattern_id, closure_date=today))
+    await session.commit()
+
+
+@router.delete(
+    "/{pattern_id}/markers/declare-clean-day",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def undeclare_clean_day(
+    pattern_id: int,
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> None:
+    pattern = await _get(session, pattern_id, user_id)
+    if pattern.pattern_mode != "markers":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Только для режима markers")
+    today = date.today()
+    await session.execute(
+        delete(PatternMarkerDayClosure).where(
+            PatternMarkerDayClosure.pattern_id == pattern_id,
+            PatternMarkerDayClosure.closure_date == today,
+        )
+    )
+    await session.commit()
 
 
 @router.delete(

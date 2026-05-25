@@ -20,7 +20,13 @@ import {
 import { api } from '@/api/client';
 import type { OlapMeta, StatsOverview } from '@/api/types';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
-import { TASK_PRIORITY_LABEL, PATTERN_MODE_LABEL } from '@/lib/labels';
+import {
+  ENERGY_BUCKET_LABEL,
+  MOOD_BUCKET_LABEL,
+  PATTERN_MODE_LABEL,
+  TASK_PRIORITY_LABEL,
+} from '@/lib/labels';
+import { FieldGroup, FormField } from '@/components/ui/form-field';
 import { fmtDate, minutesLabel, pct, toIsoDate } from '@/lib/format';
 
 const COLORS = ['#16a34a', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#6b7280', '#ef4444'];
@@ -78,22 +84,25 @@ export function StatsPage() {
         <ErrorBanner message="Не удалось загрузить статистику" />
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {[7, 30, 90].map((d) => (
-          <button
-            key={d}
-            type="button"
-            className={period === d ? 'btn-primary text-xs' : 'btn-secondary text-xs'}
-            onClick={() => setPeriod(d)}
-          >
-            {d} д
-          </button>
-        ))}
-      </div>
+      <FieldGroup legend="Период отчёта">
+        <div className="flex flex-wrap gap-2">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={period === d ? 'btn-primary text-xs' : 'btn-secondary text-xs'}
+              onClick={() => setPeriod(d)}
+            >
+              {d} д
+            </button>
+          ))}
+        </div>
+      </FieldGroup>
 
       {overview.data && <KpiGrid data={overview.data} />}
 
-      <div className="flex flex-wrap gap-2 border-b border-border pb-2">
+      <FieldGroup legend="Раздел" className="border-b border-border pb-2">
+        <div className="flex flex-wrap gap-2">
         {(
           [
             ['overview', 'Обзор'],
@@ -114,7 +123,8 @@ export function StatsPage() {
             {label}
           </button>
         ))}
-      </div>
+        </div>
+      </FieldGroup>
 
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -127,7 +137,7 @@ export function StatsPage() {
                 <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
                 <Tooltip />
                 <Legend />
-                <Bar yAxisId="left" dataKey="tasks_done" name="Задач done" fill="#16a34a" />
+                <Bar yAxisId="left" dataKey="tasks_done" name="Выполнено" fill="#16a34a" />
                 <Bar yAxisId="left" dataKey="patterns" name="Чистых паттернов" fill="#8b5cf6" />
                 <Line yAxisId="right" type="monotone" dataKey="mood" name="Настроение" stroke="#f59e0b" />
               </ComposedChart>
@@ -267,12 +277,12 @@ export function StatsPage() {
             <DataTable
               headers={[
                 'Неделя',
-                'Mood',
+                'Настроение',
                 'Задачи %',
                 'Паттерны %',
-                'corr(mood→tasks)',
-                'corr(mood→patterns)',
-                'corr(energy→tasks)',
+                'Настр. → задачи',
+                'Настр. → паттерны',
+                'Энергия → задачи',
               ]}
               rows={(holistic.data ?? []).slice(-12).map((r) => [
                 fmtDate(r.week_start),
@@ -359,44 +369,42 @@ function OlapBuilder({ period }: { period: number }) {
           <p className="text-xs text-ink-muted">
             Выберите измерение и меру — сервер агрегирует v_olap_daily_facts.
           </p>
-          <label className="block text-sm">
-            Измерение
-            <select className="select mt-1" value={dim} onChange={(e) => setDim(e.target.value)}>
+          <FormField label="Измерение">
+            <select className="select" value={dim} onChange={(e) => setDim(e.target.value)}>
               {(meta.data?.dimensions ?? []).map((d: OlapMeta['dimensions'][0]) => (
                 <option key={d.id} value={d.id}>
                   {d.label}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="block text-sm">
-            Мера
-            <select className="select mt-1" value={measure} onChange={(e) => setMeasure(e.target.value)}>
+          </FormField>
+          <FormField label="Мера">
+            <select className="select" value={measure} onChange={(e) => setMeasure(e.target.value)}>
               {(meta.data?.measures ?? []).map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="block text-sm">
-            Фильтр настроения
-            <select className="select mt-1" value={moodFilter} onChange={(e) => setMoodFilter(e.target.value)}>
-              <option value="">Все</option>
-              <option value="low">1–2</option>
-              <option value="mid">3</option>
-              <option value="high">4–5</option>
+          </FormField>
+          <FormField label="Настроение">
+            <select className="select" value={moodFilter} onChange={(e) => setMoodFilter(e.target.value)}>
+              {Object.entries(MOOD_BUCKET_LABEL).map(([v, label]) => (
+                <option key={v || 'any'} value={v}>
+                  {label}
+                </option>
+              ))}
             </select>
-          </label>
-          <label className="block text-sm">
-            Фильтр энергии
-            <select className="select mt-1" value={energyFilter} onChange={(e) => setEnergyFilter(e.target.value)}>
-              <option value="">Все</option>
-              <option value="low">1–2</option>
-              <option value="mid">3</option>
-              <option value="high">4–5</option>
+          </FormField>
+          <FormField label="Энергия">
+            <select className="select" value={energyFilter} onChange={(e) => setEnergyFilter(e.target.value)}>
+              {Object.entries(ENERGY_BUCKET_LABEL).map(([v, label]) => (
+                <option key={v || 'any'} value={v}>
+                  {label}
+                </option>
+              ))}
             </select>
-          </label>
+          </FormField>
           <button
             type="button"
             className="btn-primary w-full"

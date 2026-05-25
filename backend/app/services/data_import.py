@@ -28,6 +28,7 @@ _RESTORE_ORDER: list[tuple[str, str]] = [
     ("goal_links", "goal_links"),
     ("pattern_logs", "pattern_logs"),
     ("pattern_markers", "pattern_markers"),
+    ("pattern_marker_day_closures", "pattern_marker_day_closures"),
     ("pattern_day_sessions", "pattern_day_sessions"),
     ("pattern_step_answers", "pattern_step_answers"),
     ("app_settings", "app_settings"),
@@ -102,6 +103,11 @@ _WIPE_SQL = [
     )
     """,
     """
+    DELETE FROM pattern_marker_day_closures WHERE pattern_id IN (
+        SELECT id FROM behavior_patterns WHERE user_id = :uid
+    )
+    """,
+    """
     DELETE FROM pattern_markers WHERE pattern_id IN (
         SELECT id FROM behavior_patterns WHERE user_id = :uid
     )
@@ -170,6 +176,7 @@ async def _reset_sequences(session: AsyncSession) -> None:
         "goals",
         "pattern_logs",
         "pattern_markers",
+        "pattern_marker_day_closures",
         "pattern_day_sessions",
         "pattern_step_answers",
         "app_settings",

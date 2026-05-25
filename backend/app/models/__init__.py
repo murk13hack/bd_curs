@@ -14,6 +14,7 @@ from app.models.pattern import (
     PatternResponseOption,
     PatternSchedule,
     PatternMarker,
+    PatternMarkerDayClosure,
     PatternStep,
     PatternStepAnswer,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "PatternDaySession",
     "PatternStepAnswer",
     "PatternMarker",
+    "PatternMarkerDayClosure",
     "PatternLog",
     "Goal",
     "GoalLink",

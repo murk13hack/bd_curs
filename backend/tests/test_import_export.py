@@ -14,6 +14,7 @@ async def test_export_json_contains_topics(client: AsyncClient) -> None:
     assert "Работа" in names
     assert "pattern_steps" in data
     assert "pattern_markers" in data
+    assert "pattern_marker_day_closures" in data
     assert "recurring_rules" in data
 
 
@@ -113,6 +114,64 @@ async def test_import_json_idempotent_topics(client: AsyncClient) -> None:
     # повторный импорт не должен ломаться
     r = await client.post("/api/v1/import/json", json=payload)
     assert r.status_code == 202
+
+
+async def test_import_restore_marker_day_closures(client: AsyncClient) -> None:
+    created = await client.post(
+        "/api/v1/patterns",
+        json={
+            "title": "RestoreClosurePattern",
+            "pattern_type": "negative",
+            "pattern_mode": "markers",
+            "schedules": [{"time_of_day": "12:00:00", "dow_mask": 127}],
+        },
+    )
+    assert created.status_code == 201
+    pid = created.json()["id"]
+
+    r = await client.post(f"/api/v1/patterns/{pid}/markers/declare-clean-day")
+    assert r.status_code == 204
+
+    export = (await client.get("/api/v1/export/json")).json()["data"]
+    closures = export.get("pattern_marker_day_closures") or []
+    assert any(c["pattern_id"] == pid for c in closures)
+
+    await client.post(
+        "/api/v1/import/json",
+        json={"data": {"topics": [{"name": "WipeBeforeRestore", "color": "#000000"}]}, "mode": "merge"},
+    )
+
+    restore = await client.post(
+        "/api/v1/import/json",
+        json={"data": export, "mode": "restore"},
+    )
+    assert restore.status_code == 202
+
+    today = await client.get(f"/api/v1/patterns/{pid}/today")
+    assert today.status_code == 200
+    body = today.json()
+    assert body["day_declared_clean"] is True
+    assert body["is_success_today"] is True
+
+
+async def test_recurring_custom_interval_days(client: AsyncClient, topic_id: int) -> None:
+    task = await client.post(
+        "/api/v1/tasks",
+        json={
+            "topic_id": topic_id,
+            "title": "CustomIntervalTask",
+            "recurring": {
+                "frequency": "custom",
+                "params": {"interval_days": 3},
+                "is_active": True,
+            },
+        },
+    )
+    assert task.status_code == 201
+    tid = task.json()["id"]
+    rule = (await client.get(f"/api/v1/tasks/{tid}/recurring")).json()
+    assert rule["frequency"] == "custom"
+    assert rule["params"]["interval_days"] == 3
 
 
 async def test_export_tasks_csv(client: AsyncClient, topic_id: int) -> None:

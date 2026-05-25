@@ -161,6 +161,7 @@ class PatternTodayRead(BaseModel):
     markers_today_count: int = 0
     last_marker_label: str | None = None
     last_marker_at: datetime | None = None
+    day_declared_clean: bool = False
 
 
 class PatternMarkerWrite(BaseModel):

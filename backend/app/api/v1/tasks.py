@@ -33,7 +33,36 @@ def _ilike_pattern(q: str) -> str:
     return f"%{escaped}%"
 
 
-def _to_read(task: Task) -> TaskRead:
+async def _load_subtree_map(
+    session: SessionDep, task_ids: list[int]
+) -> dict[int, tuple[int, int, float]]:
+    if not task_ids:
+        return {}
+    res = await session.execute(
+        text(
+            """
+            SELECT task_id, subtask_total, subtask_done, progress
+              FROM v_task_subtree_progress
+             WHERE task_id = ANY(:ids)
+               AND subtask_total > 0
+            """
+        ),
+        {"ids": task_ids},
+    )
+    return {int(r[0]): (int(r[1]), int(r[2]), float(r[3])) for r in res}
+
+
+async def _read_task(session: SessionDep, task: Task) -> TaskRead:
+    subtree = None
+    if task.parent_task_id is None:
+        prog = await _load_subtree_map(session, [task.id])
+        subtree = prog.get(task.id)
+    return _to_read(task, subtree=subtree)
+
+
+def _to_read(
+    task: Task, *, subtree: tuple[int, int, float] | None = None
+) -> TaskRead:
     return TaskRead(
         id=task.id,
         topic_id=task.topic_id,
@@ -51,6 +80,9 @@ def _to_read(task: Task) -> TaskRead:
         created_at=task.created_at,
         updated_at=task.updated_at,
         tag_ids=[link.tag_id for link in task.tag_links],
+        subtask_total=subtree[0] if subtree else None,
+        subtask_done=subtree[1] if subtree else None,
+        subtask_progress=subtree[2] if subtree else None,
     )
 
 
@@ -126,7 +158,10 @@ async def list_tasks(
     stmt = stmt.limit(limit).offset(offset)
 
     res = await session.execute(stmt)
-    return [_to_read(t) for t in res.scalars()]
+    tasks = list(res.scalars())
+    roots = [t.id for t in tasks if t.parent_task_id is None]
+    prog = await _load_subtree_map(session, roots)
+    return [_to_read(t, subtree=prog.get(t.id)) for t in tasks]
 
 
 @router.post(
@@ -168,12 +203,12 @@ async def create_task(payload: TaskCreate, session: SessionDep, user_id: UserIdD
 
     await session.commit()
     await session.refresh(task, attribute_names=["tag_links"])
-    return _to_read(task)
+    return await _read_task(session, task)
 
 
 @router.get("/{task_id}", response_model=TaskRead, summary="Получить задачу")
 async def get_task(task_id: int, session: SessionDep, user_id: UserIdDep) -> TaskRead:
-    return _to_read(await _get(session, task_id, user_id))
+    return await _read_task(session, await _get(session, task_id, user_id))
 
 
 @router.patch("/{task_id}", response_model=TaskRead, summary="Обновить задачу")
@@ -200,7 +235,7 @@ async def update_task(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc.orig)) from exc
 
     await session.refresh(task, attribute_names=["tag_links"])
-    return _to_read(task)
+    return await _read_task(session, task)
 
 
 @router.delete(
@@ -222,7 +257,7 @@ async def complete_task(task_id: int, session: SessionDep, user_id: UserIdDep) -
     await session.commit()
     session.expire_all()
     refreshed = await _get(session, task_id, user_id)
-    return _to_read(refreshed)
+    return await _read_task(session, refreshed)
 
 
 @router.post("/{task_id}/reopen", response_model=TaskRead, summary="Вернуть в работу")
@@ -236,7 +271,7 @@ async def reopen_task(task_id: int, session: SessionDep, user_id: UserIdDep) -> 
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc.orig)) from exc
     session.expire_all()
     refreshed = await _get(session, task_id, user_id)
-    return _to_read(refreshed)
+    return await _read_task(session, refreshed)
 
 
 @router.post("/{task_id}/cancel", response_model=TaskRead, summary="Отменить задачу")
@@ -247,7 +282,7 @@ async def cancel_task(task_id: int, session: SessionDep, user_id: UserIdDep) -> 
     task.status = "cancelled"
     await session.commit()
     await session.refresh(task, attribute_names=["tag_links"])
-    return _to_read(task)
+    return await _read_task(session, task)
 
 
 @router.post("/{task_id}/start", response_model=TaskRead, summary="Взять в работу")
@@ -258,7 +293,7 @@ async def start_task(task_id: int, session: SessionDep, user_id: UserIdDep) -> T
     task.status = "in_progress"
     await session.commit()
     await session.refresh(task, attribute_names=["tag_links"])
-    return _to_read(task)
+    return await _read_task(session, task)
 
 
 @router.get(
@@ -273,7 +308,10 @@ async def list_subtasks(
         .where(Task.parent_task_id == task_id, Task.user_id == user_id)
         .order_by(Task.created_at.asc())
     )
-    return [_to_read(t) for t in res.scalars()]
+    tasks = list(res.scalars())
+    roots = [t.id for t in tasks if t.parent_task_id is None]
+    prog = await _load_subtree_map(session, roots)
+    return [_to_read(t, subtree=prog.get(t.id)) for t in tasks]
 
 
 async def _recalc_recurring_next_run(session: SessionDep, rule_id: int) -> None:

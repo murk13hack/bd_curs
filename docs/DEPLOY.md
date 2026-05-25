@@ -149,6 +149,43 @@ git pull
 docker compose up -d --build
 ```
 
+### База уже была развёрнута раньше (есть volume `pgdata`)
+
+Скрипты из `db/init/` **не выполняются повторно**. После `git pull` примените миграции по порядку:
+
+```powershell
+$migrations = @(
+  "007_pattern_logic_fixes.sql",
+  "008_marker_day_closures.sql",
+  "009_db_backend_sync.sql",
+  "010_recurring_custom_interval.sql"
+)
+foreach ($f in $migrations) {
+  docker cp "db/migrations/$f" ptt-db:/tmp/$f
+  docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f "/tmp/$f"
+}
+```
+
+Проверка:
+
+```powershell
+docker compose exec backend pytest tests/test_import_export.py tests/test_patterns.py -q
+docker cp db/tests/smoke.sql ptt-db:/tmp/smoke.sql
+docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f /tmp/smoke.sql
+```
+
+Подробная карта объектов БД ↔ API: [DB_SYNC.md](./DB_SYNC.md).
+
+### Чистая установка на новой машине
+
+1. `git clone git@github.com:murk13hack/bd_curs.git` (или HTTPS-URL репозитория).
+2. `cd bd_curs`, `Copy-Item .env.example .env`, сменить `POSTGRES_PASSWORD`.
+3. `docker compose up -d --build` — init-скрипты создадут схему **уже с актуальной логикой** (миграции 007–010 влиты в `db/init/`).
+4. Миграции из `db/migrations/` **не нужны**, если volume создаётся впервые.
+5. Открыть http://localhost, проверить `/api/v1/ping`.
+
+Если нужен гарантированно чистый стенд: `docker compose down -v` перед шагом 3 (удалит все данные).
+
 ## 12. Локальная разработка (без пересборки фронта)
 
 ### Backend hot-reload

@@ -33,7 +33,7 @@ async def export_json(session: SessionDep, user_id: UserIdDep) -> ExportPayload:
 @router.post(
     "/import/json",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Импорт данных (sp_import_user_data)",
+    summary="Импорт JSON: merge (темы/теги) или restore (полный)",
 )
 async def import_json(
     payload: ImportPayload, session: SessionDep, user_id: UserIdDep

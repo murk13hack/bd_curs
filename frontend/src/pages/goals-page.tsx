@@ -4,6 +4,7 @@ import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { api } from '@/api/client';
 import type { Goal, GoalLinkTarget } from '@/api/types';
 import { PageHeader, Modal, Spinner, EmptyState, ErrorBanner } from '@/components/ui/primitives';
+import { FormField } from '@/components/ui/form-field';
 import { fmtDate, pct, toIsoDateTimeLocal } from '@/lib/format';
 import { PATTERN_MODE_LABEL } from '@/lib/labels';
 import { confirmDelete } from '@/lib/confirm';
@@ -227,7 +228,7 @@ function GoalDetail({
         ) : null}
 
         <div className="space-y-2 border-t border-border pt-4">
-          <p className="text-xs font-medium text-ink-muted">Привязать задачу</p>
+          <FormField label="Привязать задачу">
           <select
             className="select"
             defaultValue=""
@@ -246,8 +247,9 @@ function GoalDetail({
                 </option>
               ))}
           </select>
+          </FormField>
 
-          <p className="text-xs font-medium text-ink-muted">Привязать паттерн</p>
+          <FormField label="Привязать паттерн">
           <select
             className="select"
             defaultValue=""
@@ -269,6 +271,7 @@ function GoalDetail({
                 </option>
               ))}
           </select>
+          </FormField>
         </div>
       </div>
     </section>
@@ -335,19 +338,21 @@ function GoalFormModal({
         }}
       >
         {error && <ErrorBanner message={error} />}
-        <input
-          className="input"
-          placeholder="Название (например, 30 дней зарядки)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
-        <textarea
-          className="input min-h-20"
-          placeholder="Описание (необязательно)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <FormField label="Название" hint="Например: 30 дней зарядки">
+          <input
+            className="input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </FormField>
+        <FormField label="Описание" hint="Необязательно">
+          <textarea
+            className="input min-h-20"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </FormField>
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Целевое значение (единиц прогресса)</span>
           <input

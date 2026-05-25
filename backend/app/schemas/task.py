@@ -70,6 +70,9 @@ class TaskRead(TaskBase):
     created_at: datetime
     updated_at: datetime
     tag_ids: list[int] = Field(default_factory=list)
+    subtask_total: int | None = None
+    subtask_done: int | None = None
+    subtask_progress: float | None = None
 
 
 class TimeLogCreate(BaseModel):

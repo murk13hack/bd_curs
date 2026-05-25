@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { PatternStepKind, PatternStepRole, PatternType } from '@/api/types';
-import { PATTERN_STEP_ROLE_LABEL } from '@/lib/labels';
+import { PATTERN_STEP_KIND_LABEL, PATTERN_STEP_ROLE_LABEL } from '@/lib/labels';
+import { FormField } from '@/components/ui/form-field';
 import {
   SCENARIO_TEMPLATES,
   blankStep,
@@ -11,12 +12,6 @@ import {
   toStepDrafts,
   type StepDraft,
 } from '@/lib/pattern-templates';
-
-const STEP_KINDS: { id: PatternStepKind; label: string }[] = [
-  { id: 'single_choice', label: 'Выбор из вариантов' },
-  { id: 'check', label: 'Да / нет' },
-  { id: 'note', label: 'Заметка (текст)' },
-];
 
 const STEP_ROLES: PatternStepRole[] = ['context', 'trigger', 'choice', 'action', 'outcome'];
 
@@ -38,24 +33,24 @@ export function ScenarioBuilder({ steps, onChange, patternType }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="block flex-1 text-sm">
-          <span className="mb-1 block font-medium">Стартовый шаблон</span>
+        <FormField label="Стартовый шаблон" className="flex-1">
           <select
             className="select"
             defaultValue=""
+            aria-label="Стартовый шаблон цепочки"
             onChange={(e) => {
               if (e.target.value) applyTemplate(e.target.value);
               e.target.value = '';
             }}
           >
-            <option value="">Подставить шаблон…</option>
+            <option value="">Выберите шаблон…</option>
             {SCENARIO_TEMPLATES.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label} — {t.description}
               </option>
             ))}
           </select>
-        </label>
+        </FormField>
         <button
           type="button"
           className="btn-secondary shrink-0"
@@ -202,61 +197,68 @@ function StepEditor({
         </div>
       </div>
 
-      <input
-        className="input mb-2"
-        placeholder="Вопрос / название шага"
-        value={step.title}
-        onChange={(e) => onChange({ ...step, title: e.target.value })}
-      />
-      <input
-        className="input mb-2 text-sm"
-        placeholder="Подсказка путеводителя (необязательно)"
-        value={step.hint}
-        onChange={(e) => onChange({ ...step, hint: e.target.value })}
-      />
+      <FormField label="Вопрос шага" className="mb-2">
+        <input
+          className="input"
+          value={step.title}
+          onChange={(e) => onChange({ ...step, title: e.target.value })}
+        />
+      </FormField>
+      <FormField label="Подсказка" hint="Необязательно" className="mb-2">
+        <input
+          className="input text-sm"
+          value={step.hint}
+          onChange={(e) => onChange({ ...step, hint: e.target.value })}
+        />
+      </FormField>
 
       <div className="mb-2 grid gap-2 sm:grid-cols-2">
-        <select
-          className="select text-sm"
-          value={step.step_kind}
-          onChange={(e) => {
-            const kind = e.target.value as PatternStepKind;
-            onChange({
-              ...step,
-              step_kind: kind,
-              choices:
-                kind === 'single_choice' && step.choices.length === 0
-                  ? [
-                      { id: slugId('1'), label: 'Вариант 1', is_success: false },
-                      { id: slugId('2'), label: 'Вариант 2', is_success: false },
-                    ]
-                  : step.choices,
-            });
-          }}
-        >
-          {STEP_KINDS.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select text-sm"
-          value={step.step_role}
-          onChange={(e) =>
-            onChange({
-              ...step,
-              step_role: e.target.value as PatternStepRole,
-              marks_success: e.target.value === 'outcome' ? true : step.marks_success,
-            })
-          }
-        >
-          {STEP_ROLES.map((r) => (
-            <option key={r} value={r}>
-              {PATTERN_STEP_ROLE_LABEL[r]}
-            </option>
-          ))}
-        </select>
+        <FormField label="Тип ответа">
+          <select
+            className="select text-sm"
+            value={step.step_kind}
+            onChange={(e) => {
+              const kind = e.target.value as PatternStepKind;
+              onChange({
+                ...step,
+                step_kind: kind,
+                marks_success: kind === 'note' ? false : step.marks_success,
+                choices:
+                  kind === 'single_choice' && step.choices.length === 0
+                    ? [
+                        { id: slugId('1'), label: 'Вариант 1', is_success: false },
+                        { id: slugId('2'), label: 'Вариант 2', is_success: false },
+                      ]
+                    : step.choices,
+              });
+            }}
+          >
+            {(Object.keys(PATTERN_STEP_KIND_LABEL) as PatternStepKind[]).map((k) => (
+              <option key={k} value={k}>
+                {PATTERN_STEP_KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Роль в цепочке">
+          <select
+            className="select text-sm"
+            value={step.step_role}
+            onChange={(e) =>
+              onChange({
+                ...step,
+                step_role: e.target.value as PatternStepRole,
+                marks_success: e.target.value === 'outcome' ? true : step.marks_success,
+              })
+            }
+          >
+            {STEP_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {PATTERN_STEP_ROLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </FormField>
       </div>
 
       <div className="mb-2 flex flex-wrap gap-4 text-xs">
@@ -283,16 +285,18 @@ function StepEditor({
           <p className="text-xs font-medium">Варианты ответа</p>
           {step.choices.map((c, ci) => (
             <div key={c.id || ci} className="flex flex-wrap items-center gap-2">
-              <input
-                className="input min-w-0 flex-1 text-sm"
-                value={c.label}
-                onChange={(e) => {
-                  const choices = [...step.choices];
-                  choices[ci] = { ...c, label: e.target.value };
-                  onChange({ ...step, choices });
-                }}
-              />
-              <label className="flex shrink-0 items-center gap-1 text-xs">
+              <FormField label={`Вариант ${ci + 1}`} className="min-w-0 flex-1">
+                <input
+                  className="input text-sm"
+                  value={c.label}
+                  onChange={(e) => {
+                    const choices = [...step.choices];
+                    choices[ci] = { ...c, label: e.target.value };
+                    onChange({ ...step, choices });
+                  }}
+                />
+              </FormField>
+              <label className="flex shrink-0 items-center gap-1 text-xs pt-5">
                 <input
                   type="checkbox"
                   checked={c.is_success}
@@ -302,7 +306,7 @@ function StepEditor({
                     onChange({ ...step, choices });
                   }}
                 />
-                успех
+                Успех дня
               </label>
               <button
                 type="button"

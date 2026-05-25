@@ -180,9 +180,10 @@ async def _calendar_cell(
 
     if pattern.pattern_mode == "markers":
         if not await _has_answer(session, pattern.id, day):
-            if day < today:
-                return PatternDayCell(day=day.isoformat(), status="success")
-            return PatternDayCell(day=day.isoformat(), status="pending")
+            return PatternDayCell(
+                day=day.isoformat(),
+                status="missed" if day < today else "pending",
+            )
         if await _day_success(session, pattern.id, day):
             return PatternDayCell(day=day.isoformat(), status="success")
         return PatternDayCell(day=day.isoformat(), status="failure")

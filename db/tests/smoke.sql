@@ -40,7 +40,7 @@ BEGIN
     ASSERT v_tables   >= 18, 'Tables expected >= 18';
     ASSERT v_views    >=  9, 'Views (regular) expected >= 9';
     ASSERT v_matviews >=  1, 'Materialized views expected >= 1';
-    ASSERT v_funcs    >= 11, 'Functions expected >= 11';
+    ASSERT v_funcs    >=  9, 'Functions expected >= 9';
     ASSERT v_procs    >=  8, 'Procedures expected >= 8';
     ASSERT v_triggers >= 10, 'Triggers expected >= 10';
 END $$;

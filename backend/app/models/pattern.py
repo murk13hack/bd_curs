@@ -170,6 +170,19 @@ class PatternStepAnswer(Base):
     )
 
 
+class PatternMarkerDayClosure(Base):
+    __tablename__ = "pattern_marker_day_closures"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    pattern_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("behavior_patterns.id", ondelete="CASCADE"), nullable=False
+    )
+    closure_date: Mapped[date] = mapped_column(Date, nullable=False)
+    declared_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class PatternMarker(Base):
     __tablename__ = "pattern_markers"
 

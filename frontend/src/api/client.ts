@@ -225,6 +225,10 @@ export const api = {
       }),
     removeMarker: (id: number, markerId: number) =>
       request<void>(`/patterns/${id}/markers/${markerId}`, { method: 'DELETE' }),
+    declareCleanDay: (id: number) =>
+      request<void>(`/patterns/${id}/markers/declare-clean-day`, { method: 'POST' }),
+    undeclareCleanDay: (id: number) =>
+      request<void>(`/patterns/${id}/markers/declare-clean-day`, { method: 'DELETE' }),
     streaksAll: () => request<PatternStreak[]>('/patterns/streaks/all'),
   },
 

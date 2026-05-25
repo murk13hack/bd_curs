@@ -12,6 +12,7 @@ import {
   type RecurringDraft,
 } from '@/components/tasks/recurring-editor';
 import { PageHeader, Modal, Spinner, EmptyState, ErrorBanner } from '@/components/ui/primitives';
+import { FormField } from '@/components/ui/form-field';
 import { fmtDateTime, toIsoDateTimeLocal } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
 import {
@@ -128,36 +129,41 @@ export function TasksPage() {
       </div>
 
       <div className="mb-4 grid gap-3 md:grid-cols-4">
-        <input
-          className="input md:col-span-2"
-          placeholder="Поиск по названию и описанию…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <select
-          className="select"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as TaskStatus | '')}
-        >
-          <option value="">Все статусы</option>
-          {(Object.keys(TASK_STATUS_LABEL) as TaskStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {TASK_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select"
-          value={topicId}
-          onChange={(e) => setTopicId(e.target.value ? Number(e.target.value) : '')}
-        >
-          <option value="">Все темы</option>
-          {(topics.data ?? []).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+        <FormField label="Поиск" className="md:col-span-2">
+          <input
+            className="input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Статус">
+          <select
+            className="select"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as TaskStatus | '')}
+          >
+            <option value="">Все</option>
+            {(Object.keys(TASK_STATUS_LABEL) as TaskStatus[]).map((s) => (
+              <option key={s} value={s}>
+                {TASK_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Тема">
+          <select
+            className="select"
+            value={topicId}
+            onChange={(e) => setTopicId(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">Все</option>
+            {(topics.data ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
       </div>
 
       {tasks.isError ? (
@@ -480,42 +486,48 @@ function TaskFormModal({
         {topics.length === 0 && (
           <p className="text-sm text-ink-muted">Сначала создайте тему в настройках.</p>
         )}
-        <input
-          className="input"
-          placeholder="Название"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
-        <textarea
-          className="input min-h-24"
-          placeholder="Описание"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <FormField label="Название">
+          <input
+            className="input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </FormField>
+        <FormField label="Описание" hint="Необязательно">
+          <textarea
+            className="input min-h-24"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </FormField>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            className="select"
-            value={topicId}
-            onChange={(e) => setTopicId(Number(e.target.value))}
-          >
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          >
-            {(Object.keys(TASK_PRIORITY_LABEL) as TaskPriority[]).map((p) => (
-              <option key={p} value={p}>
-                {TASK_PRIORITY_LABEL[p]}
-              </option>
-            ))}
-          </select>
+          <FormField label="Тема">
+            <select
+              className="select"
+              value={topicId}
+              onChange={(e) => setTopicId(Number(e.target.value))}
+            >
+              {topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Приоритет">
+            <select
+              className="select"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as TaskPriority)}
+            >
+              {(Object.keys(TASK_PRIORITY_LABEL) as TaskPriority[]).map((p) => (
+                <option key={p} value={p}>
+                  {TASK_PRIORITY_LABEL[p]}
+                </option>
+              ))}
+            </select>
+          </FormField>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm">
@@ -592,12 +604,13 @@ function TaskFormModal({
               </ul>
             )}
             <div className="flex gap-2">
-              <input
-                className="input flex-1"
-                placeholder="Новая подзадача"
-                value={newSubtaskTitle}
-                onChange={(e) => setNewSubtaskTitle(e.target.value)}
-              />
+              <FormField label="Подзадача" className="min-w-0 flex-1">
+                <input
+                  className="input"
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                />
+              </FormField>
               <button
                 type="button"
                 className="btn-secondary"
@@ -609,6 +622,8 @@ function TaskFormModal({
             </div>
           </div>
         )}
+        {tags.length > 0 && (
+        <FormField label="Теги">
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (
             <label key={tag.id} className="flex items-center gap-1 text-sm">
@@ -625,6 +640,8 @@ function TaskFormModal({
             </label>
           ))}
         </div>
+        </FormField>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Отмена

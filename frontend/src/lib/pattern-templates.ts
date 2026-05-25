@@ -252,6 +252,9 @@ export function validateScenarioSteps(steps: StepDraft[]): string | null {
   if (outcome.length === 0) {
     return 'Отметьте один шаг как «Итог дня» (роль outcome или флаг «считает успех»)';
   }
+  if (outcome.some((s) => s.step_kind === 'note')) {
+    return 'Итог дня не может быть заметкой — используйте «да/нет» или варианты ответа';
+  }
   return null;
 }
 
@@ -313,7 +316,11 @@ export function rateLabel(scheduled: number, success: number): string {
   return `${success}/${scheduled} (${pct}%)`;
 }
 
-export function todayTone(isSuccess: boolean | null | undefined): 'good' | 'bad' | 'pending' {
+export function todayTone(
+  isSuccess: boolean | null | undefined,
+  status?: string,
+): 'good' | 'bad' | 'pending' {
+  if (status === 'missed') return 'bad';
   if (isSuccess === true) return 'good';
   if (isSuccess === false) return 'bad';
   return 'pending';

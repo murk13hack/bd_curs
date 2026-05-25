@@ -3,45 +3,9 @@
 -- См. ТЗ.md, раздел 4.3.1.6.
 -- =============================================================================
 
--- ---------- 1. v_calendar_day_stats --------------------------------------
+-- Календарь месяца: fn_get_calendar_stats (API /calendar/{y}/{m}).
 
-CREATE OR REPLACE VIEW v_calendar_day_stats AS
-WITH agg AS (
-    SELECT
-        t.user_id,
-        t.deadline::date AS day,
-        COUNT(*)                                       AS total,
-        COUNT(*) FILTER (WHERE t.status = 'done')      AS done
-      FROM tasks t
-     WHERE t.deadline IS NOT NULL
-     GROUP BY t.user_id, t.deadline::date
-)
-SELECT
-    a.user_id,
-    a.day,
-    a.total::INT,
-    a.done::INT,
-    CASE WHEN a.total = 0 THEN 0
-         ELSE ROUND(100.0 * a.done / a.total, 2)
-    END AS ratio,
-    fn_day_color(
-        CASE WHEN a.total = 0 THEN 0
-             ELSE 100.0 * a.done / a.total
-        END
-    ) AS color,
-    h.holiday_date IS NOT NULL AS is_holiday,
-    h.name AS holiday_name,
-    EXISTS (
-        SELECT 1 FROM diary_entries de
-         WHERE de.user_id = a.user_id AND de.entry_date = a.day
-    ) AS has_diary
-  FROM agg a
-  LEFT JOIN holidays h ON h.holiday_date = a.day;
-
-COMMENT ON VIEW v_calendar_day_stats
-    IS 'Прогресс по дням: total/done/ratio/color, признак праздника и наличия записи дневника.';
-
--- ---------- 2. v_task_topic_breakdown ------------------------------------
+-- ---------- 1. v_task_topic_breakdown ------------------------------------
 
 CREATE OR REPLACE VIEW v_task_topic_breakdown AS
 SELECT
@@ -77,7 +41,7 @@ SELECT
     fn_calculate_streak(bp.id)     AS current_streak,
     fn_calculate_max_streak(bp.id) AS max_streak,
     CASE WHEN bp.pattern_type = 'negative'
-         THEN fn_calculate_streak(bp.id)
+         THEN fn_calculate_anti_streak(bp.id)
          ELSE 0
     END                            AS anti_streak,
     cd.scheduled_days              AS scheduled_days_30d,
@@ -88,7 +52,7 @@ SELECT
   CROSS JOIN LATERAL fn_pattern_clean_days_30d(bp.id) cd;
 
 COMMENT ON VIEW v_pattern_streaks
-    IS 'Серии и чистые дни за 30 суток по каждому паттерну.';
+    IS 'Серии: current/max — успешные дни; anti_streak — подряд срывов (negative).';
 
 -- ---------- 4. v_overdue_tasks (MATERIALIZED) ----------------------------
 
@@ -420,23 +384,9 @@ SELECT user_id, day, SUM(activity)::INT AS activity
 COMMENT ON VIEW v_year_heatmap
     IS 'Тепловая карта активности: задачи, дневник, паттерны, метки, сессии, время.';
 
--- ---------- 8. v_goal_progress -------------------------------------------
+-- Прогресс целей: fn_goal_progress (API GET /goals/{id}/progress).
 
-CREATE OR REPLACE VIEW v_goal_progress AS
-SELECT
-    g.id          AS goal_id,
-    g.user_id,
-    g.title,
-    g.deadline,
-    g.target_value,
-    g.is_completed,
-    fn_goal_progress(g.id) AS progress
-  FROM goals g;
-
-COMMENT ON VIEW v_goal_progress
-    IS 'Текущий процент выполнения каждой цели.';
-
--- ---------- 9. v_task_subtree_progress (рекурсивный CTE) ----------------
+-- ---------- 8. v_task_subtree_progress (рекурсивный CTE) -----------------
 
 CREATE OR REPLACE VIEW v_task_subtree_progress AS
 WITH RECURSIVE tree AS (
@@ -473,7 +423,7 @@ SELECT
 COMMENT ON VIEW v_task_subtree_progress
     IS 'Прогресс корневой задачи на основе её подзадач (рекурсивный CTE).';
 
--- ---------- 10. v_topic_time_distribution --------------------------------
+-- ---------- 9. v_topic_time_distribution ---------------------------------
 
 CREATE OR REPLACE VIEW v_topic_time_distribution AS
 SELECT
@@ -492,5 +442,5 @@ COMMENT ON VIEW v_topic_time_distribution
 
 DO $$
 BEGIN
-    RAISE NOTICE 'PTT 06-views: 13 views (incl. 1 materialized) created';
+    RAISE NOTICE 'PTT 06-views: 11 views (incl. 1 materialized) created';
 END $$;
