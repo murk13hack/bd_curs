@@ -4,6 +4,7 @@ import { Download, Plus, Trash2, Upload } from 'lucide-react';
 import { api } from '@/api/client';
 import type { ThemeMode } from '@/hooks/use-theme';
 import { PageHeader, Spinner, ErrorBanner, Modal } from '@/components/ui/primitives';
+import { ColorField } from '@/components/ui/color-field';
 import { FormField } from '@/components/ui/form-field';
 import { downloadJson, downloadText } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
@@ -242,31 +243,24 @@ export function SettingsPage() {
         <section className="card">
           <div className="card-body space-y-3">
             <h2 className="font-semibold">Темы</h2>
-            <div className="flex flex-wrap items-end gap-2">
-              <FormField label="Название темы" className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <FormField label="Название темы" className="min-w-0 w-full sm:flex-1">
                 <input
-                  className="input"
+                  className="input w-full"
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
                 />
               </FormField>
-              <FormField label="Цвет">
-              <input
-                type="color"
-                className="h-10 w-12 cursor-pointer rounded border border-border"
-                value={topicColor}
-                onChange={(e) => setTopicColor(e.target.value)}
-              />
-              </FormField>
               <button
                 type="button"
-                className="btn-primary shrink-0"
+                className="btn-primary w-full shrink-0 sm:w-auto"
                 disabled={!topicName.trim()}
                 onClick={() => addTopic.mutate()}
               >
-                <Plus size={16} />
+                <Plus size={16} /> Добавить тему
               </button>
             </div>
+            <ColorField value={topicColor} onChange={setTopicColor} />
             <ul className="space-y-1">
               {(topics.data ?? []).map((t) => (
                 <li key={t.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
