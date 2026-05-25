@@ -7,10 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -23,11 +20,15 @@ import type { HolisticCorrelationWeek, OlapMeta, PatternStreak, StatsOverview } 
 import {
   AxisLabelX,
   AxisLabelYLeft,
-  AxisLabelYRight,
   ChartCaption,
   statsChartMargin,
 } from '@/components/stats/stats-chart-labels';
 import { StatsHeatmapGrid } from '@/components/stats/stats-heatmap-grid';
+import {
+  DIARY_WEEKLY_SERIES,
+  OVERVIEW_WEEKLY_SERIES,
+  StatsWeeklyMiniGrid,
+} from '@/components/stats/stats-weekly-mini-charts';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import {
   ENERGY_BUCKET_LABEL,
@@ -174,76 +175,16 @@ export function StatsPage() {
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-2">
           <ChartCard
-            title="Недельная динамика"
+            title="Недели за период"
             loading={weekly.isLoading}
             error={weekly.isError}
             errorMessage={queryError(weekly.error)}
             empty={!weekly.isLoading && !weekly.isError && !weeklyHasData}
             emptyMessage="Нет задач и записей дневника за период"
             className="lg:col-span-2"
-            caption="По каждой неделе: зелёные столбцы — число выполненных задач (левая ось, шт.); фиолетовые — доля «чистых» дней паттернов от запланированных (правая ось, %); линия — среднее настроение из дневника (правая ось, баллы 1–5)."
+            caption="Три отдельных графика по неделям — у каждого своя ось и единицы (шт., % или баллы 1–5). Так проще сравнивать динамику без смешения шкал."
           >
-            <ResponsiveContainer width="100%" height={340}>
-              <ComposedChart
-                data={weeklyChart}
-                margin={statsChartMargin({ right: 88, left: 56, bottom: 44 })}
-              >
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval="preserveStartEnd">
-                  <AxisLabelX value="Неделя (начало)" />
-                </XAxis>
-                <YAxis yAxisId="count" domain={[0, 'auto']} allowDecimals={false} width={48}>
-                  <AxisLabelYLeft value="Задач, шт." />
-                </YAxis>
-                <YAxis
-                  yAxisId="pct"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
-                  width={44}
-                >
-                  <AxisLabelYRight value="% паттернов" />
-                </YAxis>
-                <YAxis
-                  yAxisId="mood"
-                  orientation="right"
-                  domain={[0, 5]}
-                  tickCount={6}
-                  width={40}
-                  tick={{ fontSize: 10 }}
-                >
-                  <AxisLabelYRight value="Настроение" />
-                </YAxis>
-                <Tooltip
-                  formatter={(v: number, name: string) => {
-                    if (name.includes('%') || name.includes('чистых')) return pct(v);
-                    if (name.includes('Настроение')) return v?.toFixed?.(1) ?? v;
-                    return `${v} шт.`;
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Bar
-                  yAxisId="count"
-                  dataKey="tasks_done"
-                  name="Выполнено задач (шт.)"
-                  fill="#16a34a"
-                />
-                <Bar
-                  yAxisId="pct"
-                  dataKey="pattern_clean_pct"
-                  name="% чистых дней (паттерны)"
-                  fill="#8b5cf6"
-                />
-                <Line
-                  yAxisId="mood"
-                  type="monotone"
-                  dataKey="mood"
-                  name="Настроение (1–5)"
-                  stroke="#f59e0b"
-                  connectNulls
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <StatsWeeklyMiniGrid rows={weeklyChart} series={OVERVIEW_WEEKLY_SERIES} />
           </ChartCard>
 
           <ChartCard
@@ -461,63 +402,14 @@ function DiaryTab({
       {correlationError && <ErrorBanner message={`Корреляция (задачи): ${correlationError}`} />}
 
       <ChartCard
-        title="Настроение и продуктивность (недели)"
+        title="Недели: дневник, задачи, паттерны"
         loading={loading}
         className="lg:col-span-2"
         empty={!loading && !holisticError && !hasChart}
         emptyMessage="Ведите дневник (настроение) и отмечайте задачи/паттерны — тогда появятся графики"
-        caption="Средние за календарную неделю: оранжевая линия — настроение из дневника (левая ось, 1–5); зелёная и фиолетовая — % выполненных задач и % «чистых» дней паттернов (правая ось, 0–100%). Показатели на разных шкалах, чтобы не смешивать баллы и проценты."
+        caption="Средние за календарную неделю — три мини-графика: настроение (1–5), доля выполненных задач (%), доля чистых дней паттернов (%)."
       >
-        <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={chartData} margin={statsChartMargin({ right: 56, left: 52, bottom: 44 })}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} interval="preserveStartEnd">
-              <AxisLabelX value="Неделя (начало)" />
-            </XAxis>
-            <YAxis yAxisId="mood" domain={[0, 5]} tickCount={6} width={48}>
-              <AxisLabelYLeft value="Настроение (1–5)" />
-            </YAxis>
-            <YAxis
-              yAxisId="pct"
-              orientation="right"
-              domain={[0, 100]}
-              tickFormatter={(v) => `${v}%`}
-              width={48}
-            >
-              <AxisLabelYRight value="% задач и паттернов" />
-            </YAxis>
-            <Tooltip
-              formatter={(v: number, name: string) =>
-                name === 'Настроение (1–5)' ? [v.toFixed(1), 'балл'] : [pct(v), '%']
-              }
-            />
-            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-            <Line
-              yAxisId="mood"
-              type="monotone"
-              dataKey="mood"
-              name="Настроение (1–5)"
-              stroke="#f59e0b"
-              connectNulls
-            />
-            <Line
-              yAxisId="pct"
-              type="monotone"
-              dataKey="tasks"
-              name="% задач"
-              stroke="#16a34a"
-              connectNulls
-            />
-            <Line
-              yAxisId="pct"
-              type="monotone"
-              dataKey="patterns"
-              name="% паттернов"
-              stroke="#8b5cf6"
-              connectNulls
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <StatsWeeklyMiniGrid rows={chartData} series={DIARY_WEEKLY_SERIES} />
       </ChartCard>
 
       <ChartCard
