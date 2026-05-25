@@ -61,7 +61,9 @@ export function GoalsPage() {
                 className={`card w-full p-4 text-left transition ${
                   selectedId === goal.id ? 'border-accent ring-1 ring-accent/30' : ''
                 }`}
-                onClick={() => setSelectedId(goal.id)}
+                onClick={() =>
+                  setSelectedId((id) => (id === goal.id ? null : goal.id))
+                }
               >
                 <div className="font-semibold">{goal.title}</div>
                 <div className="mt-1 text-xs text-ink-muted">
@@ -71,22 +73,41 @@ export function GoalsPage() {
               </button>
             ))}
           </div>
-          {selectedId && (
-            <GoalDetail
-              goalId={selectedId}
-              goal={goals.data!.find((g) => g.id === selectedId)!}
-              onDelete={() => {
-                if (confirmDelete(`цель «${goals.data!.find((g) => g.id === selectedId)!.title}»`)) {
-                  deleteMut.mutate(selectedId);
-                }
-              }}
-              onEdit={() => setEditGoal(goals.data!.find((g) => g.id === selectedId)!)}
-            />
-          )}
+          {selectedId != null && (() => {
+            const selectedGoal = (goals.data ?? []).find((g) => g.id === selectedId);
+            if (!selectedGoal) return null;
+            return (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+                  aria-label="Закрыть панель"
+                  onClick={() => setSelectedId(null)}
+                />
+                <div className="relative z-40 lg:z-auto">
+                  <GoalDetail
+                    goalId={selectedId}
+                    goal={selectedGoal}
+                    onClose={() => setSelectedId(null)}
+                    onDelete={() => {
+                      if (confirmDelete(`цель «${selectedGoal.title}»`)) {
+                        deleteMut.mutate(selectedId);
+                      }
+                    }}
+                    onEdit={() => setEditGoal(selectedGoal)}
+                  />
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
-      <GoalFormModal open={showForm} onClose={() => setShowForm(false)} />
+      <GoalFormModal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        onCreated={(g) => setSelectedId(g.id)}
+      />
       <GoalFormModal
         open={!!editGoal}
         goal={editGoal}
@@ -99,11 +120,13 @@ export function GoalsPage() {
 function GoalDetail({
   goalId,
   goal,
+  onClose,
   onDelete,
   onEdit,
 }: {
   goalId: number;
   goal: Goal;
+  onClose: () => void;
   onDelete: () => void;
   onEdit: () => void;
 }) {
@@ -147,8 +170,11 @@ function GoalDetail({
             <button type="button" className="btn-ghost px-2" onClick={onEdit} title="Редактировать">
               <Pencil size={16} />
             </button>
-            <button type="button" className="btn-ghost px-2" onClick={onDelete}>
+            <button type="button" className="btn-ghost px-2" onClick={onDelete} title="Удалить">
               <Trash2 size={16} />
+            </button>
+            <button type="button" className="btn-ghost px-2" onClick={onClose} title="Закрыть">
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -228,6 +254,12 @@ function GoalDetail({
         ) : null}
 
         <div className="space-y-2 border-t border-border pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Привязки</h3>
+            <button type="button" className="btn-secondary text-xs" onClick={onClose}>
+              Готово
+            </button>
+          </div>
           <FormField label="Привязать задачу">
           <select
             className="select"
@@ -281,10 +313,13 @@ function GoalDetail({
 function GoalFormModal({
   open,
   onClose,
+  onCreated,
   goal = null,
 }: {
   open: boolean;
   onClose: () => void;
+  /** После создания новой цели (открывается панель привязок — её можно закрыть) */
+  onCreated?: (goal: Goal) => void;
   goal?: Goal | null;
 }) {
   const qc = useQueryClient();
@@ -321,9 +356,10 @@ function GoalFormModal({
       if (goal) return api.goals.update(goal.id, body);
       return api.goals.create(body);
     },
-    onSuccess: () => {
+    onSuccess: (saved: Goal) => {
       qc.invalidateQueries({ queryKey: ['goals'] });
       onClose();
+      if (!goal) onCreated?.(saved);
     },
     onError: (e: Error) => setError(e.message),
   });
