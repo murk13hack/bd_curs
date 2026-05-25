@@ -31,7 +31,7 @@ export function ScenarioBuilder({ steps, onChange, patternType }: Props) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         <FormField label="Стартовый шаблон" className="flex-1">
           <select
@@ -161,7 +161,7 @@ function StepEditor({
   return (
     <div
       onDragOver={onDragOver}
-      className={`rounded-lg border p-3 transition-opacity ${
+      className={`min-w-0 rounded-lg border p-3 transition-opacity ${
         step.marks_success ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
       } ${dragging ? 'opacity-50' : ''}`}
     >

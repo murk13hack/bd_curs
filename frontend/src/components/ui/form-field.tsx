@@ -11,7 +11,7 @@ type FormFieldProps = {
 /** Подпись над полем ввода или выбора */
 export function FormField({ label, hint, children, className = '', htmlFor }: FormFieldProps) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className}`.trim()}>
       <label
         htmlFor={htmlFor}
         className="mb-1 block text-xs font-medium text-ink-muted"

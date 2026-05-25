@@ -467,7 +467,7 @@ function ScenarioWizard({ pattern, onClose }: { pattern: Pattern; onClose: () =>
 
   if (sessionQ.isLoading || !sess || !step) {
     return (
-      <Modal open title={pattern.title} onClose={onClose}>
+      <Modal open title={pattern.title} onClose={onClose} wide>
         <Spinner />
       </Modal>
     );
@@ -481,7 +481,7 @@ function ScenarioWizard({ pattern, onClose }: { pattern: Pattern; onClose: () =>
     .every((s) => isScenarioStepAnswered(s, sess.answers.find((a) => a.step_id === s.id)));
 
   return (
-    <Modal open title={pattern.title} onClose={onClose}>
+    <Modal open title={pattern.title} onClose={onClose} wide>
       <div className="space-y-4">
         {pattern.guide_intro && stepIdx === 0 && (
           <p className="rounded-lg bg-surface-3 p-3 text-sm text-ink-muted">{pattern.guide_intro}</p>
@@ -733,7 +733,7 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
   const isScenario = mode === 'scenario';
 
   return (
-    <Modal open={open} title="Новый паттерн" onClose={onClose} wide={isScenario}>
+    <Modal open={open} title="Новый паттерн" onClose={onClose} wide>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -985,7 +985,7 @@ function PatternEditModal({ pattern, onClose }: { pattern: Pattern; onClose: () 
   });
 
   return (
-    <Modal open title="Настройки паттерна" onClose={onClose} wide={isScenario}>
+    <Modal open title="Настройки паттерна" onClose={onClose} wide>
       <form
         className="space-y-4"
         onSubmit={(e) => {

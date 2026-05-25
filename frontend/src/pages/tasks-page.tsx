@@ -474,7 +474,7 @@ function TaskFormModal({
   });
 
   return (
-    <Modal open={open} title={task ? 'Редактировать задачу' : 'Новая задача'} onClose={onClose}>
+    <Modal open={open} title={task ? 'Редактировать задачу' : 'Новая задача'} onClose={onClose} wide>
       <form
         className="space-y-3"
         onSubmit={(e) => {

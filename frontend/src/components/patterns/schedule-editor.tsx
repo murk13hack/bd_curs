@@ -15,7 +15,7 @@ type Props = {
 
 export function ScheduleEditor({ rows, onChange }: Props) {
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       <p className="text-sm font-medium">Напоминания</p>
       {rows.map((row, i) => {
         const days = dowArrayFromMask(row.dow_mask);
