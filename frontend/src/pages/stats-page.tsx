@@ -29,7 +29,7 @@ import {
   TASK_PRIORITY_LABEL,
 } from '@/lib/labels';
 import { FieldGroup, FormField } from '@/components/ui/form-field';
-import { fmtDate, minutesLabel, pct, toIsoDate } from '@/lib/format';
+import { fmtDate, minutesLabel, pct } from '@/lib/format';
 import {
   formatOlapMeasure,
   OLAP_PERCENT_MEASURES,
