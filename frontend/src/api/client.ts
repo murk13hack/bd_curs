@@ -251,15 +251,18 @@ export const api = {
     overview: (days = 30) => request<StatsOverview>(`/stats/overview${qs({ days })}`),
     olap: (body: Record<string, unknown>) =>
       request<OlapResult>('/stats/olap', { method: 'POST', body: JSON.stringify(body) }),
-    topics: () => request<TopicBreakdown[]>('/stats/topics'),
-    priorities: () => request<PriorityBreakdown[]>('/stats/priorities'),
+    topics: (params: { days?: number; from?: string; to?: string } = {}) =>
+      request<TopicBreakdown[]>(`/stats/topics${qs(params)}`),
+    priorities: (params: { days?: number; from?: string; to?: string } = {}) =>
+      request<PriorityBreakdown[]>(`/stats/priorities${qs(params)}`),
     patterns: () => request<PatternStatsRow[]>('/stats/patterns'),
-    timeDistribution: () => request<TopicTimeBreakdown[]>('/stats/time-distribution'),
-    correlation: (params: { from?: string; to?: string } = {}) =>
+    timeDistribution: (params: { days?: number; from?: string; to?: string } = {}) =>
+      request<TopicTimeBreakdown[]>(`/stats/time-distribution${qs(params)}`),
+    correlation: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<CorrelationWeek[]>(`/stats/correlation${qs(params)}`),
-    holistic: (params: { from?: string; to?: string } = {}) =>
+    holistic: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<HolisticCorrelationWeek[]>(`/stats/holistic${qs(params)}`),
-    weekly: (params: { from?: string; to?: string; limit?: number } = {}) =>
+    weekly: (params: { days?: number; from?: string; to?: string; limit?: number } = {}) =>
       request<WeeklySummary[]>(`/stats/weekly${qs(params)}`),
     completionRate: (from: string, to: string, topic_id?: number) =>
       request<{ rate: number }>(`/stats/completion-rate${qs({ from, to, topic_id })}`),

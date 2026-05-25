@@ -7,6 +7,24 @@ from datetime import date, datetime, timedelta, timezone
 from httpx import AsyncClient
 
 
+async def test_topics_breakdown_period(client: AsyncClient, topic_id: int) -> None:
+    today = date.today()
+    r = await client.get(
+        "/api/v1/stats/topics",
+        params={"from": today.isoformat(), "to": today.isoformat()},
+    )
+    assert r.status_code == 200
+
+
+async def test_holistic_period(client: AsyncClient, topic_id: int) -> None:
+    await client.post(
+        "/api/v1/diary",
+        json={"entry_date": date.today().isoformat(), "content": "h", "mood": 3, "energy": 3},
+    )
+    r = await client.get("/api/v1/stats/holistic", params={"days": 30})
+    assert r.status_code == 200
+
+
 async def test_topics_breakdown(client: AsyncClient, topic_id: int) -> None:
     deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
     for _ in range(3):

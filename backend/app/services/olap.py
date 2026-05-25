@@ -29,6 +29,7 @@ DIMENSION_LABELS: dict[str, str] = {
 WEEKDAY_LABELS = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
 
 MOOD_LABELS = {"none": "—", "low": "1–2", "mid": "3", "high": "4–5"}
+ENERGY_LABELS = {"none": "—", "low": "1–2", "mid": "3", "high": "4–5"}
 
 MEASURE_SQL: dict[str, str] = {
     "tasks_total": "SUM(tasks_total)",
@@ -92,7 +93,7 @@ def _format_dim_value(dim: str, val: Any) -> str:
     if dim == "mood_bucket":
         return MOOD_LABELS.get(str(val), str(val))
     if dim == "energy_bucket":
-        return MOOD_LABELS.get(str(val), str(val))
+        return ENERGY_LABELS.get(str(val), str(val))
     return str(val)
 
 

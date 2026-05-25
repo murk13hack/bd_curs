@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import text
@@ -24,6 +24,19 @@ from app.schemas.stats import (
 from app.services.olap import fetch_overview, olap_meta, run_olap_query
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
+
+def _resolve_period(
+    days: int | None,
+    from_: date | None,
+    to: date | None,
+) -> tuple[date, date]:
+    if to is None:
+        to = date.today()
+    if from_ is not None:
+        return from_, to
+    span = days if days is not None else 30
+    return to - timedelta(days=span - 1), to
 
 
 @router.get("/meta", response_model=OlapMeta, summary="OLAP: доступные измерения и меры")
@@ -65,14 +78,31 @@ async def olap_query(
 
 @router.get("/topics", response_model=list[TopicBreakdown])
 async def topics_breakdown(
-    session: SessionDep, user_id: UserIdDep
+    session: SessionDep,
+    user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = None,
 ) -> list[TopicBreakdown]:
+    date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT topic_id, topic_name, total, done, overdue, completion_rate,"
-            " avg_planned_minutes, avg_overdue_minutes "
-            "FROM v_task_topic_breakdown WHERE user_id = :uid ORDER BY total DESC"
-        ).bindparams(uid=user_id)
+            "SELECT t.topic_id, tp.name AS topic_name,"
+            " COUNT(*)::INT AS total,"
+            " COUNT(*) FILTER (WHERE t.status = 'done')::INT AS done,"
+            " COUNT(*) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
+            " CASE WHEN COUNT(*) = 0 THEN 0"
+            "      ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE t.status = 'done') / COUNT(*), 2) END,"
+            " AVG(t.planned_minutes)::INT AS avg_planned_minutes,"
+            " AVG(EXTRACT(EPOCH FROM (t.completed_at - t.deadline)) / 60.0)"
+            "     FILTER (WHERE t.status = 'overdue')::NUMERIC(10,2) AS avg_overdue_minutes "
+            "FROM tasks t "
+            "JOIN topics tp ON tp.id = t.topic_id "
+            "WHERE t.user_id = :uid AND t.deadline IS NOT NULL "
+            "  AND t.deadline::date BETWEEN :f AND :t "
+            "GROUP BY t.topic_id, tp.name "
+            "ORDER BY total DESC"
+        ).bindparams(uid=user_id, f=date_from, t=date_to)
     )
     return [
         TopicBreakdown(
@@ -91,13 +121,27 @@ async def topics_breakdown(
 
 @router.get("/priorities", response_model=list[PriorityBreakdown])
 async def priority_breakdown(
-    session: SessionDep, user_id: UserIdDep
+    session: SessionDep,
+    user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = None,
 ) -> list[PriorityBreakdown]:
+    date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT priority, total, done, overdue, completion_rate "
-            "FROM v_stats_task_priority WHERE user_id = :uid"
-        ).bindparams(uid=user_id)
+            "SELECT t.priority,"
+            " COUNT(*)::INT AS total,"
+            " COUNT(*) FILTER (WHERE t.status = 'done')::INT AS done,"
+            " COUNT(*) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
+            " CASE WHEN COUNT(*) = 0 THEN 0"
+            "      ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE t.status = 'done') / COUNT(*), 2) END "
+            "FROM tasks t "
+            "WHERE t.user_id = :uid AND t.deadline IS NOT NULL "
+            "  AND t.deadline::date BETWEEN :f AND :t "
+            "GROUP BY t.priority "
+            "ORDER BY total DESC"
+        ).bindparams(uid=user_id, f=date_from, t=date_to)
     )
     return [
         PriorityBreakdown(
@@ -142,13 +186,28 @@ async def patterns_breakdown(
 
 @router.get("/time-distribution", response_model=list[TopicTimeBreakdown])
 async def time_distribution(
-    session: SessionDep, user_id: UserIdDep
+    session: SessionDep,
+    user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = None,
 ) -> list[TopicTimeBreakdown]:
+    date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT topic_id, topic_name, minutes, pomodoro_minutes "
-            "FROM v_topic_time_distribution WHERE user_id = :uid ORDER BY minutes DESC"
-        ).bindparams(uid=user_id)
+            "SELECT t.topic_id, tp.name AS topic_name,"
+            " COALESCE(SUM(ttl.duration_seconds), 0)::INT / 60 AS minutes,"
+            " COALESCE(SUM(ttl.duration_seconds) FILTER (WHERE ttl.is_pomodoro), 0)::INT / 60 "
+            "  AS pomodoro_minutes "
+            "FROM tasks t "
+            "JOIN topics tp ON tp.id = t.topic_id "
+            "LEFT JOIN task_time_logs ttl ON ttl.task_id = t.id "
+            " AND ttl.started_at::date BETWEEN :f AND :t "
+            "WHERE t.user_id = :uid "
+            "GROUP BY t.topic_id, tp.name "
+            "HAVING COALESCE(SUM(ttl.duration_seconds), 0) > 0 "
+            "ORDER BY minutes DESC"
+        ).bindparams(uid=user_id, f=date_from, t=date_to)
     )
     return [
         TopicTimeBreakdown(
@@ -165,24 +224,21 @@ async def time_distribution(
 async def correlation(
     session: SessionDep,
     user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
     from_: date | None = Query(default=None, alias="from"),
     to: date | None = None,
 ) -> list[CorrelationWeek]:
+    date_from, date_to = _resolve_period(days, from_, to)
     sql = (
         "SELECT week_start, avg_mood, avg_energy, avg_completion_rate,"
         " corr_mood_rate, corr_energy_rate, days_count "
-        "FROM v_mood_productivity_correlation WHERE user_id = :uid"
+        "FROM v_mood_productivity_correlation WHERE user_id = :uid "
+        " AND week_start >= :f AND week_start <= :t "
+        "ORDER BY week_start"
     )
-    params: dict = {"uid": user_id}
-    if from_ is not None:
-        sql += " AND week_start >= :f"
-        params["f"] = from_
-    if to is not None:
-        sql += " AND week_start <= :t"
-        params["t"] = to
-    sql += " ORDER BY week_start"
-
-    res = await session.execute(text(sql).bindparams(**params))
+    res = await session.execute(
+        text(sql).bindparams(uid=user_id, f=date_from, t=date_to)
+    )
     return [
         CorrelationWeek(
             week_start=r[0],
@@ -201,24 +257,40 @@ async def correlation(
 async def holistic_correlation(
     session: SessionDep,
     user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
     from_: date | None = Query(default=None, alias="from"),
     to: date | None = None,
 ) -> list[HolisticCorrelationWeek]:
+    date_from, date_to = _resolve_period(days, from_, to)
     sql = (
-        "SELECT week_start, avg_mood, avg_energy, avg_task_rate, avg_pattern_clean_rate,"
-        " avg_minutes, corr_mood_tasks, corr_mood_patterns, corr_energy_tasks, days_count "
-        "FROM v_mood_holistic_correlation WHERE user_id = :uid"
+        "SELECT date_trunc('week', day)::date AS week_start,"
+        " AVG(mood)::NUMERIC(4,2) AS avg_mood,"
+        " AVG(energy)::NUMERIC(4,2) AS avg_energy,"
+        " AVG(CASE WHEN tasks_total > 0"
+        "     THEN 100.0 * tasks_done / tasks_total END)::NUMERIC(5,2) AS avg_task_rate,"
+        " AVG(CASE WHEN patterns_scheduled > 0"
+        "     THEN 100.0 * patterns_success / patterns_scheduled END)::NUMERIC(5,2)"
+        "     AS avg_pattern_clean_rate,"
+        " AVG(minutes_logged)::NUMERIC(8,2) AS avg_minutes,"
+        " corr(mood::numeric,"
+        "      CASE WHEN tasks_total > 0 THEN 100.0 * tasks_done / tasks_total END)"
+        "     AS corr_mood_tasks,"
+        " corr(mood::numeric,"
+        "      CASE WHEN patterns_scheduled > 0"
+        "     THEN 100.0 * patterns_success / patterns_scheduled END)"
+        "     AS corr_mood_patterns,"
+        " corr(energy::numeric,"
+        "      CASE WHEN tasks_total > 0 THEN 100.0 * tasks_done / tasks_total END)"
+        "     AS corr_energy_tasks,"
+        " COUNT(*)::INT AS days_count "
+        "FROM v_olap_daily_facts "
+        "WHERE user_id = :uid AND day BETWEEN :f AND :t "
+        "GROUP BY date_trunc('week', day)::date "
+        "ORDER BY week_start"
     )
-    params: dict = {"uid": user_id}
-    if from_ is not None:
-        sql += " AND week_start >= :f"
-        params["f"] = from_
-    if to is not None:
-        sql += " AND week_start <= :t"
-        params["t"] = to
-    sql += " ORDER BY week_start"
-
-    res = await session.execute(text(sql).bindparams(**params))
+    res = await session.execute(
+        text(sql).bindparams(uid=user_id, f=date_from, t=date_to)
+    )
     return [
         HolisticCorrelationWeek(
             week_start=r[0],
@@ -240,27 +312,25 @@ async def holistic_correlation(
 async def weekly(
     session: SessionDep,
     user_id: UserIdDep,
+    days: int | None = Query(default=None, ge=7, le=365),
     from_: date | None = Query(default=None, alias="from"),
     to: date | None = None,
-    limit: int = Query(default=12, ge=1, le=104),
+    limit: int = Query(default=52, ge=1, le=104),
 ) -> list[WeeklySummary]:
+    date_from, date_to = _resolve_period(days, from_, to)
     sql = (
         "SELECT week_start, tasks_total, tasks_done, tasks_overdue,"
         " minutes_logged, diary_entries, avg_mood, avg_energy,"
         " patterns_scheduled, patterns_success, marker_events, marker_bad_events "
-        "FROM v_weekly_summary WHERE user_id = :uid"
+        "FROM v_weekly_summary WHERE user_id = :uid "
+        " AND week_start >= :f AND week_start <= :t "
+        "ORDER BY week_start DESC LIMIT :lim"
     )
-    params: dict = {"uid": user_id}
-    if from_ is not None:
-        sql += " AND week_start >= :f"
-        params["f"] = from_
-    if to is not None:
-        sql += " AND week_start <= :t"
-        params["t"] = to
-    sql += " ORDER BY week_start DESC LIMIT :lim"
-    params["lim"] = limit
-
-    res = await session.execute(text(sql).bindparams(**params))
+    res = await session.execute(
+        text(sql).bindparams(
+            uid=user_id, f=date_from, t=date_to, lim=limit
+        )
+    )
     return [
         WeeklySummary(
             week_start=r[0],
