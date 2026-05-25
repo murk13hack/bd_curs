@@ -18,6 +18,7 @@ import {
 import { api, ApiError } from '@/api/client';
 import type { DiaryInsights, PatternStreak, StatsOverview } from '@/api/types';
 import { DiaryLinksSection } from '@/components/stats/diary-links-section';
+import { StatsConnectionsTeaser } from '@/components/stats/stats-connections-teaser';
 import { OlapBuilder } from '@/components/stats/olap-builder';
 import {
   AxisLabelX,
@@ -41,6 +42,15 @@ import {
 const COLORS = ['#16a34a', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#6b7280', '#ef4444'];
 
 type Tab = 'overview' | 'tasks' | 'patterns' | 'diary' | 'olap';
+
+const TAB_HINTS: Record<Tab, string> = {
+  overview: 'Сводка за период. Блок «Связи показателей» — краткий превью; подробности во вкладке «Связи».',
+  tasks: 'Задачи с дедлайном в выбранном периоде.',
+  patterns: 'Паттерны за последние 30 д по расписанию (не зависит от 7/30/90).',
+  diary:
+    'Связи = корреляция дневника (настроение/энергия) с % задач и паттернов. Не путать с привязками в «Целях».',
+  olap: 'Произвольный срез по дням активности (OLAP).',
+};
 
 function queryError(e: unknown): string {
   if (e instanceof ApiError) return e.message;
@@ -81,7 +91,7 @@ export function StatsPage() {
   const diaryInsights = useQuery({
     queryKey: ['stats-diary-insights', period],
     queryFn: () => api.stats.diaryInsights(periodParams),
-    enabled: tab === 'diary',
+    enabled: tab === 'diary' || tab === 'overview',
   });
   const heatmap = useQuery({
     queryKey: ['stats-heatmap', period],
@@ -111,7 +121,7 @@ export function StatsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Статистика"
-        subtitle="Задачи, паттерны, дневник и OLAP за выбранный период"
+        subtitle="Задачи, паттерны, OLAP и связи дневника с продуктивностью (вкладка «Связи показателей»)"
       />
 
       <FieldGroup legend="Период отчёта">
@@ -128,8 +138,8 @@ export function StatsPage() {
           ))}
         </div>
         <p className="mt-2 text-xs text-ink-muted">
-          {fmtDate(range.from)} — {fmtDate(range.to)}. Влияет на KPI, обзор, задачи, дневник и
-          OLAP. Паттерны в таблице — всегда последние 30 д по расписанию.
+          {fmtDate(range.from)} — {fmtDate(range.to)}. Влияет на KPI, обзор, задачи, связи и OLAP.
+          Паттерны в таблице — всегда последние 30 д по расписанию.
         </p>
       </FieldGroup>
 
@@ -144,7 +154,7 @@ export function StatsPage() {
               ['overview', 'Обзор'],
               ['tasks', 'Задачи'],
               ['patterns', 'Паттерны'],
-              ['diary', 'Дневник и связи'],
+              ['diary', 'Связи показателей'],
               ['olap', 'OLAP-конструктор'],
             ] as const
           ).map(([id, label]) => (
@@ -160,10 +170,18 @@ export function StatsPage() {
             </button>
           ))}
         </div>
+        <p className="mt-2 text-xs text-ink-muted">{TAB_HINTS[tab]}</p>
       </FieldGroup>
 
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-2">
+          <StatsConnectionsTeaser
+            data={diaryInsights.data}
+            loading={diaryInsights.isLoading}
+            periodLabel={`${period} д`}
+            onOpenTab={() => setTab('diary')}
+          />
+
           <ChartCard
             title="Недели за период"
             loading={weekly.isLoading}
@@ -376,9 +394,14 @@ function DiaryTab({
   if (!data || (data.diary_days === 0 && data.weeks.length === 0)) {
     return (
       <div className="mx-auto max-w-3xl rounded-lg border border-border bg-surface-2 px-6 py-10 text-center">
-        <p className="text-sm text-ink-muted">
-          Записей дневника с настроением за период нет. Добавьте записи в разделе «Дневник» — здесь
-          появятся связи с задачами и паттернами.
+        <h2 className="text-lg font-semibold">Связи показателей</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          Здесь показывается, как <strong>настроение из дневника</strong> связано с задачами и
+          паттернами за период (корреляции и сравнение по уровню настроения). Сейчас записей с
+          настроением нет — добавьте их в дневнике.
+        </p>
+        <p className="mt-2 text-xs text-ink-muted">
+          Привязки задач к целям — в разделе «Цели», это другая функция.
         </p>
         <Link to="/diary" className="btn-primary mt-4 inline-flex">
           Открыть дневник

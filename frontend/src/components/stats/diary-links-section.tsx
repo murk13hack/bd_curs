@@ -92,11 +92,19 @@ export function DiaryLinksSection({ data }: { data: DiaryInsights }) {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl space-y-6">
-      <div className="rounded-lg border border-border bg-surface-2/50 px-4 py-3 text-sm text-ink-muted">
+      <header className="space-y-1 border-b border-border pb-4">
+        <h2 className="text-lg font-semibold">Связи: дневник ↔ задачи ↔ паттерны</h2>
+        <p className="text-sm text-ink-muted">
+          Анализ за выбранный период. Привязки задач и привычек к целям смотрите в разделе «Цели» — здесь
+          другая логика: совпадают ли дни с хорошим настроением и продуктивностью.
+        </p>
+      </header>
+
+      <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink-muted">
         <p>
-          Связи считаются только по <strong className="text-ink">дням с записью дневника</strong>{' '}
-          ({data.diary_days} за период). Коэффициент r от −1 до 1: ближе к 1 — показатели растут
-          вместе, к −1 — один растёт, другой падает.
+          <strong className="text-ink">Что такое «связь» здесь:</strong> коэффициент Пирсона (r) между
+          показателями по <strong className="text-ink">дням с записью в дневнике</strong> (
+          {data.diary_days} дн.). r от −1 до 1 — насколько показатели двигаются вместе.
         </p>
       </div>
 
