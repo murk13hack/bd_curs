@@ -827,7 +827,7 @@ function OlapBuilder({
           </ResponsiveContainer>
           <DataTable
             headers={['Измерение', 'Значение']}
-            rows={chartData.map((r) => [r.name, formatOlapMeasure(measure, r.value)])
+            rows={chartData.map((r) => [r.name, formatOlapMeasure(measure, r.value)])}
           />
         </>
       </ChartCard>
