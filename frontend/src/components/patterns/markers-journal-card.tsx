@@ -12,8 +12,6 @@ type Props = {
   pattern: Pattern;
   streak?: PatternStreak;
   onPicture: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
   headerActions: React.ReactNode;
 };
 

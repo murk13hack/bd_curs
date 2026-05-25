@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
-  Map as MapIcon,
   Pencil,
   Plus,
   Shield,

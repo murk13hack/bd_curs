@@ -21,8 +21,6 @@ export function HabitCardShell({
   streak,
   tone,
   icon: Icon,
-  onEdit,
-  onDelete,
   children,
   footer,
 }: CardShellProps) {
