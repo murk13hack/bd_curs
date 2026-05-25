@@ -18,7 +18,8 @@ import {
   YAxis,
 } from 'recharts';
 import { api } from '@/api/client';
-import type { OlapMeta, StatsOverview } from '@/api/types';
+import { Link } from 'react-router-dom';
+import type { OlapMeta, PatternStreak, StatsOverview } from '@/api/types';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import {
   ENERGY_BUCKET_LABEL,
@@ -48,7 +49,10 @@ export function StatsPage() {
   const topics = useQuery({ queryKey: ['stats-topics'], queryFn: api.stats.topics });
   const priorities = useQuery({ queryKey: ['stats-priorities'], queryFn: api.stats.priorities });
   const timeDist = useQuery({ queryKey: ['stats-time'], queryFn: api.stats.timeDistribution });
-  const patterns = useQuery({ queryKey: ['stats-patterns'], queryFn: api.stats.patterns });
+  const patterns = useQuery({
+    queryKey: ['pattern-streaks'],
+    queryFn: api.patterns.streaksAll,
+  });
   const holistic = useQuery({ queryKey: ['stats-holistic'], queryFn: () => api.stats.holistic() });
   const heatmap = useQuery({
     queryKey: ['stats-heatmap'],
@@ -67,7 +71,10 @@ export function StatsPage() {
         tasks_total: w.tasks_total,
         minutes: w.minutes_logged,
         mood: w.avg_mood,
-        patterns: w.patterns_success,
+        pattern_clean_pct:
+          w.patterns_scheduled > 0
+            ? Math.round((100 * w.patterns_success) / w.patterns_scheduled)
+            : 0,
         markers_bad: w.marker_bad_events,
       })),
     [weekly.data],
@@ -81,7 +88,10 @@ export function StatsPage() {
       />
 
       {(overview.isError || weekly.isError) && (
-        <ErrorBanner message="Не удалось загрузить статистику" />
+        <ErrorBanner message="Не удалось загрузить сводку (обзор / недели)" />
+      )}
+      {tab === 'patterns' && patterns.isError && (
+        <ErrorBanner message={`Паттерны: ${patterns.error instanceof Error ? patterns.error.message : 'ошибка загрузки'}`} />
       )}
 
       <FieldGroup legend="Период отчёта">
@@ -138,7 +148,12 @@ export function StatsPage() {
                 <Tooltip />
                 <Legend />
                 <Bar yAxisId="left" dataKey="tasks_done" name="Выполнено" fill="#16a34a" />
-                <Bar yAxisId="left" dataKey="patterns" name="Чистых паттернов" fill="#8b5cf6" />
+                <Bar
+                  yAxisId="left"
+                  dataKey="pattern_clean_pct"
+                  name="% чистых дней (паттерны)"
+                  fill="#8b5cf6"
+                />
                 <Line yAxisId="right" type="monotone" dataKey="mood" name="Настроение" stroke="#f59e0b" />
               </ComposedChart>
             </ResponsiveContainer>
@@ -220,33 +235,11 @@ export function StatsPage() {
       )}
 
       {tab === 'patterns' && (
-        <div className="grid gap-6">
-          <ChartCard title="Чистота паттернов (30 д)" loading={patterns.isLoading}>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={patterns.data ?? []} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis type="number" domain={[0, 100]} />
-                <YAxis type="category" dataKey="title" tick={{ fontSize: 11 }} width={75} />
-                <Tooltip formatter={(v: number) => pct(v)} />
-                <Bar dataKey="clean_rate_30d" name="Чистота %" fill="#8b5cf6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Все паттерны" loading={patterns.isLoading}>
-            <DataTable
-              headers={['Название', 'Режим', 'Серия', 'Max', '30д чистых', '%']}
-              rows={(patterns.data ?? []).map((p) => [
-                p.title,
-                PATTERN_MODE_LABEL[p.pattern_mode as keyof typeof PATTERN_MODE_LABEL] ?? p.pattern_mode,
-                p.current_streak,
-                p.max_streak,
-                `${p.success_days_30d}/${p.scheduled_days_30d}`,
-                pct(p.clean_rate_30d),
-              ])}
-            />
-          </ChartCard>
-        </div>
+        <PatternsTab
+          rows={patterns.data ?? []}
+          loading={patterns.isLoading}
+          error={patterns.isError}
+        />
       )}
 
       {tab === 'diary' && (
@@ -303,13 +296,100 @@ export function StatsPage() {
   );
 }
 
+function PatternsTab({
+  rows,
+  loading,
+  error,
+}: {
+  rows: PatternStreak[];
+  loading: boolean;
+  error: boolean;
+}) {
+  const withSchedule = rows.filter((p) => p.scheduled_days_30d > 0);
+  const chartRows = withSchedule.length > 0 ? withSchedule : rows;
+
+  if (!loading && !error && rows.length === 0) {
+    return (
+      <div className="card">
+        <div className="card-body space-y-3 text-center py-10">
+          <p className="text-sm text-ink-muted">Паттернов пока нет — статистика появится после создания.</p>
+          <Link to="/patterns" className="btn-primary inline-flex">
+            Перейти к паттернам
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6">
+      <p className="text-xs text-ink-muted">
+        За последние 30 календарных дней по расписанию каждого паттерна. «Чистый день» = ответ без
+        срыва / без негативных эпизодов. Если цифры завышены — примените миграцию БД{' '}
+        <code className="text-[10px]">011</code> (см. DEPLOY.md).
+      </p>
+
+      <ChartCard title="Чистота паттернов (30 д)" loading={loading}>
+        {chartRows.length === 0 ? (
+          <p className="py-12 text-center text-sm text-ink-muted">
+            Нет дней по расписанию за 30 д — проверьте напоминания в карточке паттерна.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(200, chartRows.length * 36)}>
+            <BarChart data={chartRows} layout="vertical" margin={{ left: 8, right: 16 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+              <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+              <YAxis
+                type="category"
+                dataKey="title"
+                tick={{ fontSize: 11 }}
+                width={120}
+              />
+              <Tooltip formatter={(v: number) => pct(v)} />
+              <Bar dataKey="clean_rate_30d" name="Чистота %" fill="#8b5cf6" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ChartCard>
+
+      <ChartCard title="Все паттерны" loading={loading}>
+        {rows.length === 0 ? (
+          <p className="text-sm text-ink-muted">Нет данных.</p>
+        ) : (
+          <DataTable
+            headers={['Название', 'Режим', 'Серия', 'Max', '30д успешных', 'Чистота']}
+            rows={rows.map((p) => [
+              p.title,
+              PATTERN_MODE_LABEL[p.pattern_mode] ?? p.pattern_mode,
+              p.current_streak,
+              p.max_streak,
+              p.scheduled_days_30d === 0
+                ? '—'
+                : `${p.success_days_30d}/${p.scheduled_days_30d}`,
+              p.scheduled_days_30d === 0 ? '—' : pct(p.clean_rate_30d),
+            ])}
+          />
+        )}
+      </ChartCard>
+    </div>
+  );
+}
+
 function KpiGrid({ data }: { data: StatsOverview }) {
   const items = [
     { label: 'Задачи', value: `${data.tasks_done}/${data.tasks_total}`, hint: pct(data.task_completion_rate) },
     { label: 'Просрочено', value: String(data.tasks_overdue), hint: 'за период' },
     { label: 'Время', value: minutesLabel(data.minutes_logged), hint: `Pomodoro ${data.pomodoro_minutes} мин` },
     { label: 'Дневник', value: String(data.diary_entries), hint: `настроение ${data.avg_mood?.toFixed(1) ?? '—'}` },
-    { label: 'Паттерны', value: pct(data.pattern_clean_rate), hint: `${data.patterns_success}/${data.patterns_scheduled} дн` },
+    {
+      label: 'Паттерны',
+      value:
+        data.patterns_scheduled === 0 ? '—' : pct(data.pattern_clean_rate),
+      hint:
+        data.patterns_scheduled === 0
+          ? 'нет активных дней за период'
+          : `${data.patterns_success}/${data.patterns_scheduled} успешных дней`,
+    },
     { label: 'Метки', value: String(data.marker_events), hint: `негативных ${data.marker_bad_events}` },
     { label: 'Активность', value: String(data.activity_score), hint: `${data.active_days} активных дней` },
   ];

@@ -123,3 +123,10 @@ async def test_stats_overview_and_olap(client: AsyncClient, topic_id: int) -> No
 
     r = await client.get("/api/v1/stats/patterns")
     assert r.status_code == 200
+    stats_rows = r.json()
+    r2 = await client.get("/api/v1/patterns/streaks/all")
+    assert r2.status_code == 200
+    streak_rows = r2.json()
+    assert len(stats_rows) == len(streak_rows)
+    if stats_rows:
+        assert stats_rows[0]["pattern_mode"] in ("habit", "scenario", "markers")

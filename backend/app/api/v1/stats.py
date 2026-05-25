@@ -117,21 +117,23 @@ async def patterns_breakdown(
 ) -> list[PatternStatsRow]:
     res = await session.execute(
         text(
-            "SELECT pattern_id, title, pattern_type, pattern_mode,"
-            " current_streak, max_streak, scheduled_days_30d, success_days_30d, clean_rate_30d "
-            "FROM v_pattern_streaks WHERE user_id = :uid ORDER BY clean_rate_30d DESC"
+            "SELECT pattern_id, title, pattern_type::text, pattern_mode::text,"
+            " current_streak, max_streak, scheduled_days_30d, success_days_30d,"
+            " COALESCE(clean_rate_30d, 0) "
+            "FROM v_pattern_streaks WHERE user_id = :uid "
+            "ORDER BY clean_rate_30d DESC NULLS LAST, title"
         ).bindparams(uid=user_id)
     )
     return [
         PatternStatsRow(
             pattern_id=r[0],
             title=r[1],
-            pattern_type=r[2],
-            pattern_mode=r[3],
-            current_streak=r[4],
-            max_streak=r[5],
-            scheduled_days_30d=r[6],
-            success_days_30d=r[7],
+            pattern_type=str(r[2]),
+            pattern_mode=str(r[3]),
+            current_streak=int(r[4] or 0),
+            max_streak=int(r[5] or 0),
+            scheduled_days_30d=int(r[6] or 0),
+            success_days_30d=int(r[7] or 0),
             clean_rate_30d=float(r[8] or 0),
         )
         for r in res
