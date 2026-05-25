@@ -6,7 +6,7 @@ import type { PatternOption, PatternType } from '@/api/types';
 import { FormField } from '@/components/ui/form-field';
 import { ErrorBanner } from '@/components/ui/primitives';
 
-/** Пояснение к галочке «Успех дня» для типов эпизодов и вариантов ответа. */
+/** Пояснение к галочке «Поддерживающий» / «Успех дня». */
 export const EPISODE_SUCCESS_HINT =
   'Поддерживающий эпизод не портит день (серия «без негатива» сохраняется). Негативный — учитывается как срыв или тяга.';
 
@@ -15,30 +15,44 @@ type Props = {
   patternType: PatternType;
   optionsCount: number;
   onAdded: (option: PatternOption) => void;
-  compact?: boolean;
+  /** В модалке «Новый эпизод» — колонка, без налезания блоков. */
+  layout?: 'row' | 'stack';
 };
 
 export function EpisodeTypeSuccessField({
   checked,
   onChange,
   id = 'episode-success',
+  layout = 'row',
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   id?: string;
+  layout?: 'row' | 'stack';
 }) {
+  const label = layout === 'stack' ? 'Поддерживающий эпизод' : 'Успех дня';
+
   return (
-    <div className="min-w-[10rem] max-w-xs space-y-0.5">
-      <label htmlFor={id} className="flex cursor-pointer items-center gap-2 text-sm">
+    <div className={layout === 'stack' ? 'w-full space-y-1' : 'min-w-0 max-w-full space-y-0.5'}>
+      <label htmlFor={id} className="flex cursor-pointer items-start gap-2 text-sm">
         <input
           id={id}
           type="checkbox"
+          className="mt-0.5 shrink-0"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
         />
-        Успех дня
+        <span>{label}</span>
       </label>
-      <p className="text-[10px] leading-snug text-ink-muted">{EPISODE_SUCCESS_HINT}</p>
+      <p
+        className={
+          layout === 'stack'
+            ? 'text-xs leading-relaxed text-ink-muted pl-6'
+            : 'text-[10px] leading-snug text-ink-muted'
+        }
+      >
+        {EPISODE_SUCCESS_HINT}
+      </p>
     </div>
   );
 }
@@ -48,11 +62,12 @@ export function EpisodeTypeAddForm({
   patternType,
   optionsCount,
   onAdded,
-  compact = false,
+  layout = 'row',
 }: Props) {
   const [label, setLabel] = useState('');
   const [isSuccess, setIsSuccess] = useState(patternType === 'positive');
   const [error, setError] = useState('');
+  const stacked = layout === 'stack';
 
   const addMut = useMutation({
     mutationFn: () =>
@@ -62,7 +77,7 @@ export function EpisodeTypeAddForm({
         sort_order: optionsCount,
       }),
     onSuccess: (opt) => {
-      onAdded(opt as PatternOption);
+      onAdded(opt);
       setLabel('');
       setError('');
       setIsSuccess(patternType === 'positive');
@@ -70,46 +85,84 @@ export function EpisodeTypeAddForm({
     onError: (e: Error) => setError(e.message),
   });
 
+  const handleAdd = () => {
+    if (!label.trim()) return;
+    addMut.mutate();
+  };
+
   return (
     <div
-      className={`space-y-2 rounded-lg border border-dashed border-indigo-500/35 bg-indigo-500/5 ${
-        compact ? 'p-2' : 'p-3'
+      className={`space-y-3 rounded-lg border border-dashed border-indigo-500/35 bg-indigo-500/5 p-3 ${
+        stacked ? 'w-full' : ''
       }`}
     >
-      <p className={`font-medium text-ink-muted ${compact ? 'text-[10px]' : 'text-xs'}`}>
-        Новый тип эпизода
-      </p>
+      <p className="text-xs font-medium text-ink-muted">Новый тип эпизода</p>
       {error && <ErrorBanner message={error} />}
-      <div className={`flex flex-wrap gap-2 ${compact ? 'items-start' : 'items-end'}`}>
-        <FormField label="Название" className="min-w-0 flex-1">
-          <input
-            className="input text-sm"
-            value={label}
-            placeholder="Например: тяга, прогулка"
-            onChange={(e) => setLabel(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && label.trim()) {
-                e.preventDefault();
-                addMut.mutate();
-              }
-            }}
+      {stacked ? (
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          <FormField label="Название" className="w-full">
+            <input
+              className="input w-full text-sm"
+              value={label}
+              placeholder="Например: тяга, прогулка"
+              onChange={(e) => setLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+            />
+          </FormField>
+          <EpisodeTypeSuccessField
+            checked={isSuccess}
+            onChange={setIsSuccess}
+            id={`episode-success-${patternId}`}
+            layout="stack"
           />
-        </FormField>
-        <EpisodeTypeSuccessField
-          checked={isSuccess}
-          onChange={setIsSuccess}
-          id={`episode-success-${patternId}`}
-        />
-        <button
-          type="button"
-          className={`btn-secondary shrink-0 ${compact ? 'text-xs' : ''}`}
-          disabled={!label.trim() || addMut.isPending}
-          onClick={() => addMut.mutate()}
-        >
-          <Plus size={14} className="inline mr-1" />
-          Добавить
-        </button>
-      </div>
+          <button
+            type="button"
+            className="btn-secondary w-full text-sm"
+            disabled={!label.trim() || addMut.isPending}
+            onClick={handleAdd}
+          >
+            <Plus size={14} className="inline mr-1" />
+            {addMut.isPending ? 'Сохранение…' : 'Добавить тип'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <FormField label="Название" className="min-w-0 flex-1 sm:min-w-[12rem]">
+            <input
+              className="input w-full text-sm"
+              value={label}
+              placeholder="Например: тяга, прогулка"
+              onChange={(e) => setLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+            />
+          </FormField>
+          <EpisodeTypeSuccessField
+            checked={isSuccess}
+            onChange={setIsSuccess}
+            id={`episode-success-${patternId}`}
+            layout="row"
+          />
+          <button
+            type="button"
+            className="btn-secondary w-full shrink-0 sm:w-auto"
+            disabled={!label.trim() || addMut.isPending}
+            onClick={handleAdd}
+          >
+            <Plus size={14} className="inline mr-1" />
+            {addMut.isPending ? '…' : 'Добавить'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

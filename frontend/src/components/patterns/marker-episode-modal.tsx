@@ -30,8 +30,12 @@ export function MarkerEpisodeModal({
   const [note, setNote] = useState('');
 
   useEffect(() => {
-    if (open) setOptions(pattern.options);
-  }, [open, pattern.options]);
+    if (open) {
+      setOptions([...pattern.options]);
+      setSelected(null);
+      setNote('');
+    }
+  }, [open, pattern.id]);
 
   const reset = () => {
     setSelected(null);
@@ -47,7 +51,7 @@ export function MarkerEpisodeModal({
         onClose();
       }}
     >
-      <div className="space-y-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <p className="text-sm text-ink-muted">
           Зафиксируйте момент в течение дня — время подставится автоматически.
         </p>
@@ -91,12 +95,10 @@ export function MarkerEpisodeModal({
           patternId={pattern.id}
           patternType={pattern.pattern_type}
           optionsCount={options.length}
-          compact
+          layout="stack"
           onAdded={(opt) => {
             setOptions((prev) => [...prev, opt]);
             setSelected(opt);
-            void qc.invalidateQueries({ queryKey: ['patterns'] });
-            void qc.invalidateQueries({ queryKey: ['pattern', pattern.id] });
           }}
         />
 
@@ -117,7 +119,11 @@ export function MarkerEpisodeModal({
             className="btn-primary"
             disabled={!selected || pending}
             onClick={() => {
-              if (selected) onSubmit(selected.id, note.trim());
+              if (selected) {
+                onSubmit(selected.id, note.trim());
+                void qc.invalidateQueries({ queryKey: ['patterns'] });
+                void qc.invalidateQueries({ queryKey: ['pattern', pattern.id] });
+              }
               reset();
             }}
           >
