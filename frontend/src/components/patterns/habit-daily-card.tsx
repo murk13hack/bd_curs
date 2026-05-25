@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, CheckCircle2, ChevronDown, ChevronUp, Flame, Shield } from 'lucide-react';
+import { BarChart3, CheckCircle2, Flame, Shield } from 'lucide-react';
 import { api } from '@/api/client';
 import type { Pattern, PatternStreak } from '@/api/types';
 import { PatternDayStrip } from '@/components/patterns/pattern-day-strip';
-import { rateLabel, streakLabel, todayDateOnly, todayTone } from '@/lib/pattern-templates';
+import { rateLabel, streakLabel, todayTone } from '@/lib/pattern-templates';
+import { ErrorBanner } from '@/components/ui/primitives';
 import { PATTERN_TYPE_LABEL } from '@/lib/labels';
 
 type CardShellProps = {
@@ -97,7 +98,7 @@ export function HabitDailyCard({
   headerActions,
 }: Props) {
   const qc = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
+  const [respondError, setRespondError] = useState('');
   const mini = useQuery({
     queryKey: ['pattern-insights', pattern.id, 7],
     queryFn: () => api.patterns.insights(pattern.id, 7),
@@ -110,24 +111,27 @@ export function HabitDailyCard({
 
   const respondMut = useMutation({
     mutationFn: (optionId: number) =>
-      api.patterns.respond(pattern.id, {
-        response_option_id: optionId,
-        scheduled_at: todayDateOnly(),
-      }),
+      api.patterns.respond(pattern.id, { response_option_id: optionId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pattern-today', pattern.id] });
+      qc.invalidateQueries({ queryKey: ['patterns'] });
       qc.invalidateQueries({ queryKey: ['pattern-streaks'] });
       qc.invalidateQueries({ queryKey: ['pattern-insights', pattern.id] });
-      setExpanded(false);
+      setRespondError('');
     },
+    onError: (e: Error) => setRespondError(e.message),
   });
 
   const t = today.data;
   const tone = todayTone(t?.is_success_today, t?.status);
   const Icon = pattern.pattern_type === 'negative' ? Shield : Flame;
-  const answered = t?.status === 'answered' && t.response_label;
+  const answered =
+    (t?.status === 'answered' || t?.log_status === 'answered') && Boolean(t?.response_label);
   const canAnswer =
-    t?.is_scheduled_today && t.can_respond && t.status !== 'missed';
+    t?.is_scheduled_today &&
+    t.can_respond &&
+    t.status !== 'missed' &&
+    t.log_status !== 'missed';
 
   return (
     <HabitCardShell
@@ -159,15 +163,6 @@ export function HabitDailyCard({
                 </div>
               </div>
             </div>
-            {canAnswer && (
-              <button
-                type="button"
-                className="btn-ghost text-xs"
-                onClick={() => setExpanded((v) => !v)}
-              >
-                Изменить {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            )}
           </div>
         ) : t?.status === 'missed' || t?.log_status === 'missed' ? (
           <p className="text-red-600">Пропуск — ответ не получен в срок</p>
@@ -177,9 +172,44 @@ export function HabitDailyCard({
           <p className="text-ink-muted">Итог ещё не отмечен</p>
         )}
 
-        {canAnswer && (!answered || expanded) && (
+        {respondError && (
+          <div className="mt-2">
+            <ErrorBanner message={respondError} />
+          </div>
+        )}
+
+        {canAnswer && !answered && (
           <div className="mt-3 space-y-2">
             <p className="text-xs font-medium">Выберите итог дня</p>
+            {pattern.options.length === 0 ? (
+              <p className="text-xs text-red-600">
+                Нет вариантов ответа — откройте редактирование паттерна и добавьте их.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {pattern.options.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`text-sm px-3 py-2 rounded-lg border transition btn-secondary ${
+                      opt.is_success
+                        ? 'hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
+                        : 'hover:bg-red-600 hover:text-white hover:border-red-600'
+                    }`}
+                    disabled={respondMut.isPending}
+                    onClick={() => respondMut.mutate(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {canAnswer && answered && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-medium">Сменить итог</p>
             <div className="flex flex-wrap gap-2">
               {pattern.options.map((opt) => {
                 const selected = t?.response_option_id === opt.id;
@@ -203,16 +233,6 @@ export function HabitDailyCard({
               })}
             </div>
           </div>
-        )}
-
-        {canAnswer && !answered && !expanded && (
-          <button
-            type="button"
-            className="btn-primary mt-3 w-full"
-            onClick={() => setExpanded(true)}
-          >
-            Отметить итог дня
-          </button>
         )}
       </div>
 

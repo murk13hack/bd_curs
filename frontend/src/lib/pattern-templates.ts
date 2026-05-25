@@ -298,6 +298,22 @@ export function todayDateOnly(): string {
   return d.toISOString();
 }
 
+/** Пресеты типов эпизодов при создании журнала (совпадают с backend DEFAULT_MARKER_OPTIONS_*). */
+export function markerOptionsForType(type: PatternType): { label: string; is_success: boolean }[] {
+  if (type === 'positive') {
+    return [
+      { label: 'Сделал', is_success: true },
+      { label: 'Пропустил', is_success: false },
+    ];
+  }
+  return [
+    { label: 'Тяга', is_success: false },
+    { label: 'Срыв', is_success: false },
+    { label: 'Справился', is_success: true },
+    { label: 'Стресс', is_success: false },
+  ];
+}
+
 export function formatScheduleTimes(schedules: { time_of_day: string }[]): string {
   return schedules.map((s) => s.time_of_day.slice(0, 5)).join(', ') || 'без напоминаний';
 }

@@ -39,6 +39,7 @@ import {
 import { confirmDelete } from '@/lib/confirm';
 import {
   SCENARIO_TEMPLATES,
+  markerOptionsForType,
   formatScheduleTimes,
   fromPatternSteps,
   rateLabel,
@@ -661,6 +662,8 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
     { label: 'Сделал', is_success: true },
     { label: 'Не сделал', is_success: false },
   ]);
+  const [markerUseCustom, setMarkerUseCustom] = useState(false);
+  const [markerOptions, setMarkerOptions] = useState(() => markerOptionsForType('negative'));
   const [error, setError] = useState('');
 
   const applyMode = (m: PatternMode) => {
@@ -686,6 +689,21 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
         });
       }
       if (mode === 'markers') {
+        if (markerUseCustom) {
+          const opts = markerOptions.filter((o) => o.label.trim());
+          if (opts.length < 2) throw new Error('Добавьте минимум 2 типа эпизода');
+          return api.patterns.create({
+            title,
+            pattern_type: patternType,
+            pattern_mode: 'markers',
+            schedules: sch,
+            options: opts.map((o, i) => ({
+              label: o.label.trim(),
+              is_success: o.is_success,
+              sort_order: i,
+            })),
+          });
+        }
         return api.patterns.create({
           title,
           pattern_type: patternType,
@@ -787,7 +805,13 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
           <select
             className="select"
             value={patternType}
-            onChange={(e) => setPatternType(e.target.value as PatternType)}
+            onChange={(e) => {
+              const t = e.target.value as PatternType;
+              setPatternType(t);
+              if (mode === 'markers' && !markerUseCustom) {
+                setMarkerOptions(markerOptionsForType(t));
+              }
+            }}
           >
             {(Object.keys(PATTERN_TYPE_LABEL) as PatternType[]).map((t) => (
               <option key={t} value={t}>
@@ -813,10 +837,77 @@ function PatternCreateModal({ open, onClose }: { open: boolean; onClose: () => v
         <ScheduleEditor rows={schedules} onChange={setSchedules} />
 
         {mode === 'markers' && (
-          <p className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-xs text-ink-muted">
-            Создадутся типы эпизодов (тяга, срыв, справился…). В карточке — кнопка «Эпизод» и
-            лента за день, не один итог.
-          </p>
+          <div className="space-y-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3">
+            <p className="text-xs text-ink-muted">
+              В карточке — кнопка «Эпизод» и лента за день. По умолчанию — пресет для выбранного
+              типа паттерна; можно задать свои названия эпизодов.
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={markerUseCustom}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setMarkerUseCustom(on);
+                  if (!on) setMarkerOptions(markerOptionsForType(patternType));
+                }}
+              />
+              Свои типы эпизодов (не только пресет)
+            </label>
+            {markerUseCustom && (
+              <div className="space-y-2">
+                {markerOptions.map((o, i) => (
+                  <div key={i} className="flex flex-wrap gap-2">
+                    <FormField label={`Эпизод ${i + 1}`} className="min-w-0 flex-1">
+                      <input
+                        className="input text-sm"
+                        value={o.label}
+                        onChange={(e) => {
+                          const next = [...markerOptions];
+                          next[i] = { ...o, label: e.target.value };
+                          setMarkerOptions(next);
+                        }}
+                      />
+                    </FormField>
+                    <label className="flex items-center gap-1 text-xs pt-5">
+                      <input
+                        type="checkbox"
+                        checked={o.is_success}
+                        onChange={(e) => {
+                          const next = [...markerOptions];
+                          next[i] = { ...o, is_success: e.target.checked };
+                          setMarkerOptions(next);
+                        }}
+                      />
+                      Успех дня
+                    </label>
+                    <button
+                      type="button"
+                      className="btn-ghost px-1"
+                      disabled={markerOptions.length <= 2}
+                      onClick={() =>
+                        setMarkerOptions(markerOptions.filter((_, j) => j !== i))
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() =>
+                    setMarkerOptions([
+                      ...markerOptions,
+                      { label: 'Новый эпизод', is_success: false },
+                    ])
+                  }
+                >
+                  + Тип эпизода
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {mode === 'habit' && (

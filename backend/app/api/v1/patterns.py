@@ -134,6 +134,11 @@ async def list_patterns(session: SessionDep, user_id: UserIdDep) -> list[Pattern
     res = await session.execute(
         select(BehaviorPattern)
         .where(BehaviorPattern.user_id == user_id)
+        .options(
+            selectinload(BehaviorPattern.options),
+            selectinload(BehaviorPattern.schedules),
+            selectinload(BehaviorPattern.steps),
+        )
         .order_by(BehaviorPattern.created_at.desc())
     )
     return [_to_read(p) for p in res.scalars()]
@@ -381,7 +386,11 @@ async def log_response(
     pattern = await _get(session, pattern_id, user_id)
     if pattern.pattern_mode != "habit":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ответ habit только для режима habit")
-    ts = payload.scheduled_at or datetime.now(tz=timezone.utc)
+    # Всегда привязываем ответ к «сегодня» сервера — иначе клиентский TZ ломает поиск лога.
+    today = date.today()
+    ts = datetime.combine(today, datetime.min.time()).replace(
+        hour=12, minute=0, second=0, microsecond=0, tzinfo=timezone.utc
+    )
     await session.execute(
         text("CALL sp_log_pattern_response(:pid, :oid, :ts)").bindparams(
             pid=pattern_id, oid=payload.response_option_id, ts=ts

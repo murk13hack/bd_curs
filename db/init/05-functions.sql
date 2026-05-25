@@ -207,14 +207,13 @@ BEGIN
             END IF;
         END IF;
 
-        IF v_mode <> 'markers' THEN
-            IF NOT fn_pattern_day_has_answer(p_pattern_id, v_day) THEN
-                IF v_day = current_date THEN
-                    v_day := v_day - 1;
-                    CONTINUE;
-                ELSE
-                    EXIT;
-                END IF;
+        IF NOT fn_pattern_day_has_answer(p_pattern_id, v_day) THEN
+            IF v_day = current_date THEN
+                v_day := v_day - 1;
+                IF v_day < current_date - 3650 THEN EXIT; END IF;
+                CONTINUE;
+            ELSE
+                EXIT;
             END IF;
         END IF;
 
@@ -296,11 +295,7 @@ BEGIN
     WHILE d <= current_date LOOP
         IF fn_pattern_is_scheduled(p_pattern_id, d) THEN
             v_sched := v_sched + 1;
-            IF v_mode = 'markers' THEN
-                IF fn_pattern_day_success(p_pattern_id, d) THEN
-                    v_succ := v_succ + 1;
-                END IF;
-            ELSIF fn_pattern_day_has_answer(p_pattern_id, d)
+            IF fn_pattern_day_has_answer(p_pattern_id, d)
                AND fn_pattern_day_success(p_pattern_id, d) THEN
                 v_succ := v_succ + 1;
             END IF;

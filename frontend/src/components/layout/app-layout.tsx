@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { NotificationHost } from '@/components/notifications/notification-host';
 import { MobileNav, Sidebar } from '@/components/layout/sidebar';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -15,6 +16,7 @@ export function AppLayout() {
           <Outlet />
         </main>
         <MobileNav />
+        <NotificationHost />
       </div>
     </div>
   );

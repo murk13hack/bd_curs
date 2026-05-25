@@ -306,6 +306,29 @@ async def test_markers_declare_clean_day(client: AsyncClient) -> None:
     assert streak["current_streak"] >= 1
 
 
+async def test_markers_streak_after_positive_episode(client: AsyncClient) -> None:
+    p = (
+        await client.post(
+            "/api/v1/patterns",
+            json={
+                "title": "Markers one good",
+                "pattern_type": "negative",
+                "pattern_mode": "markers",
+            },
+        )
+    ).json()
+    pid = p["id"]
+    good = next(o for o in p["options"] if o["is_success"])
+    await client.post(
+        f"/api/v1/patterns/{pid}/markers",
+        json={"marker_option_id": good["id"]},
+    )
+    streak = (await client.get(f"/api/v1/patterns/{pid}/streak")).json()
+    assert streak["current_streak"] == 1
+    assert streak["success_days_30d"] <= 2
+    assert streak["scheduled_days_30d"] >= 1
+
+
 async def test_markers_empty_day_not_success(client: AsyncClient) -> None:
     p = (
         await client.post(

@@ -24,6 +24,7 @@ export function MarkersJournalCard({
   const qc = useQueryClient();
   const [episodeOpen, setEpisodeOpen] = useState(false);
   const [episodeError, setEpisodeError] = useState('');
+  const [cleanDayError, setCleanDayError] = useState('');
 
   const today = useQuery({
     queryKey: ['pattern-today', pattern.id],
@@ -67,12 +68,20 @@ export function MarkersJournalCard({
 
   const cleanDayMut = useMutation({
     mutationFn: () => api.patterns.declareCleanDay(pattern.id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setCleanDayError('');
+    },
+    onError: (e: Error) => setCleanDayError(e.message),
   });
 
   const undoCleanMut = useMutation({
     mutationFn: () => api.patterns.undeclareCleanDay(pattern.id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setCleanDayError('');
+    },
+    onError: (e: Error) => setCleanDayError(e.message),
   });
 
   const t = today.data;
@@ -157,6 +166,11 @@ export function MarkersJournalCard({
               <p className="text-ink-muted">Эпизодов пока нет — день открыт</p>
             )}
 
+            {cleanDayError && (
+              <p className="mb-2 text-xs text-red-600" role="alert">
+                {cleanDayError}
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"

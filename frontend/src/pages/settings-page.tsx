@@ -7,6 +7,7 @@ import { PageHeader, Spinner, ErrorBanner, Modal } from '@/components/ui/primiti
 import { FormField } from '@/components/ui/form-field';
 import { downloadJson, downloadText } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
+import { NotificationsSettings } from '@/components/notifications/notifications-settings';
 
 export function SettingsPage() {
   const qc = useQueryClient();
@@ -125,6 +126,7 @@ export function SettingsPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <NotificationsSettings />
         <section className="card">
           <div className="card-body space-y-4">
             <h2 className="font-semibold">Оформление</h2>

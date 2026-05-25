@@ -55,18 +55,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const bodyText = await res.text();
   if (!res.ok) {
     let detail = res.statusText;
-    try {
-      const json = (await res.json()) as { detail?: string };
-      detail = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
-    } catch {
-      detail = (await res.text()) || detail;
+    if (bodyText) {
+      try {
+        const json = JSON.parse(bodyText) as { detail?: string };
+        detail =
+          typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+      } catch {
+        detail = bodyText;
+      }
     }
     throw new ApiError(detail, res.status);
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  if (res.status === 204 || bodyText === '') return undefined as T;
+  return JSON.parse(bodyText) as T;
 }
 
 function qs(params: Record<string, string | number | boolean | undefined | null>): string {

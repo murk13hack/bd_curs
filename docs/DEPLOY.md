@@ -158,7 +158,8 @@ $migrations = @(
   "007_pattern_logic_fixes.sql",
   "008_marker_day_closures.sql",
   "009_db_backend_sync.sql",
-  "010_recurring_custom_interval.sql"
+  "010_recurring_custom_interval.sql",
+  "011_markers_success_and_streak_fix.sql"
 )
 foreach ($f in $migrations) {
   docker cp "db/migrations/$f" ptt-db:/tmp/$f
@@ -180,7 +181,7 @@ docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f /tmp/smoke.sql
 
 1. `git clone git@github.com:murk13hack/bd_curs.git` (или HTTPS-URL репозитория).
 2. `cd bd_curs`, `Copy-Item .env.example .env`, сменить `POSTGRES_PASSWORD`.
-3. `docker compose up -d --build` — init-скрипты создадут схему **уже с актуальной логикой** (миграции 007–010 влиты в `db/init/`).
+3. `docker compose up -d --build` — init-скрипты создадут схему **уже с актуальной логикой** (миграции 007–011 влиты в `db/init/`).
 4. Миграции из `db/migrations/` **не нужны**, если volume создаётся впервые.
 5. Открыть http://localhost, проверить `/api/v1/ping`.
 
