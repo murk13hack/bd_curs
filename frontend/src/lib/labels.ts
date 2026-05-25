@@ -55,6 +55,7 @@ export const PATTERN_TYPE_LABEL: Record<PatternType, string> = {
 /** Подписи фильтров OLAP и дневника в статистике */
 export const MOOD_BUCKET_LABEL: Record<string, string> = {
   '': 'Любое',
+  none: 'Без записи в дневнике',
   low: 'Низкое (1–2)',
   mid: 'Среднее (3)',
   high: 'Высокое (4–5)',
@@ -62,6 +63,7 @@ export const MOOD_BUCKET_LABEL: Record<string, string> = {
 
 export const ENERGY_BUCKET_LABEL: Record<string, string> = {
   '': 'Любая',
+  none: 'Без записи в дневнике',
   low: 'Низкая (1–2)',
   mid: 'Средняя (3)',
   high: 'Высокая (4–5)',

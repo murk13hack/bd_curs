@@ -154,6 +154,15 @@ class OlapResult(BaseModel):
     rows: list[dict[str, Any]]
 
 
+class OlapMetaItem(BaseModel):
+    id: str
+    label: str
+    hint: str | None = None
+    max_period_days: int | None = None
+    unit: str | None = None
+
+
 class OlapMeta(BaseModel):
-    dimensions: list[dict[str, str]]
-    measures: list[dict[str, str]]
+    dimensions: list[OlapMetaItem]
+    measures: list[OlapMetaItem]
+    help: str = ""

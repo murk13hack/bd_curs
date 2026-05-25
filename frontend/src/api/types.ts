@@ -286,11 +286,15 @@ export interface PatternStatsRow {
 export interface OlapMetaItem {
   id: string;
   label: string;
+  hint?: string | null;
+  max_period_days?: number | null;
+  unit?: string | null;
 }
 
 export interface OlapMeta {
   dimensions: OlapMetaItem[];
   measures: OlapMetaItem[];
+  help?: string;
 }
 
 export interface OlapRow {

@@ -75,7 +75,7 @@ UI: редактор повторения в задаче — все четыр�
 | `v_pattern_streaks` | `/patterns/streaks/all`, `/stats/patterns` |
 | `v_overdue_tasks` | обновляется `sp_recalc_calendar_cache` (кэш, не в REST) |
 | `v_mood_productivity_correlation` | `/stats/correlation` |
-| `v_olap_daily_facts` | `/stats/olap`, overview |
+| `v_olap_daily_facts` | `/stats/olap`, overview; см. [OLAP.md](./OLAP.md) |
 | `v_mood_holistic_correlation` | `/stats/holistic` |
 | `v_stats_task_priority` | `/stats/priorities` |
 | `v_weekly_summary` | `/stats/weekly` |

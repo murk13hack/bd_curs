@@ -25,6 +25,67 @@ async def test_holistic_period(client: AsyncClient, topic_id: int) -> None:
     assert r.status_code == 200
 
 
+async def test_olap_invalid_measure(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/stats/olap",
+        json={"dimensions": ["week"], "measures": ["not_a_measure"]},
+    )
+    assert r.status_code == 400
+
+
+async def test_olap_invalid_filter(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/stats/olap",
+        json={
+            "dimensions": ["week"],
+            "measures": ["completion_rate"],
+            "filters": {"mood_bucket": "invalid"},
+        },
+    )
+    assert r.status_code == 400
+
+
+async def test_olap_day_dimension_long_period(client: AsyncClient) -> None:
+    today = date.today()
+    from_d = today - timedelta(days=60)
+    r = await client.post(
+        "/api/v1/stats/olap",
+        json={
+            "dimensions": ["day"],
+            "measures": ["completion_rate"],
+            "date_from": from_d.isoformat(),
+            "date_to": today.isoformat(),
+        },
+    )
+    assert r.status_code == 400
+
+
+async def test_olap_mood_bucket_filter(
+    client: AsyncClient, topic_id: int
+) -> None:
+    await client.post(
+        "/api/v1/diary",
+        json={
+            "entry_date": date.today().isoformat(),
+            "content": "high mood",
+            "mood": 5,
+            "energy": 4,
+        },
+    )
+    r = await client.post(
+        "/api/v1/stats/olap",
+        json={
+            "dimensions": ["mood_bucket"],
+            "measures": ["completion_rate", "diary_entries"],
+            "filters": {"mood_bucket": "high"},
+        },
+    )
+    assert r.status_code == 200
+    rows = r.json()["rows"]
+    assert len(rows) >= 1
+    assert rows[0]["dimensions"]["mood_bucket"] == "high"
+
+
 async def test_diary_insights(client: AsyncClient, topic_id: int) -> None:
     today = date.today().isoformat()
     deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=2)).isoformat()
@@ -158,6 +219,11 @@ async def test_stats_overview_and_olap(client: AsyncClient, topic_id: int) -> No
 
     r = await client.get("/api/v1/stats/holistic")
     assert r.status_code == 200
+
+    r = await client.get("/api/v1/stats/meta")
+    meta = r.json()
+    assert meta.get("help")
+    assert any(d["id"] == "week" for d in meta["dimensions"])
 
     r = await client.get("/api/v1/stats/patterns")
     assert r.status_code == 200

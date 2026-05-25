@@ -27,3 +27,18 @@ export function olapYAxisLabel(measureId: string): string {
   if (measureId === 'active_days') return 'Дней';
   return 'Количество';
 }
+
+export const OLAP_MOOD_MEASURES = new Set(['avg_mood', 'avg_energy']);
+
+export function olapYDomain(
+  measureId: string,
+): [number, number] | ['auto', 'auto'] {
+  if (OLAP_PERCENT_MEASURES.has(measureId)) return [0, 100];
+  if (OLAP_MOOD_MEASURES.has(measureId)) return [0, 5];
+  return ['auto', 'auto'];
+}
+
+/** Временные измерения — линейный график; категории — столбцы */
+export const OLAP_TIME_DIMENSIONS = new Set(['day', 'week', 'month']);
+
+export const OLAP_MAX_DAY_PERIOD = 30;

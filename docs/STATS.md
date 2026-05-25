@@ -14,9 +14,7 @@
 
 ## OLAP
 
-Источник: `v_olap_daily_facts` (grain: пользователь × день).
-
-Меры в процентах: `completion_rate`, `pattern_clean_rate`.
+Подробно: [OLAP.md](./OLAP.md). Источник: `v_olap_daily_facts` (день с активностью). Меры в %: `completion_rate`, `pattern_clean_rate`. Измерение «день» — только при периоде ≤ 30 д.
 
 ## Дневник
 

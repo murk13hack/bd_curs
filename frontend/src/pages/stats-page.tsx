@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Bar,
@@ -16,8 +16,9 @@ import {
   YAxis,
 } from 'recharts';
 import { api, ApiError } from '@/api/client';
-import type { DiaryInsights, OlapMeta, PatternStreak, StatsOverview } from '@/api/types';
+import type { DiaryInsights, PatternStreak, StatsOverview } from '@/api/types';
 import { DiaryLinksSection } from '@/components/stats/diary-links-section';
+import { OlapBuilder } from '@/components/stats/olap-builder';
 import {
   AxisLabelX,
   AxisLabelYLeft,
@@ -30,18 +31,10 @@ import {
   StatsWeeklyMiniGrid,
 } from '@/components/stats/stats-weekly-mini-charts';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
-import {
-  ENERGY_BUCKET_LABEL,
-  MOOD_BUCKET_LABEL,
-  PATTERN_MODE_LABEL,
-  TASK_PRIORITY_LABEL,
-} from '@/lib/labels';
-import { FieldGroup, FormField } from '@/components/ui/form-field';
+import { PATTERN_MODE_LABEL, TASK_PRIORITY_LABEL } from '@/lib/labels';
+import { FieldGroup } from '@/components/ui/form-field';
 import { fmtDate, minutesLabel, pct } from '@/lib/format';
 import {
-  formatOlapMeasure,
-  OLAP_PERCENT_MEASURES,
-  olapYAxisLabel,
   statsPeriodRange,
 } from '@/lib/stats-period';
 
@@ -500,160 +493,6 @@ function KpiGrid({ data }: { data: StatsOverview }) {
           <div className="text-xs text-ink-muted">{k.hint}</div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function OlapBuilder({
-  period,
-  range,
-}: {
-  period: number;
-  range: { from: string; to: string };
-}) {
-  const meta = useQuery({ queryKey: ['stats-meta'], queryFn: api.stats.meta });
-  const [dim, setDim] = useState('week');
-  const [measure, setMeasure] = useState('completion_rate');
-  const [moodFilter, setMoodFilter] = useState('');
-  const [energyFilter, setEnergyFilter] = useState('');
-
-  const queryMut = useMutation({
-    mutationFn: () =>
-      api.stats.olap({
-        dimensions: dim ? [dim] : [],
-        measures: [measure],
-        date_from: range.from,
-        date_to: range.to,
-        filters: {
-          ...(moodFilter ? { mood_bucket: moodFilter } : {}),
-          ...(energyFilter ? { energy_bucket: energyFilter } : {}),
-        },
-      }),
-  });
-
-  useEffect(() => {
-    if (meta.data) queryMut.mutate();
-  }, [period, range.from, range.to, meta.data]);
-
-  const chartData = useMemo(() => {
-    const rows = queryMut.data?.rows ?? [];
-    return rows.map((r) => {
-      const labelKey = `${dim}_label` as keyof typeof r.dimensions;
-      return {
-        name: String(r.dimensions[labelKey] ?? r.dimensions[dim] ?? '?'),
-        value: r.measures[measure] ?? 0,
-      };
-    });
-  }, [queryMut.data, dim, measure]);
-
-  const dimLabel =
-    meta.data?.dimensions.find((d) => d.id === dim)?.label ?? 'Измерение';
-  const measureLabel =
-    meta.data?.measures.find((m) => m.id === measure)?.label ?? 'Значение';
-  const yAxisLabel = olapYAxisLabel(measure);
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {meta.isError && <ErrorBanner message={`OLAP meta: ${queryError(meta.error)}`} />}
-      {queryMut.isError && <ErrorBanner message={`OLAP: ${queryError(queryMut.error)}`} />}
-
-      <div className="card lg:col-span-1">
-        <div className="card-body space-y-3">
-          <h2 className="font-semibold">OLAP-конструктор</h2>
-          <p className="text-xs text-ink-muted">
-            Период {fmtDate(range.from)} — {fmtDate(range.to)}. Данные из v_olap_daily_facts.
-          </p>
-          <FormField label="Измерение">
-            <select className="select" value={dim} onChange={(e) => setDim(e.target.value)}>
-              {(meta.data?.dimensions ?? []).map((d: OlapMeta['dimensions'][0]) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Мера">
-            <select className="select" value={measure} onChange={(e) => setMeasure(e.target.value)}>
-              {(meta.data?.measures ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Настроение">
-            <select className="select" value={moodFilter} onChange={(e) => setMoodFilter(e.target.value)}>
-              {Object.entries(MOOD_BUCKET_LABEL).map(([v, label]) => (
-                <option key={v || 'any'} value={v}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Энергия">
-            <select className="select" value={energyFilter} onChange={(e) => setEnergyFilter(e.target.value)}>
-              {Object.entries(ENERGY_BUCKET_LABEL).map(([v, label]) => (
-                <option key={v || 'any'} value={v}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <button
-            type="button"
-            className="btn-primary w-full"
-            disabled={queryMut.isPending || meta.isLoading}
-            onClick={() => queryMut.mutate()}
-          >
-            {queryMut.isPending ? 'Построение…' : 'Обновить срез'}
-          </button>
-        </div>
-      </div>
-
-      <ChartCard
-        title="Результат OLAP"
-        loading={queryMut.isPending}
-        empty={!queryMut.isPending && chartData.length === 0 && !queryMut.isError}
-        emptyMessage="Нет строк за период и фильтры — смените меру или период"
-        className="lg:col-span-2"
-        caption={`Срез «${measureLabel}» по измерению «${dimLabel}» за выбранный период. Ось Y — ${yAxisLabel.toLowerCase()}; значения в таблице совпадают с подписями оси.`}
-      >
-        <>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={chartData}
-              margin={statsChartMargin({
-                bottom: 48,
-                left: 52,
-                right: 24,
-              })}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-18} textAnchor="end" height={52}>
-                <AxisLabelX value={dimLabel} />
-              </XAxis>
-              <YAxis
-                width={48}
-                domain={OLAP_PERCENT_MEASURES.has(measure) ? [0, 100] : ['auto', 'auto']}
-                tickFormatter={(v) =>
-                  OLAP_PERCENT_MEASURES.has(measure) ? `${v}%` : String(v)
-                }
-                allowDecimals={!OLAP_PERCENT_MEASURES.has(measure)}
-              >
-                <AxisLabelYLeft value={yAxisLabel} />
-              </YAxis>
-              <Tooltip
-                formatter={(v: number) => [formatOlapMeasure(measure, v), measureLabel]}
-              />
-              <Bar dataKey="value" name={measureLabel} fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-          <DataTable
-            headers={['Измерение', 'Значение']}
-            rows={chartData.map((r) => [r.name, formatOlapMeasure(measure, r.value)])}
-          />
-        </>
-      </ChartCard>
     </div>
   );
 }
