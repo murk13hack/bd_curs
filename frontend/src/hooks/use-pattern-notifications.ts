@@ -76,7 +76,6 @@ export function usePatternNotifications() {
       const p = patterns.data?.find((x) => x.schedules.length > 0);
       if (!p) return;
       const sch = p.schedules[0];
-      const day = new Date().toISOString().slice(0, 10);
       dispatch([
         {
           id: `demo-${Date.now()}`,

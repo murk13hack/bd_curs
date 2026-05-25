@@ -167,6 +167,22 @@ foreach ($f in $migrations) {
 }
 ```
 
+Linux / macOS / Git Bash:
+
+```bash
+for f in \
+  007_pattern_logic_fixes.sql \
+  008_marker_day_closures.sql \
+  009_db_backend_sync.sql \
+  010_recurring_custom_interval.sql \
+  011_markers_success_and_streak_fix.sql
+do
+  echo ">>> $f"
+  docker cp "db/migrations/$f" ptt-db:/tmp/"$f"
+  docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f "/tmp/$f"
+done
+```
+
 Проверка:
 
 ```powershell
