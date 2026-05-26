@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Bar,
@@ -12,24 +12,29 @@ import {
   YAxis,
 } from 'recharts';
 import { api, ApiError } from '@/api/client';
+import type { StatsMetaDimension } from '@/api/types';
 import {
   AxisLabelX,
   AxisLabelYLeft,
   ChartCaption,
   statsChartMargin,
 } from '@/components/stats/stats-chart-labels';
-import { FormField } from '@/components/ui/form-field';
+import { FieldGroup, FormField } from '@/components/ui/form-field';
 import { ErrorBanner, Spinner } from '@/components/ui/primitives';
 import { ENERGY_BUCKET_LABEL, MOOD_BUCKET_LABEL } from '@/lib/labels';
 import { fmtDate } from '@/lib/format';
 import {
   formatOlapMeasure,
+  OLAP_DIARY_DIMENSIONS,
   OLAP_MAX_DAY_PERIOD,
   OLAP_PERCENT_MEASURES,
   OLAP_TIME_DIMENSIONS,
   olapYAxisLabel,
   olapYDomain,
 } from '@/lib/stats-period';
+
+const CALENDAR_DIM_ORDER = ['week', 'month', 'weekday', 'day'] as const;
+const DIARY_DIM_ORDER = ['mood_bucket', 'energy_bucket'] as const;
 
 function queryError(e: unknown): string {
   if (e instanceof ApiError) return e.message;
@@ -111,6 +116,45 @@ function DataTable({ headers, rows }: { headers: string[]; rows: (string | numbe
   );
 }
 
+function DimensionSelect({
+  dimensions,
+  value,
+  dayBlocked,
+  onChange,
+}: {
+  dimensions: StatsMetaDimension[];
+  value: string;
+  dayBlocked: boolean;
+  onChange: (id: string) => void;
+}) {
+  const byId = useMemo(
+    () => Object.fromEntries(dimensions.map((d) => [d.id, d])),
+    [dimensions],
+  );
+
+  const renderOption = (id: string) => {
+    const d = byId[id];
+    if (!d) return null;
+    return (
+      <option key={id} value={id} disabled={id === 'day' && dayBlocked}>
+        {d.label}
+        {id === 'day' && dayBlocked ? ' (до 30 д)' : ''}
+      </option>
+    );
+  };
+
+  return (
+    <select className="select w-full" value={value} onChange={(e) => onChange(e.target.value)}>
+      <optgroup label="По времени">
+        {CALENDAR_DIM_ORDER.map(renderOption)}
+      </optgroup>
+      <optgroup label="По дневнику">
+        {DIARY_DIM_ORDER.map(renderOption)}
+      </optgroup>
+    </select>
+  );
+}
+
 export function OlapBuilder({
   period,
   range,
@@ -125,12 +169,21 @@ export function OlapBuilder({
   const [energyFilter, setEnergyFilter] = useState('');
 
   const dayBlocked = period > OLAP_MAX_DAY_PERIOD;
+  const moodFilterEnabled = dim !== 'mood_bucket';
+  const energyFilterEnabled = dim !== 'energy_bucket';
+  const diaryFiltersVisible = moodFilterEnabled || energyFilterEnabled;
+
+  const handleDimChange = useCallback((next: string) => {
+    setDim(next);
+    if (next === 'mood_bucket') setMoodFilter('');
+    if (next === 'energy_bucket') setEnergyFilter('');
+  }, []);
 
   useEffect(() => {
     if (dayBlocked && dim === 'day') {
-      setDim('week');
+      handleDimChange('week');
     }
-  }, [dayBlocked, dim]);
+  }, [dayBlocked, dim, handleDimChange]);
 
   const queryMut = useMutation({
     mutationFn: () =>
@@ -140,8 +193,8 @@ export function OlapBuilder({
         date_from: range.from,
         date_to: range.to,
         filters: {
-          ...(moodFilter ? { mood_bucket: moodFilter } : {}),
-          ...(energyFilter ? { energy_bucket: energyFilter } : {}),
+          ...(moodFilterEnabled && moodFilter ? { mood_bucket: moodFilter } : {}),
+          ...(energyFilterEnabled && energyFilter ? { energy_bucket: energyFilter } : {}),
         },
       }),
   });
@@ -149,7 +202,19 @@ export function OlapBuilder({
   useEffect(() => {
     if (!meta.data || (dim === 'day' && dayBlocked)) return;
     queryMut.mutate();
-  }, [period, range.from, range.to, dim, measure, moodFilter, energyFilter, meta.data, dayBlocked]);
+  }, [
+    period,
+    range.from,
+    range.to,
+    dim,
+    measure,
+    moodFilter,
+    energyFilter,
+    moodFilterEnabled,
+    energyFilterEnabled,
+    meta.data,
+    dayBlocked,
+  ]);
 
   const chartData = useMemo(() => {
     const rows = queryMut.data?.rows ?? [];
@@ -166,10 +231,27 @@ export function OlapBuilder({
     OLAP_TIME_DIMENSIONS.has(dim) && chartData.length > 1 && chartData.length <= 60;
   const dimMeta = meta.data?.dimensions.find((d) => d.id === dim);
   const measureMeta = meta.data?.measures.find((m) => m.id === measure);
-  const dimLabel = dimMeta?.label ?? 'Измерение';
-  const measureLabel = measureMeta?.label ?? 'Значение';
+  const dimLabel = dimMeta?.label ?? 'Разрез';
+  const measureLabel = measureMeta?.label ?? 'Показатель';
   const yAxisLabel = olapYAxisLabel(measure);
   const yDomain = olapYDomain(measure);
+
+  const filterCaptionParts: string[] = [];
+  if (moodFilterEnabled && moodFilter) {
+    filterCaptionParts.push(`настроение ${MOOD_BUCKET_LABEL[moodFilter] ?? moodFilter}`);
+  }
+  if (energyFilterEnabled && energyFilter) {
+    filterCaptionParts.push(`энергия ${ENERGY_BUCKET_LABEL[energyFilter] ?? energyFilter}`);
+  }
+  const chartCaption =
+    filterCaptionParts.length > 0
+      ? `Учитываются только дни с ${filterCaptionParts.join(' и ')}.`
+      : undefined;
+
+  const dimHint = dimMeta?.hint;
+  const groupingHint = OLAP_DIARY_DIMENSIONS.has(dim)
+    ? undefined
+    : 'Можно сузить дни по дневнику ниже.';
 
   const chartMargin = statsChartMargin({
     bottom: useLineChart ? 44 : 48,
@@ -190,18 +272,16 @@ export function OlapBuilder({
               {fmtDate(range.from)} — {fmtDate(range.to)} ({period} д)
             </p>
 
-            <FormField label="Разрез">
-              <select className="select w-full" value={dim} onChange={(e) => setDim(e.target.value)}>
-                {(meta.data?.dimensions ?? []).map((d) => (
-                  <option key={d.id} value={d.id} disabled={d.id === 'day' && dayBlocked}>
-                    {d.label}
-                    {d.id === 'day' && dayBlocked ? ' (до 30 д)' : ''}
-                  </option>
-                ))}
-              </select>
+            <FormField label="Группировка" hint={dimHint ?? groupingHint}>
+              <DimensionSelect
+                dimensions={meta.data?.dimensions ?? []}
+                value={dim}
+                dayBlocked={dayBlocked}
+                onChange={handleDimChange}
+              />
             </FormField>
 
-            <FormField label="Показатель">
+            <FormField label="Показатель" hint={measureMeta?.hint}>
               <select
                 className="select w-full"
                 value={measure}
@@ -215,33 +295,41 @@ export function OlapBuilder({
               </select>
             </FormField>
 
-            <FormField label="Настроение">
-              <select
-                className="select w-full"
-                value={moodFilter}
-                onChange={(e) => setMoodFilter(e.target.value)}
-              >
-                {Object.entries(MOOD_BUCKET_LABEL).map(([v, label]) => (
-                  <option key={v || 'any'} value={v}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+            {diaryFiltersVisible && (
+              <FieldGroup legend="Сузить дни (дневник)" className="space-y-3">
+                {moodFilterEnabled && (
+                  <FormField label="Настроение">
+                    <select
+                      className="select w-full"
+                      value={moodFilter}
+                      onChange={(e) => setMoodFilter(e.target.value)}
+                    >
+                      {Object.entries(MOOD_BUCKET_LABEL).map(([v, label]) => (
+                        <option key={v || 'any'} value={v}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                )}
 
-            <FormField label="Энергия">
-              <select
-                className="select w-full"
-                value={energyFilter}
-                onChange={(e) => setEnergyFilter(e.target.value)}
-              >
-                {Object.entries(ENERGY_BUCKET_LABEL).map(([v, label]) => (
-                  <option key={v || 'any'} value={v}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+                {energyFilterEnabled && (
+                  <FormField label="Энергия">
+                    <select
+                      className="select w-full"
+                      value={energyFilter}
+                      onChange={(e) => setEnergyFilter(e.target.value)}
+                    >
+                      {Object.entries(ENERGY_BUCKET_LABEL).map(([v, label]) => (
+                        <option key={v || 'any'} value={v}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                )}
+              </FieldGroup>
+            )}
 
             <button
               type="button"
@@ -255,12 +343,14 @@ export function OlapBuilder({
         </div>
 
         <ChartCard
-          title="Результат"
+          title={`${measureLabel} · ${dimLabel}`}
+          caption={chartCaption}
           loading={queryMut.isPending || meta.isLoading}
-          empty={!queryMut.isPending && !meta.isLoading && chartData.length === 0 && !queryMut.isError}
+          empty={
+            !queryMut.isPending && !meta.isLoading && chartData.length === 0 && !queryMut.isError
+          }
           emptyMessage="Нет данных — ослабьте фильтры или смените период"
-
-      >
+        >
           <ResponsiveContainer width="100%" height={280}>
             {useLineChart ? (
               <LineChart data={chartData} margin={chartMargin}>
@@ -320,7 +410,7 @@ export function OlapBuilder({
             )}
           </ResponsiveContainer>
           <DataTable
-            headers={['Разрез', 'Значение']}
+            headers={[dimLabel, measureLabel]}
             rows={chartData.map((r) => [r.name, formatOlapMeasure(measure, r.value)])}
           />
         </ChartCard>

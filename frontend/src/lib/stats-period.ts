@@ -41,4 +41,7 @@ export function olapYDomain(
 /** Временные измерения — линейный график; категории — столбцы */
 export const OLAP_TIME_DIMENSIONS = new Set(['day', 'week', 'month']);
 
+/** Группировка по полям дневника (фильтр по этой оси скрывается). */
+export const OLAP_DIARY_DIMENSIONS = new Set(['mood_bucket', 'energy_bucket']);
+
 export const OLAP_MAX_DAY_PERIOD = 30;
