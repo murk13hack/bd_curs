@@ -774,16 +774,18 @@ BEGIN
     -- подзадачи
     SELECT id INTO v_parent FROM tasks WHERE title = '[демо] Подзадачи: чеклист релиза' LIMIT 1;
     FOR i IN 1..6 LOOP
-        INSERT INTO tasks (user_id, topic_id, parent_task_id, title, priority, status, planned_minutes)
+        INSERT INTO tasks (user_id, topic_id, parent_task_id, title, priority, status, planned_minutes, created_at)
         VALUES (v_uid, v_topic_work, v_parent,
                 format('[демо] Подзадача %%s/6', i),
                 CASE WHEN i <= 2 THEN 'urgent'::task_priority_enum ELSE 'medium'::task_priority_enum END,
-                CASE WHEN i <= 3 THEN 'done'::task_status_enum ELSE 'pending'::task_status_enum END,
-                20)
+                'pending'::task_status_enum,
+                20, now() - (i + 5) * INTERVAL '1 day')
         RETURNING id INTO v_task;
         v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
         IF i <= 3 THEN
-            UPDATE tasks SET completed_at = now() - (i || ' days')::interval WHERE id = v_task;
+            UPDATE tasks SET status = 'done'::task_status_enum,
+                completed_at = created_at + INTERVAL '2 hours'
+             WHERE id = v_task;
         END IF;
     END LOOP;
 
@@ -803,9 +805,10 @@ BEGIN
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     -- порождённые экземпляры
-    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, completed_at)
+    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, created_at, completed_at)
     VALUES (v_uid, v_topic_work, v_rule, '[демо] Ежедневный stand-up (экземпляр -7д)', 'medium', 'done',
-            (current_date - 7)::timestamptz + TIME '17:00', 25, (current_date - 6)::timestamptz)
+            (current_date - 7)::timestamptz + TIME '17:00', 25,
+            (current_date - 8)::timestamptz, (current_date - 6)::timestamptz + TIME '18:00')
     RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
 
@@ -823,9 +826,10 @@ BEGIN
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     -- порождённые экземпляры
-    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, completed_at)
+    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, created_at, completed_at)
     VALUES (v_uid, v_topic_work, v_rule, '[демо] Еженедельный review (Пн–Пт) (экземпляр -7д)', 'medium', 'done',
-            (current_date - 7)::timestamptz + TIME '17:00', 25, (current_date - 6)::timestamptz)
+            (current_date - 7)::timestamptz + TIME '17:00', 25,
+            (current_date - 8)::timestamptz, (current_date - 6)::timestamptz + TIME '18:00')
     RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
 
@@ -843,9 +847,10 @@ BEGIN
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     -- порождённые экземпляры
-    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, completed_at)
+    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, created_at, completed_at)
     VALUES (v_uid, v_topic_work, v_rule, '[демо] Ежемесячный backup (экземпляр -7д)', 'medium', 'done',
-            (current_date - 7)::timestamptz + TIME '17:00', 25, (current_date - 6)::timestamptz)
+            (current_date - 7)::timestamptz + TIME '17:00', 25,
+            (current_date - 8)::timestamptz, (current_date - 6)::timestamptz + TIME '18:00')
     RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
 
@@ -863,9 +868,10 @@ BEGIN
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     -- порождённые экземпляры
-    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, completed_at)
+    INSERT INTO tasks (user_id, topic_id, recurring_rule_id, title, priority, status, deadline, planned_minutes, created_at, completed_at)
     VALUES (v_uid, v_topic_work, v_rule, '[демо] Каждые 3 дня: ревью демо-данных (экземпляр -7д)', 'medium', 'done',
-            (current_date - 7)::timestamptz + TIME '17:00', 25, (current_date - 6)::timestamptz)
+            (current_date - 7)::timestamptz + TIME '17:00', 25,
+            (current_date - 8)::timestamptz, (current_date - 6)::timestamptz + TIME '18:00')
     RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
 
