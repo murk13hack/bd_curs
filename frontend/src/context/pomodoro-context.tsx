@@ -12,30 +12,37 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api/client';
 import { usePomodoroSettings } from '@/hooks/use-theme';
 import {
-  advancePhase,
-  idleState,
-  loadPomodoroState,
-  pauseState,
+  advanceSessionPhase,
+  loadPomodoroStore,
+  pauseSession,
+  POMODORO_MAX_SESSIONS,
   POMODORO_MIN_LOG_SEC,
-  resumeState,
-  savePomodoroState,
-  startWorkState,
+  resumeSession,
+  savePomodoroStore,
+  sessionFocusChanged,
+  startWorkSession,
   syncFromClock,
   type PomodoroPhase,
-  type PomodoroState,
+  type PomodoroSession,
+  type PomodoroStore,
 } from '@/lib/pomodoro-timer';
 
-export type { PomodoroPhase };
+export type { PomodoroPhase, PomodoroSession };
 
-interface PomodoroContextValue extends PomodoroState {
+interface PomodoroContextValue {
+  sessions: PomodoroSession[];
+  maxSessions: number;
+  canAddSession: boolean;
   notice: string | null;
   clearNotice: () => void;
-  start: (taskId?: number, taskTitle?: string) => void;
-  selectTask: (taskId: number | null, taskTitle?: string) => void;
-  pause: () => void;
-  resume: () => void;
-  reset: () => void;
-  skip: () => void;
+  createSession: (taskId?: number, taskTitle?: string) => string | null;
+  removeSession: (sessionId: string) => void;
+  selectTask: (sessionId: string, taskId: number | null, taskTitle?: string) => void;
+  pause: (sessionId: string) => void;
+  resume: (sessionId: string) => void;
+  reset: (sessionId: string) => void;
+  skip: (sessionId: string) => void;
+  getSession: (sessionId: string) => PomodoroSession | undefined;
 }
 
 const PomodoroContext = createContext<PomodoroContextValue | null>(null);
@@ -72,24 +79,16 @@ function taskFromArgs(taskId?: number, taskTitle?: string): { id: number; title:
   return { id: taskId, title: taskTitle ?? '' };
 }
 
-function focusChanged(prev: PomodoroState, next: PomodoroState): boolean {
-  return (
-    next.remainingSec !== prev.remainingSec ||
-    next.workFocusedSec !== prev.workFocusedSec ||
-    next.taskFocusedSec !== prev.taskFocusedSec
-  );
-}
-
 export function PomodoroProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const settings = usePomodoroSettings();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  const [state, setState] = useState<PomodoroState>(() => loadPomodoroState(settings));
+  const [store, setStore] = useState<PomodoroStore>(() => loadPomodoroStore(settings));
   const [notice, setNotice] = useState<string | null>(null);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const storeRef = useRef(store);
+  storeRef.current = store;
 
   const clearNotice = useCallback(() => setNotice(null), []);
 
@@ -109,155 +108,228 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     [invalidateTimeQueries],
   );
 
-  const commit = useCallback((next: PomodoroState) => {
-    stateRef.current = next;
-    setState(next);
-    savePomodoroState(next);
+  const commitStore = useCallback((next: PomodoroStore) => {
+    storeRef.current = next;
+    setStore(next);
+    savePomodoroStore(next);
   }, []);
 
-  const completePhase = useCallback(
-    (current: PomodoroState) => {
-      if (current.phase === 'work' && current.taskId) {
-        void flushWork(current.taskId, current.taskFocusedSec);
-      }
-      playPhaseEndSound();
-      const next = advancePhase(current, settingsRef.current);
-      commit(next);
+  const updateSession = useCallback(
+    (sessionId: string, updater: (s: PomodoroSession) => PomodoroSession) => {
+      const prev = storeRef.current;
+      const idx = prev.sessions.findIndex((s) => s.id === sessionId);
+      if (idx < 0) return;
+      const sessions = [...prev.sessions];
+      sessions[idx] = updater(sessions[idx]);
+      commitStore({ version: 2, sessions });
     },
-    [commit, flushWork],
+    [commitStore],
   );
 
-  const tick = useCallback(() => {
-    const prev = stateRef.current;
-    if (!prev.running || prev.phase === 'idle') return;
+  const tickAll = useCallback(() => {
+    const prev = storeRef.current;
+    let changed = false;
+    let phaseEnded = false;
 
-    const synced = syncFromClock(prev);
-    if (synced.remainingSec <= 0 && prev.remainingSec > 0) {
-      completePhase(synced);
-      return;
+    const sessions = prev.sessions.map((s) => {
+      if (!s.running || s.phase === 'idle') return s;
+
+      const before = s;
+      const synced = syncFromClock(s);
+
+      if (synced.remainingSec <= 0 && before.remainingSec > 0) {
+        changed = true;
+        phaseEnded = true;
+        if (synced.phase === 'work' && synced.taskId) {
+          void flushWork(synced.taskId, synced.taskFocusedSec);
+        }
+        return advanceSessionPhase({ ...synced, remainingSec: 0 }, settingsRef.current);
+      }
+
+      if (sessionFocusChanged(before, synced)) {
+        changed = true;
+        return synced;
+      }
+      return s;
+    });
+
+    if (phaseEnded) playPhaseEndSound();
+    if (changed) {
+      commitStore({ version: 2, sessions });
     }
-    if (focusChanged(prev, synced)) {
-      commit(synced);
-    }
-  }, [commit, completePhase]);
+  }, [commitStore, flushWork]);
 
   useEffect(() => {
-    savePomodoroState(state);
-  }, [state]);
+    savePomodoroStore(store);
+  }, [store]);
 
   useEffect(() => {
-    const prev = stateRef.current;
-    if (!prev.running || prev.phase === 'idle') return;
-    const synced = syncFromClock(prev);
-    if (synced.remainingSec <= 0 && prev.remainingSec > 0) {
-      completePhase(synced);
-    } else if (focusChanged(prev, synced)) {
-      commit(synced);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once after reload
+    tickAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === 'visible') tick();
+      if (document.visibilityState === 'visible') tickAll();
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [tick]);
+  }, [tickAll]);
 
   useEffect(() => {
-    if (!state.running || state.phase === 'idle') return undefined;
-    const id = window.setInterval(tick, 1000);
+    const anyRunning = store.sessions.some((s) => s.running && s.phase !== 'idle');
+    if (!anyRunning) return undefined;
+    const id = window.setInterval(tickAll, 1000);
     return () => window.clearInterval(id);
-  }, [state.running, state.phase, tick]);
+  }, [store.sessions, tickAll]);
 
-  useEffect(() => {
-    const totalSec = settings.workMinutes * 60;
-    setState((prev) => {
-      if (prev.phase !== 'idle') return prev;
-      if (prev.totalSec === totalSec && prev.remainingSec === totalSec) return prev;
-      const next = { ...prev, totalSec, remainingSec: totalSec };
-      savePomodoroState(next);
-      return next;
-    });
-  }, [settings.workMinutes]);
-
-  const start = useCallback(
+  const createSession = useCallback(
     (taskId?: number, taskTitle?: string) => {
       clearNotice();
-      commit(startWorkState(settingsRef.current, taskFromArgs(taskId, taskTitle), 0));
+      const prev = storeRef.current;
+      if (prev.sessions.length >= POMODORO_MAX_SESSIONS) {
+        setNotice(`Не больше ${POMODORO_MAX_SESSIONS} таймеров одновременно.`);
+        return null;
+      }
+      const session = startWorkSession(
+        settingsRef.current,
+        taskFromArgs(taskId, taskTitle),
+        0,
+      );
+      commitStore({ version: 2, sessions: [...prev.sessions, session] });
+      return session.id;
     },
-    [commit, clearNotice],
+    [clearNotice, commitStore],
+  );
+
+  const removeSession = useCallback(
+    async (sessionId: string) => {
+      const prev = storeRef.current;
+      const session = prev.sessions.find((s) => s.id === sessionId);
+      if (!session) return;
+      const synced = syncFromClock(session);
+      if (synced.phase === 'work' && synced.taskId) {
+        await flushWork(synced.taskId, synced.taskFocusedSec);
+      }
+      commitStore({
+        version: 2,
+        sessions: prev.sessions.filter((s) => s.id !== sessionId),
+      });
+    },
+    [commitStore, flushWork],
   );
 
   const selectTask = useCallback(
-    async (taskId: number | null, taskTitle = '') => {
+    async (sessionId: string, taskId: number | null, taskTitle = '') => {
       clearNotice();
-      let prev = syncFromClock(stateRef.current);
+      const prev = storeRef.current;
+      const idx = prev.sessions.findIndex((s) => s.id === sessionId);
+      if (idx < 0) return;
+
+      let session = syncFromClock(prev.sessions[idx]);
 
       if (taskId === null) {
-        if (prev.phase === 'work' && prev.taskId != null) {
-          await flushWork(prev.taskId, prev.taskFocusedSec);
+        if (session.phase === 'work' && session.taskId != null) {
+          await flushWork(session.taskId, session.taskFocusedSec);
         }
-        commit({ ...prev, taskId: null, taskTitle: '', taskFocusedSec: 0, savedAt: Date.now() });
-        return;
+        session = { ...session, taskId: null, taskTitle: '', taskFocusedSec: 0, savedAt: Date.now() };
+      } else {
+        if (session.phase === 'work' && session.taskId != null && session.taskId !== taskId) {
+          await flushWork(session.taskId, session.taskFocusedSec);
+        }
+        session = {
+          ...session,
+          taskId,
+          taskTitle,
+          taskFocusedSec: 0,
+          savedAt: Date.now(),
+        };
       }
 
-      if (prev.phase === 'work' && prev.taskId != null && prev.taskId !== taskId) {
-        await flushWork(prev.taskId, prev.taskFocusedSec);
-      }
-
-      commit({
-        ...prev,
-        taskId,
-        taskTitle,
-        taskFocusedSec: 0,
-        savedAt: Date.now(),
-      });
+      const sessions = [...prev.sessions];
+      sessions[idx] = session;
+      commitStore({ version: 2, sessions });
     },
-    [clearNotice, commit, flushWork],
+    [clearNotice, commitStore, flushWork],
   );
 
-  const pause = useCallback(() => {
-    commit(pauseState(stateRef.current));
-  }, [commit]);
+  const pause = useCallback(
+    (sessionId: string) => {
+      updateSession(sessionId, (s) => pauseSession(s));
+    },
+    [updateSession],
+  );
 
-  const resume = useCallback(() => {
-    commit(resumeState(stateRef.current));
-  }, [commit]);
+  const resume = useCallback(
+    (sessionId: string) => {
+      updateSession(sessionId, (s) => resumeSession(s));
+    },
+    [updateSession],
+  );
 
-  const reset = useCallback(() => {
-    const prev = syncFromClock(stateRef.current);
-    if (prev.phase === 'work' && prev.taskId) {
-      void flushWork(prev.taskId, prev.taskFocusedSec);
-    }
-    clearNotice();
-    commit(idleState(settingsRef.current));
-  }, [commit, flushWork, clearNotice]);
+  const reset = useCallback(
+    (sessionId: string) => {
+      void removeSession(sessionId);
+    },
+    [removeSession],
+  );
 
-  const skip = useCallback(() => {
-    const prev = syncFromClock(stateRef.current);
-    if (prev.phase === 'work' && prev.taskId) {
-      void flushWork(prev.taskId, prev.taskFocusedSec);
-    }
-    if (prev.remainingSec <= 0) return;
-    playPhaseEndSound();
-    commit(advancePhase({ ...prev, remainingSec: 0 }, settingsRef.current));
-  }, [commit, flushWork]);
+  const skip = useCallback(
+    (sessionId: string) => {
+      const prev = storeRef.current;
+      const idx = prev.sessions.findIndex((s) => s.id === sessionId);
+      if (idx < 0) return;
+
+      let session = syncFromClock(prev.sessions[idx]);
+      if (session.phase === 'work' && session.taskId) {
+        void flushWork(session.taskId, session.taskFocusedSec);
+      }
+      if (session.remainingSec <= 0) return;
+
+      playPhaseEndSound();
+      session = advanceSessionPhase({ ...session, remainingSec: 0 }, settingsRef.current);
+
+      const sessions = [...prev.sessions];
+      sessions[idx] = session;
+      commitStore({ version: 2, sessions });
+    },
+    [commitStore, flushWork],
+  );
+
+  const getSession = useCallback(
+    (sessionId: string) => storeRef.current.sessions.find((s) => s.id === sessionId),
+    [],
+  );
 
   const value = useMemo(
     () => ({
-      ...state,
+      sessions: store.sessions,
+      maxSessions: POMODORO_MAX_SESSIONS,
+      canAddSession: store.sessions.length < POMODORO_MAX_SESSIONS,
       notice,
       clearNotice,
-      start,
+      createSession,
+      removeSession,
       selectTask,
       pause,
       resume,
       reset,
       skip,
+      getSession,
     }),
-    [state, notice, clearNotice, start, selectTask, pause, resume, reset, skip],
+    [
+      store.sessions,
+      notice,
+      clearNotice,
+      createSession,
+      removeSession,
+      selectTask,
+      pause,
+      resume,
+      reset,
+      skip,
+      getSession,
+    ],
   );
 
   return <PomodoroContext.Provider value={value}>{children}</PomodoroContext.Provider>;

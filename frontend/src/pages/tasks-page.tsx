@@ -303,10 +303,10 @@ export function TasksPage() {
                         {task.is_archived ? 'Из архива' : 'В архив'}
                       </button>
                       <Link
-                        to={`/pomodoro?task=${task.id}`}
+                        to={`/pomodoro?task=${task.id}&add=1`}
                         className="btn-ghost inline-flex items-center gap-1 px-2 py-1 text-xs"
                       >
-                        <Timer size={14} /> Фокус
+                        <Timer size={14} /> + Фокус
                       </Link>
                     </div>
                   )}

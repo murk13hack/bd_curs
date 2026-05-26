@@ -1,65 +1,65 @@
 import { Link } from 'react-router-dom';
-import { Pause, Play, RotateCcw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { usePomodoro } from '@/context/pomodoro-context';
-import { formatPomodoroClock, POMODORO_PHASE_LABEL } from '@/lib/pomodoro-timer';
+import { formatPomodoroClock, POMODORO_MAX_SESSIONS, POMODORO_PHASE_LABEL } from '@/lib/pomodoro-timer';
 
 export function PomodoroSidebarWidget() {
   const p = usePomodoro();
-  const active = p.phase !== 'idle';
+  const running = p.sessions.filter((s) => s.running);
 
-  if (!active) {
-    return (
-      <div className="border-t border-border p-3 space-y-2">
-        <Link
-          to="/pomodoro"
-          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm transition hover:border-accent/40"
-        >
-          <span className="font-medium">Фокус</span>
-          <span className="text-xs text-ink-muted">открыть →</span>
+  return (
+    <div className="border-t border-border p-3 space-y-2">
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-xs font-medium text-ink-muted">
+          Фокус {p.sessions.length}/{POMODORO_MAX_SESSIONS}
+        </span>
+        <Link to="/pomodoro" className="text-[10px] text-accent hover:underline">
+          все →
         </Link>
+      </div>
+
+      {p.sessions.length === 0 ? (
         <button
           type="button"
           className="btn-secondary w-full text-xs"
-          onClick={() => p.start()}
+          onClick={() => p.createSession()}
         >
-          <Play size={14} className="inline mr-1" />
-          Быстрый старт
+          <Plus size={14} className="inline" /> Таймер
         </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-t border-border p-3">
-      <div className="mb-1 flex items-center justify-between gap-1">
-        <span className="text-xs font-medium text-ink-muted">{POMODORO_PHASE_LABEL[p.phase]}</span>
-        <Link to="/pomodoro" className="text-[10px] text-accent hover:underline">
-          подробнее
-        </Link>
-      </div>
-      <div className="text-center text-2xl font-bold tabular-nums">{formatPomodoroClock(p.remainingSec)}</div>
-      {p.taskTitle && (
-        <p className="mt-0.5 truncate text-center text-[10px] text-ink-muted">{p.taskTitle}</p>
+      ) : (
+        <ul className="max-h-32 space-y-1 overflow-y-auto">
+          {p.sessions.slice(0, 5).map((s) => (
+            <li key={s.id} className="rounded border border-border/80 px-2 py-1 text-[10px]">
+              <div className="truncate font-medium">{s.taskTitle || 'Без задачи'}</div>
+              <div className="flex justify-between text-ink-muted">
+                <span>{POMODORO_PHASE_LABEL[s.phase]}</span>
+                <span className="tabular-nums font-semibold text-ink">
+                  {formatPomodoroClock(s.remainingSec)}
+                </span>
+              </div>
+            </li>
+          ))}
+          {p.sessions.length > 5 && (
+            <li className="text-center text-[10px] text-ink-muted">+{p.sessions.length - 5} ещё</li>
+          )}
+        </ul>
       )}
+
+      {p.canAddSession && (
+        <button type="button" className="btn-secondary w-full text-xs" onClick={() => p.createSession()}>
+          <Plus size={12} className="inline" /> Ещё таймер
+        </button>
+      )}
+
       {p.notice && (
-        <p className="mt-1 text-[10px] leading-tight text-red-600" title={p.notice}>
-          {p.notice.length > 56 ? `${p.notice.slice(0, 56)}…` : p.notice}
+        <p className="text-[10px] leading-tight text-red-600" title={p.notice}>
+          {p.notice.length > 48 ? `${p.notice.slice(0, 48)}…` : p.notice}
         </p>
       )}
-      <div className="mt-2 flex gap-1">
-        {p.running ? (
-          <button type="button" className="btn-secondary flex-1 px-2 py-1 text-xs" onClick={p.pause}>
-            <Pause size={14} className="mx-auto" />
-          </button>
-        ) : (
-          <button type="button" className="btn-primary flex-1 px-2 py-1 text-xs" onClick={p.resume}>
-            <Play size={14} className="mx-auto" />
-          </button>
-        )}
-        <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={p.reset} title="Сброс">
-          <RotateCcw size={14} />
-        </button>
-      </div>
+
+      {running.length > 0 && (
+        <p className="text-[10px] text-ink-muted">{running.length} идут сейчас</p>
+      )}
     </div>
   );
 }
