@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { api, ApiError } from '@/api/client';
-import type { StatsMetaDimension } from '@/api/types';
+import type { OlapMetaItem } from '@/api/types';
 import {
   AxisLabelX,
   AxisLabelYLeft,
@@ -122,7 +122,7 @@ function DimensionSelect({
   dayBlocked,
   onChange,
 }: {
-  dimensions: StatsMetaDimension[];
+  dimensions: OlapMetaItem[];
   value: string;
   dayBlocked: boolean;
   onChange: (id: string) => void;
@@ -272,7 +272,7 @@ export function OlapBuilder({
               {fmtDate(range.from)} — {fmtDate(range.to)} ({period} д)
             </p>
 
-            <FormField label="Группировка" hint={dimHint ?? groupingHint}>
+            <FormField label="Группировка" hint={dimHint ?? groupingHint ?? undefined}>
               <DimensionSelect
                 dimensions={meta.data?.dimensions ?? []}
                 value={dim}
@@ -281,7 +281,7 @@ export function OlapBuilder({
               />
             </FormField>
 
-            <FormField label="Показатель" hint={measureMeta?.hint}>
+            <FormField label="Показатель" hint={measureMeta?.hint ?? undefined}>
               <select
                 className="select w-full"
                 value={measure}
