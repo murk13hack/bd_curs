@@ -294,14 +294,15 @@ BEGIN
            AND t.deadline IS NOT NULL
            AND t.deadline::date = v_day
     ) THEN
-        INSERT INTO tasks (user_id, topic_id, title, description, priority, deadline)
+        INSERT INTO tasks (user_id, topic_id, title, description, priority, deadline, created_at)
         VALUES (
             v_pattern.user_id,
             COALESCE(v_pattern.topic_id, (SELECT id FROM topics WHERE user_id = v_pattern.user_id LIMIT 1)),
             v_pattern.title,
             'Авто-задача из паттерна #' || v_pattern.id,
             'medium',
-            v_day::timestamptz + INTERVAL '23 hours 59 minutes'
+            v_day::timestamptz + TIME '23:59:00',
+            v_day::timestamptz + TIME '00:05:00'
         );
     END IF;
     RETURN NEW;

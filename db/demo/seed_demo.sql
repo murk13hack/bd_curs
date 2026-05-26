@@ -2532,6 +2532,15 @@ BEGIN
             CALL sp_log_pattern_response(v_pattern, v_opt_ok, (current_date - i)::timestamptz);
         END IF;
     END LOOP;
+    FOR v_task IN
+        SELECT id FROM tasks
+         WHERE user_id = v_uid
+           AND title = '[демо] Медитация (multi-option)'
+           AND description LIKE 'Авто-задача из паттерна%'
+    LOOP
+        v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
+        v_tasks_pool := array_append(v_tasks_pool, v_task);
+    END LOOP;
 
     -- ---------- паттерны SCENARIO ---------------------------------------------
     INSERT INTO behavior_patterns (user_id, title, pattern_type, pattern_mode, guide_intro)
