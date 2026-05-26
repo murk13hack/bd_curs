@@ -252,10 +252,76 @@ npm run dev
 
 | Симптом | Решение |
 |---|---|
+| `dependency failed to start: backend` / frontend не стартует | См. [Fedora: backend не поднимается](#fedora-backend-не-поднимается) |
 | `db unhealthy` | `docker compose logs db` — ошибка в SQL init; при необходимости `docker compose down -v` и пересоздать |
 | Фронт не видит API | Проверить `docker compose ps`, nginx прокси в `frontend/nginx.conf` |
 | Медленная сборка на OneDrive | Перенести проект в локальную папку (`Documents`, не синхронизируемую) |
 | Порт 80 занят | В `.env` задать `FRONTEND_PORT=8080`, открыть http://localhost:8080 |
+
+### Fedora: backend не поднимается
+
+Сообщение вроде `service "frontend" depends on backend ... error` значит: **backend не прошёл healthcheck** (или **db** не healthy, и backend даже не стартовал).
+
+**1. Диагностика:**
+
+```bash
+cd bd_curs
+docker compose ps -a
+docker compose logs db --tail 50
+docker compose logs backend --tail 80
+curl -s http://localhost:8000/health || echo "backend на хосте недоступен"
+```
+
+**2. Пустой или дефолтный пароль БД**
+
+В `.env` должен быть задан свой `POSTGRES_PASSWORD` (не `change_me_to_strong_password`).
+
+**3. Пароль в `.env` не совпадает с уже созданным volume**
+
+PostgreSQL инициализируется **один раз**. Если сменили пароль в `.env`, старый volume его не подхватит — backend не сможет подключиться к БД позже, а db может падать при старте.
+
+```bash
+docker compose down -v    # удалит все данные БД!
+docker compose up -d --build
+```
+
+Для **существующей** БД пароль в `.env` менять нельзя без переинициализации volume.
+
+**4. Порт 80 занят (frontend)**
+
+```bash
+# в .env
+FRONTEND_PORT=8080
+docker compose up -d --build
+```
+
+**5. Права Docker на Fedora**
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+sudo systemctl enable --now docker
+```
+
+**6. Первая сборка долгая**
+
+Подождите 1–2 минуты и проверьте:
+
+```bash
+docker compose logs -f backend
+# должно появиться: Uvicorn running on http://0.0.0.0:8000
+```
+
+**7. Развернуть по шагам (минуя зависимость frontend→backend):**
+
+```bash
+docker compose up -d --build db
+docker compose up -d --build backend
+curl -s http://localhost:8000/health
+docker compose up -d frontend
+./scripts/apply-migrations.sh
+./scripts/demo-data.sh seed
+```
 
 ## Архитектура контейнеров
 
