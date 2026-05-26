@@ -20,6 +20,7 @@ import {
   resumeSession,
   savePomodoroStore,
   sessionFocusChanged,
+  sessionForTask as findSessionForTask,
   startWorkSession,
   syncFromClock,
   type PomodoroPhase,
@@ -43,6 +44,7 @@ interface PomodoroContextValue {
   reset: (sessionId: string) => void;
   skip: (sessionId: string) => void;
   getSession: (sessionId: string) => PomodoroSession | undefined;
+  sessionForTask: (taskId: number | null) => PomodoroSession | undefined;
 }
 
 const PomodoroContext = createContext<PomodoroContextValue | null>(null);
@@ -187,15 +189,24 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     (taskId?: number, taskTitle?: string) => {
       clearNotice();
       const prev = storeRef.current;
+      const task = taskFromArgs(taskId, taskTitle);
+      const bindKey = task?.id ?? null;
+
+      const existing = findSessionForTask(prev.sessions, bindKey);
+      if (existing) {
+        setNotice(
+          task
+            ? `У задачи «${task.title}» уже есть таймер.`
+            : 'Таймер без задачи уже запущен.',
+        );
+        return existing.id;
+      }
+
       if (prev.sessions.length >= POMODORO_MAX_SESSIONS) {
         setNotice(`Не больше ${POMODORO_MAX_SESSIONS} таймеров одновременно.`);
         return null;
       }
-      const session = startWorkSession(
-        settingsRef.current,
-        taskFromArgs(taskId, taskTitle),
-        0,
-      );
+      const session = startWorkSession(settingsRef.current, task, 0);
       commitStore({ version: 2, sessions: [...prev.sessions, session] });
       return session.id;
     },
@@ -234,6 +245,11 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         }
         session = { ...session, taskId: null, taskTitle: '', taskFocusedSec: 0, savedAt: Date.now() };
       } else {
+        const taken = prev.sessions.find((s) => s.id !== sessionId && s.taskId === taskId);
+        if (taken) {
+          setNotice(`У задачи «${taskTitle}» уже есть таймер.`);
+          return;
+        }
         if (session.phase === 'work' && session.taskId != null && session.taskId !== taskId) {
           await flushWork(session.taskId, session.taskFocusedSec);
         }
@@ -316,6 +332,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       reset,
       skip,
       getSession,
+      sessionForTask: (taskId: number | null) => findSessionForTask(store.sessions, taskId),
     }),
     [
       store.sessions,

@@ -1,34 +1,25 @@
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
 import { usePomodoro } from '@/context/pomodoro-context';
 import { formatPomodoroClock, POMODORO_MAX_SESSIONS, POMODORO_PHASE_LABEL } from '@/lib/pomodoro-timer';
 
 export function PomodoroSidebarWidget() {
   const p = usePomodoro();
-  const running = p.sessions.filter((s) => s.running);
 
   return (
-    <div className="border-t border-border p-3 space-y-2">
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-xs font-medium text-ink-muted">
-          Фокус {p.sessions.length}/{POMODORO_MAX_SESSIONS}
+    <div className="border-t border-border p-3">
+      <Link
+        to="/pomodoro"
+        className="mb-2 flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2 text-sm transition hover:border-accent/40"
+      >
+        <span className="font-medium">Фокус</span>
+        <span className="text-xs text-ink-muted">
+          {p.sessions.length}/{POMODORO_MAX_SESSIONS}
         </span>
-        <Link to="/pomodoro" className="text-[10px] text-accent hover:underline">
-          все →
-        </Link>
-      </div>
+      </Link>
 
-      {p.sessions.length === 0 ? (
-        <button
-          type="button"
-          className="btn-secondary w-full text-xs"
-          onClick={() => p.createSession()}
-        >
-          <Plus size={14} className="inline" /> Таймер
-        </button>
-      ) : (
-        <ul className="max-h-32 space-y-1 overflow-y-auto">
-          {p.sessions.slice(0, 5).map((s) => (
+      {p.sessions.length > 0 && (
+        <ul className="max-h-36 space-y-1 overflow-y-auto">
+          {p.sessions.map((s) => (
             <li key={s.id} className="rounded border border-border/80 px-2 py-1 text-[10px]">
               <div className="truncate font-medium">{s.taskTitle || 'Без задачи'}</div>
               <div className="flex justify-between text-ink-muted">
@@ -39,26 +30,13 @@ export function PomodoroSidebarWidget() {
               </div>
             </li>
           ))}
-          {p.sessions.length > 5 && (
-            <li className="text-center text-[10px] text-ink-muted">+{p.sessions.length - 5} ещё</li>
-          )}
         </ul>
       )}
 
-      {p.canAddSession && (
-        <button type="button" className="btn-secondary w-full text-xs" onClick={() => p.createSession()}>
-          <Plus size={12} className="inline" /> Ещё таймер
-        </button>
-      )}
-
       {p.notice && (
-        <p className="text-[10px] leading-tight text-red-600" title={p.notice}>
+        <p className="mt-2 text-[10px] leading-tight text-red-600" title={p.notice}>
           {p.notice.length > 48 ? `${p.notice.slice(0, 48)}…` : p.notice}
         </p>
-      )}
-
-      {running.length > 0 && (
-        <p className="text-[10px] text-ink-muted">{running.length} идут сейчас</p>
       )}
     </div>
   );

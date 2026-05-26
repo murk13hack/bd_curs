@@ -228,6 +228,13 @@ export function savePomodoroStore(store: PomodoroStore): void {
   localStorage.setItem(POMODORO_STORAGE_KEY, JSON.stringify(store));
 }
 
+export function sessionForTask(
+  sessions: PomodoroSession[],
+  taskId: number | null,
+): PomodoroSession | undefined {
+  return sessions.find((s) => s.taskId === taskId);
+}
+
 export function sessionFocusChanged(prev: PomodoroSession, next: PomodoroSession): boolean {
   return (
     next.remainingSec !== prev.remainingSec ||

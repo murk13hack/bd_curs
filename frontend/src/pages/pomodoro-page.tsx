@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
 import { api } from '@/api/client';
 import { PomodoroSessionCard } from '@/components/pomodoro/pomodoro-session-card';
 import { usePomodoro } from '@/context/pomodoro-context';
@@ -10,7 +9,7 @@ import { POMODORO_MAX_SESSIONS } from '@/lib/pomodoro-timer';
 
 export function PomodoroPage() {
   const p = usePomodoro();
-  const { createSession } = p;
+  const { createSession, sessionForTask } = p;
   const [searchParams, setSearchParams] = useSearchParams();
   const taskParam = searchParams.get('task');
   const addParam = searchParams.get('add');
@@ -28,6 +27,8 @@ export function PomodoroPage() {
     return list.filter((t) => t.title.toLowerCase().includes(needle));
   }, [tasks.data, q]);
 
+  const untimedSession = sessionForTask(null);
+
   useEffect(() => {
     if (!addParam || !taskParam || !tasks.data?.length) return;
     const id = Number(taskParam);
@@ -43,17 +44,7 @@ export function PomodoroPage() {
     <div>
       <PageHeader
         title="Фокус"
-        subtitle={`До ${POMODORO_MAX_SESSIONS} параллельных таймеров. В задачу — время с момента привязки; интервалы могут пересекаться.`}
-        actions={
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={!p.canAddSession}
-            onClick={() => p.createSession()}
-          >
-            <Plus size={16} /> Новый таймер
-          </button>
-        }
+        subtitle={`До ${POMODORO_MAX_SESSIONS} задач параллельно — по одному таймеру на задачу.`}
       />
 
       {p.notice && (
@@ -65,17 +56,7 @@ export function PomodoroPage() {
         </div>
       )}
 
-      <p className="mb-4 text-sm text-ink-muted">
-        Активных таймеров: {p.sessions.length} / {POMODORO_MAX_SESSIONS}
-      </p>
-
-      {p.sessions.length === 0 ? (
-        <section className="card">
-          <div className="card-body py-12 text-center text-sm text-ink-muted">
-            Нажмите «Новый таймер» или запустите фокус из списка задач ниже.
-          </div>
-        </section>
-      ) : (
+      {p.sessions.length > 0 && (
         <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {p.sessions.map((session) => (
             <PomodoroSessionCard key={session.id} session={session} />
@@ -85,36 +66,64 @@ export function PomodoroPage() {
 
       <section className="card">
         <div className="card-body">
-          <h2 className="mb-1 font-semibold">Запустить ещё таймер для задачи</h2>
-          <p className="mb-3 text-xs text-ink-muted">
-            Каждая кнопка добавляет отдельный параллельный таймер (не заменяет существующие).
-          </p>
+          <h2 className="mb-3 font-semibold">Запустить фокус</h2>
           <input
             className="input mb-3"
-            placeholder="Поиск…"
+            placeholder="Поиск задачи…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+
           {tasks.isLoading ? (
             <Spinner />
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-ink-muted">Нет активных задач.</p>
           ) : (
-            <ul className="max-h-72 space-y-2 overflow-y-auto">
-              {filtered.map((task) => (
-                <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-                  <span className="min-w-0 flex-1 text-sm font-medium">{task.title}</span>
+            <ul className="space-y-2">
+              {filtered.map((task) => {
+                const active = sessionForTask(task.id);
+                return (
+                  <li
+                    key={task.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                  >
+                    <span className="min-w-0 flex-1 text-sm font-medium">{task.title}</span>
+                    {active ? (
+                      <span className="text-xs text-accent">таймер идёт</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-primary shrink-0 text-xs"
+                        disabled={!p.canAddSession}
+                        onClick={() => createSession(task.id, task.title)}
+                      >
+                        Старт
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+
+              <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border px-3 py-2">
+                <span className="text-sm text-ink-muted">Без привязки к задаче</span>
+                {untimedSession ? (
+                  <span className="text-xs text-accent">таймер идёт</span>
+                ) : (
                   <button
                     type="button"
                     className="btn-secondary shrink-0 text-xs"
                     disabled={!p.canAddSession}
-                    onClick={() => p.createSession(task.id, task.title)}
+                    onClick={() => createSession()}
                   >
-                    + Таймер
+                    Старт
                   </button>
-                </li>
-              ))}
+                )}
+              </li>
             </ul>
+          )}
+
+          {p.sessions.length === 0 && !tasks.isLoading && (
+            <p className="mt-4 text-center text-sm text-ink-muted">
+              Выберите задачу и нажмите «Старт».
+            </p>
           )}
         </div>
       </section>
