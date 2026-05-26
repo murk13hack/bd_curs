@@ -629,9 +629,15 @@ def main() -> None:
     INSERT INTO pattern_response_options (pattern_id, label, is_success, sort_order) VALUES
         (v_pattern, 'Сделал', TRUE, 0), (v_pattern, 'Пропустил', FALSE, 1);
     SELECT id INTO v_opt_ok FROM pattern_response_options WHERE pattern_id = v_pattern AND is_success;
-    FOR i IN 0..30 LOOP
+    FOR i IN 0..24 LOOP
+        v_day := current_date - i;
         INSERT INTO pattern_markers (pattern_id, marker_option_id, occurred_at)
-        VALUES (v_pattern, v_opt_ok, (current_date - (i % 20))::timestamptz + (i % 12 || ' hours')::interval);
+        VALUES (v_pattern, v_opt_ok, v_day::timestamptz + (10 + (i % 8) || ' hours')::interval);
+    END LOOP;
+    FOR i IN 25..29 LOOP
+        v_day := current_date - i;
+        INSERT INTO pattern_marker_day_closures (pattern_id, closure_date)
+        VALUES (v_pattern, v_day) ON CONFLICT (pattern_id, closure_date) DO NOTHING;
     END LOOP;
 
     -- ---------- цели и связи --------------------------------------------------

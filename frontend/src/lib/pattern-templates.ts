@@ -319,10 +319,22 @@ export function formatScheduleTimes(schedules: { time_of_day: string }[]): strin
 }
 
 export function streakLabel(type: 'positive' | 'negative', mode: string): string {
-  if (mode === 'markers') return 'Дней без негативных отметок';
+  if (mode === 'markers') {
+    return type === 'negative'
+      ? 'Дней без негативных отметок'
+      : 'Дней с полезной отметкой';
+  }
   if (mode === 'scenario' && type === 'negative') return 'Дней без срыва';
   if (type === 'negative') return 'Без срыва';
   return 'Серия';
+}
+
+/** Пояснение к «20/30» в режиме markers — не путать с числом негативных эпизодов. */
+export function markersRateHint(type: 'positive' | 'negative'): string {
+  if (type === 'negative') {
+    return 'успешные дни: нет негативных эпизодов или «день без эпизодов»';
+  }
+  return 'успешные дни: отметка «Сделал» или «день без эпизодов»';
 }
 
 export function rateLabel(scheduled: number, success: number): string {

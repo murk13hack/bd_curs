@@ -5,7 +5,7 @@ import { api } from '@/api/client';
 import type { Pattern, PatternMarker, PatternStreak } from '@/api/types';
 import { MarkerEpisodeModal } from '@/components/patterns/marker-episode-modal';
 import { PatternDayStrip } from '@/components/patterns/pattern-day-strip';
-import { formatScheduleTimes, rateLabel, streakLabel, todayTone } from '@/lib/pattern-templates';
+import { formatScheduleTimes, markersRateHint, rateLabel, streakLabel, todayTone } from '@/lib/pattern-templates';
 import { PATTERN_TYPE_LABEL } from '@/lib/labels';
 
 type Props = {
@@ -153,6 +153,11 @@ export function MarkersJournalCard({
               </div>
               <div className="mt-1 text-xs text-ink-muted">
                 за 30 д {rateLabel(streak.scheduled_days_30d, streak.success_days_30d)}
+                <span className="mt-0.5 block text-[11px] leading-snug opacity-90">
+                  {markersRateHint(pattern.pattern_type)}. В календаре:{' '}
+                  <span className="text-red-600">тёмно-красный</span> — негативный эпизод,{' '}
+                  <span className="text-red-400">светлый</span> — день без отметок.
+                </span>
               </div>
             </div>
           )}
