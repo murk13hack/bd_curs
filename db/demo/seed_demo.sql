@@ -2519,7 +2519,7 @@ BEGIN
     END LOOP;
 
     INSERT INTO behavior_patterns (user_id, title, pattern_type, is_boolean, pattern_mode, auto_create_task)
-    VALUES (v_uid, '[демо] Медитация (multi-option)', 'positive', FALSE, 'habit', TRUE)
+    VALUES (v_uid, '[демо] Медитация (multi-option)', 'positive', FALSE, 'habit', FALSE)
     RETURNING id INTO v_pattern;
     v_reg := jsonb_set(v_reg, '{behavior_patterns}', (v_reg->'behavior_patterns') || to_jsonb(v_pattern));
     INSERT INTO pattern_response_options (pattern_id, label, is_success, sort_order) VALUES
@@ -2532,15 +2532,17 @@ BEGIN
             CALL sp_log_pattern_response(v_pattern, v_opt_ok, (current_date - i)::timestamptz);
         END IF;
     END LOOP;
-    FOR v_task IN
-        SELECT id FROM tasks
-         WHERE user_id = v_uid
-           AND title = '[демо] Медитация (multi-option)'
-           AND description LIKE 'Авто-задача из паттерна%'
-    LOOP
-        v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
-        v_tasks_pool := array_append(v_tasks_pool, v_task);
-    END LOOP;
+    -- пример auto_create_task (без триггера — явная задача за сегодня)
+    INSERT INTO tasks (user_id, topic_id, title, description, priority, deadline, created_at)
+    VALUES (
+        v_uid, v_topic_habit, '[демо] Медитация (multi-option)',
+        'Авто-задача из паттерна #' || v_pattern || ' (демо auto_create_task)',
+        'medium'::task_priority_enum,
+        current_date::timestamptz + TIME '23:59:00',
+        current_date::timestamptz + TIME '00:05:00'
+    ) RETURNING id INTO v_task;
+    v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
+    v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     -- ---------- паттерны SCENARIO ---------------------------------------------
     INSERT INTO behavior_patterns (user_id, title, pattern_type, pattern_mode, guide_intro)
