@@ -141,12 +141,17 @@ async def test_subtasks(client: AsyncClient, topic_id: int) -> None:
     assert len(r.json()) == 3
 
 
-async def test_time_logs_ok_then_overlap_409(
+async def test_time_logs_overlap_allowed(
     client: AsyncClient, topic_id: int
 ) -> None:
-    task = (
+    task_a = (
         await client.post(
-            "/api/v1/tasks", json={"topic_id": topic_id, "title": "tracked"}
+            "/api/v1/tasks", json={"topic_id": topic_id, "title": "tracked A"}
+        )
+    ).json()
+    task_b = (
+        await client.post(
+            "/api/v1/tasks", json={"topic_id": topic_id, "title": "tracked B"}
         )
     ).json()
     base = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -155,20 +160,16 @@ async def test_time_logs_ok_then_overlap_409(
         "ended_at": (base + timedelta(minutes=25)).isoformat(),
         "is_pomodoro": True,
     }
-    r = await client.post(
-        f"/api/v1/tasks/{task['id']}/time-logs", json=log_a
-    )
+    r = await client.post(f"/api/v1/tasks/{task_a['id']}/time-logs", json=log_a)
     assert r.status_code == 201
-    assert r.json()["duration_seconds"] == 25 * 60
 
     overlap = {
         "started_at": (base + timedelta(minutes=10)).isoformat(),
         "ended_at": (base + timedelta(minutes=40)).isoformat(),
+        "is_pomodoro": True,
     }
-    r = await client.post(
-        f"/api/v1/tasks/{task['id']}/time-logs", json=overlap
-    )
-    assert r.status_code == 409
+    r = await client.post(f"/api/v1/tasks/{task_b['id']}/time-logs", json=overlap)
+    assert r.status_code == 201
 
 
 async def test_delete_task(client: AsyncClient, topic_id: int) -> None:

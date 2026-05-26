@@ -18,8 +18,10 @@ export interface PomodoroState {
   running: boolean;
   /** Когда running — момент окончания текущей фазы (epoch ms). */
   deadlineAt: number | null;
-  /** Секунды фокуса в текущей work-фазе (без пауз и без простоя вкладки при pause). */
+  /** Секунды work-фазы всего (для отображения сессии). */
   workFocusedSec: number;
+  /** Секунды фокуса по текущей taskId с момента её привязки. */
+  taskFocusedSec: number;
   savedAt: number;
 }
 
@@ -52,6 +54,7 @@ export function idleState(s: PomodoroSettings): PomodoroState {
     running: false,
     deadlineAt: null,
     workFocusedSec: 0,
+    taskFocusedSec: 0,
     savedAt: Date.now(),
   };
 }
@@ -64,14 +67,20 @@ export function syncFromClock(state: PomodoroState, now = Date.now()): PomodoroS
 
   const remainingSec = Math.max(0, Math.ceil((state.deadlineAt - now) / 1000));
   let workFocusedSec = state.workFocusedSec;
+  let taskFocusedSec = state.taskFocusedSec;
   if (state.phase === 'work' && state.savedAt < now) {
-    workFocusedSec += Math.floor((now - state.savedAt) / 1000);
+    const delta = Math.floor((now - state.savedAt) / 1000);
+    workFocusedSec += delta;
+    if (state.taskId != null) {
+      taskFocusedSec += delta;
+    }
   }
 
   return {
     ...state,
     remainingSec,
     workFocusedSec,
+    taskFocusedSec,
     savedAt: now,
   };
 }
@@ -115,6 +124,7 @@ export function startWorkState(
     running: true,
     deadlineAt: now + totalSec * 1000,
     workFocusedSec: 0,
+    taskFocusedSec: 0,
     savedAt: now,
   };
 }
@@ -130,6 +140,7 @@ export function advancePhase(state: PomodoroState, settings: PomodoroSettings, n
       phase,
       cycles,
       workFocusedSec: 0,
+      taskFocusedSec: 0,
       totalSec,
       remainingSec: totalSec,
       running,
@@ -144,6 +155,7 @@ export function advancePhase(state: PomodoroState, settings: PomodoroSettings, n
     ...state,
     phase: 'work',
     workFocusedSec: 0,
+    taskFocusedSec: 0,
     totalSec,
     remainingSec: totalSec,
     running,
@@ -180,6 +192,7 @@ export function loadPomodoroState(settings: PomodoroSettings): PomodoroState {
       running: Boolean(parsed.running),
       deadlineAt: parsed.deadlineAt ?? null,
       workFocusedSec: Number(parsed.workFocusedSec) || 0,
+      taskFocusedSec: Number(parsed.taskFocusedSec) || 0,
       savedAt: Number(parsed.savedAt) || Date.now(),
     };
     if (base.running && base.deadlineAt == null && base.remainingSec > 0) {

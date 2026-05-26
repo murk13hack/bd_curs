@@ -107,12 +107,18 @@ export function PomodoroTimerView({ compact = false }: { compact?: boolean }) {
       {!compact && p.phase !== 'idle' && (
         <p className="text-xs text-ink-muted">
           Циклов: {p.cycles}
-          {p.phase === 'work' && p.workFocusedSec > 0 && (
+          {p.phase === 'work' && (
             <>
               {' '}
-              · фокус {Math.floor(p.workFocusedSec / 60)}:
+              · сессия {Math.floor(p.workFocusedSec / 60)}:
               {(p.workFocusedSec % 60).toString().padStart(2, '0')}
-              {!p.taskId && ' (не привязано)'}
+              {p.taskId != null && p.taskFocusedSec > 0 && (
+                <>
+                  {' '}
+                  · в задачу {Math.floor(p.taskFocusedSec / 60)}:
+                  {(p.taskFocusedSec % 60).toString().padStart(2, '0')}
+                </>
+              )}
             </>
           )}
         </p>

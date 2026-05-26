@@ -104,13 +104,9 @@ CREATE TABLE task_time_logs (
     ) STORED,
     is_pomodoro      BOOLEAN     NOT NULL DEFAULT FALSE,
     note             TEXT,
-    CONSTRAINT task_time_logs_ended_after_started CHECK (ended_at > started_at),
-    CONSTRAINT task_time_logs_no_overlap EXCLUDE USING gist (
-        user_id WITH =,
-        tstzrange(started_at, ended_at, '[)') WITH &&
-    )
+    CONSTRAINT task_time_logs_ended_after_started CHECK (ended_at > started_at)
 );
-COMMENT ON TABLE task_time_logs IS 'Журнал отрезков времени по задачам. Exclusion-констрейнт исключает наложения интервалов.';
+COMMENT ON TABLE task_time_logs IS 'Журнал отрезков времени по задачам. Пересечения интервалов у одного пользователя допустимы.';
 
 -- ---------- 8. diary_entries ---------------------------------------------
 

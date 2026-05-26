@@ -40,7 +40,7 @@ export function PomodoroPage() {
     <div>
       <PageHeader
         title="Фокус"
-        subtitle="Один таймер на всё приложение. Задача по желанию — время пишется в неё при завершении сессии или смене задачи."
+        subtitle="Один таймер на приложение. В задачу пишется только время с момента привязки; пересечение интервалов по разным задачам допустимо."
       />
 
       <div className="mx-auto max-w-xl">
@@ -54,7 +54,7 @@ export function PomodoroPage() {
             )}
             {inSession && noTaskSelected && pomodoro.phase === 'work' && (
               <p className="mt-3 text-center text-sm text-amber-700 dark:text-amber-400">
-                Выберите задачу до конца сессии, иначе накопленное время не сохранится.
+                Привяжите задачу — в неё пойдёт только время после привязки (не с начала сессии).
               </p>
             )}
           </div>
@@ -64,8 +64,8 @@ export function PomodoroPage() {
           <div className="card-body">
             <h2 className="mb-1 font-semibold">Привязка к задаче</h2>
             <p className="mb-3 text-xs text-ink-muted">
-              Одновременно идёт только одна сессия. Смена задачи во время фокуса сохраняет время по
-              предыдущей задаче.
+              Одна сессия Pomodoro. Смена задачи сохраняет время по предыдущей (с момента её
+              привязки). Журнал разных задач может пересекаться по времени.
             </p>
             <input
               className="input mb-3"
