@@ -73,7 +73,6 @@ CREATE TABLE tasks (
     CONSTRAINT tasks_start_before_deadline CHECK (
         start_at IS NULL OR deadline IS NULL OR start_at < deadline
     ),
-    CONSTRAINT tasks_start_after_created CHECK (start_at IS NULL OR start_at >= created_at),
     CONSTRAINT tasks_completed_after_created CHECK (completed_at IS NULL OR completed_at >= created_at),
     CONSTRAINT tasks_no_self_parent CHECK (parent_task_id IS NULL OR parent_task_id <> id)
 );
