@@ -40,6 +40,8 @@ import {
 } from '@/lib/stats-period';
 
 const COLORS = ['#16a34a', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#6b7280', '#ef4444'];
+const PIE_MIN_LABEL_SHARE = 0.08;
+const PIE_MAX_LABEL_CHARS = 14;
 
 type Tab = 'overview' | 'tasks' | 'patterns' | 'diary' | 'olap';
 
@@ -47,6 +49,70 @@ function queryError(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
   return 'Ошибка загрузки';
+}
+
+function ellipsis(value: string, max = PIE_MAX_LABEL_CHARS): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, Math.max(1, max - 1))}…`;
+}
+
+type PieLabelProps = {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  percent?: number;
+  name?: string;
+  value?: number;
+};
+
+function TopicPieLabel({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  percent,
+  name,
+  value,
+}: PieLabelProps) {
+  if (
+    cx == null ||
+    cy == null ||
+    midAngle == null ||
+    innerRadius == null ||
+    outerRadius == null ||
+    !percent ||
+    !name
+  ) {
+    return null;
+  }
+  if (percent < PIE_MIN_LABEL_SHARE) {
+    return null;
+  }
+
+  const RAD = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.62;
+  const x = cx + radius * Math.cos(-midAngle * RAD);
+  const y = cy + radius * Math.sin(-midAngle * RAD);
+  const min = Math.min(outerRadius - innerRadius, 56);
+  const fontSize = Math.max(9, Math.min(12, Math.floor(min / 3)));
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill="#f8fafc"
+      fontSize={fontSize}
+      fontWeight={600}
+      style={{ pointerEvents: 'none' }}
+    >
+      {`${ellipsis(name)} ${minutesLabel((value as number) ?? 0)}`}
+    </text>
+  );
 }
 
 export function StatsPage() {
@@ -209,8 +275,9 @@ export function StatsPage() {
                   nameKey="topic_name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={72}
-                  label={({ name, value }) => `${name}: ${minutesLabel(value as number)}`}
+                  outerRadius={70}
+                  labelLine={false}
+                  label={TopicPieLabel}
                 >
                   {(timeDist.data ?? []).map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -219,7 +286,10 @@ export function StatsPage() {
                 <Tooltip
                   formatter={(v: number) => [minutesLabel(v), 'Учтённое время']}
                 />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend
+                  wrapperStyle={{ fontSize: 11 }}
+                  formatter={(topic: string) => ellipsis(topic, 24)}
+                />
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
