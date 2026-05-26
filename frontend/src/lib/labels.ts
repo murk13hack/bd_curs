@@ -112,6 +112,6 @@ export const NAV_ITEMS = [
   { to: '/calendar', label: 'Календарь', icon: 'Calendar' },
   { to: '/stats', label: 'Статистика', icon: 'BarChart3' },
   { to: '/goals', label: 'Цели', icon: 'Target' },
-  { to: '/pomodoro', label: 'Pomodoro', icon: 'Timer' },
+  { to: '/pomodoro', label: 'Фокус', icon: 'Timer' },
   { to: '/settings', label: 'Настройки', icon: 'Settings' },
 ] as const;

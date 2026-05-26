@@ -10,6 +10,7 @@ import {
   Target,
   Timer,
 } from 'lucide-react';
+import { PomodoroSidebarWidget } from '@/components/pomodoro/pomodoro-sidebar-widget';
 import { NAV_ITEMS } from '@/lib/labels';
 
 const ICONS = {
@@ -53,6 +54,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <PomodoroSidebarWidget />
       <div className="border-t border-border p-4 text-xs text-ink-muted">
         Курсовая · БД · UNN
       </div>

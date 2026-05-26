@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, Plus, RotateCcw, Timer, Trash2 } from 'lucide-react';
+import { TaskTimeLogsPanel } from '@/components/tasks/task-time-logs-panel';
 import { api } from '@/api/client';
 import type { Task, TaskPriority, TaskStatus, TaskView } from '@/api/types';
 import {
@@ -301,19 +302,27 @@ export function TasksPage() {
                       >
                         {task.is_archived ? 'Из архива' : 'В архив'}
                       </button>
+                      <Link
+                        to={`/pomodoro?task=${task.id}`}
+                        className="btn-ghost inline-flex items-center gap-1 px-2 py-1 text-xs"
+                      >
+                        <Timer size={14} /> Фокус
+                      </Link>
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="btn-ghost px-2"
-                  onClick={() => {
-                    if (confirmDelete(`задачу «${task.title}»`)) deleteMut.mutate(task.id);
-                  }}
-                  title="Удалить"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    type="button"
+                    className="btn-ghost px-2"
+                    onClick={() => {
+                      if (confirmDelete(`задачу «${task.title}»`)) deleteMut.mutate(task.id);
+                    }}
+                    title="Удалить"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </article>
             );
           })}
@@ -620,6 +629,12 @@ function TaskFormModal({
                 Добавить
               </button>
             </div>
+          </div>
+        )}
+        {task && (
+          <div>
+            <div className="mb-2 text-sm font-medium">Учтённое время</div>
+            <TaskTimeLogsPanel taskId={task.id} />
           </div>
         )}
         {tags.length > 0 && (
