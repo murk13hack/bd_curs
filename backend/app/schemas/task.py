@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.coerce import coerce_optional_datetime
 from app.schemas.common import TaskPriority, TaskStatus
 from app.schemas.recurring_rule import RecurringRuleCreate
 
@@ -30,6 +31,11 @@ class TaskBase(BaseModel):
     planned_minutes: int | None = Field(default=None, gt=0)
     parent_task_id: int | None = None
 
+    @field_validator("start_at", "deadline", mode="before")
+    @classmethod
+    def _parse_datetimes(cls, value: Any) -> datetime | None:
+        return coerce_optional_datetime(value)
+
 
 class TaskCreate(TaskBase):
     tag_ids: list[int] = Field(default_factory=list)
@@ -52,6 +58,11 @@ class TaskUpdate(BaseModel):
     planned_minutes: int | None = Field(default=None, gt=0)
     is_archived: bool | None = None
     tag_ids: list[int] | None = None
+
+    @field_validator("start_at", "deadline", mode="before")
+    @classmethod
+    def _parse_datetimes(cls, value: Any) -> datetime | None:
+        return coerce_optional_datetime(value)
 
     @model_validator(mode="after")
     def _validate_window(self) -> "TaskUpdate":

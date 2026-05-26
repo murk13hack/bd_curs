@@ -14,7 +14,7 @@ import {
 } from '@/components/tasks/recurring-editor';
 import { PageHeader, Modal, Spinner, EmptyState, ErrorBanner } from '@/components/ui/primitives';
 import { FormField } from '@/components/ui/form-field';
-import { fmtDateTime, toIsoDateTimeLocal } from '@/lib/format';
+import { datetimeLocalToIso, fmtDateTime, toIsoDateTimeLocal } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
 import {
   PRIORITY_COLOR,
@@ -422,8 +422,8 @@ function TaskFormModal({
         description: description || null,
         topic_id: topicId,
         priority,
-        start_at: startAt ? new Date(startAt).toISOString() : null,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
+        start_at: datetimeLocalToIso(startAt),
+        deadline: datetimeLocalToIso(deadline),
         planned_minutes: plannedMinutes ? Number(plannedMinutes) : null,
         tag_ids: tagIds,
       };

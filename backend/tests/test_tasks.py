@@ -20,6 +20,24 @@ async def test_create_minimal(client: AsyncClient, topic_id: int) -> None:
     assert body["title"] == "buy bread"
 
 
+async def test_create_task_start_and_deadline_iso(
+    client: AsyncClient, topic_id: int
+) -> None:
+    r = await client.post(
+        "/api/v1/tasks",
+        json={
+            "topic_id": topic_id,
+            "title": "dated task",
+            "start_at": "2003-02-01T20:00:00.000Z",
+            "deadline": "2003-02-01T22:01:00.000Z",
+        },
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["start_at"] is not None
+    assert body["deadline"] is not None
+
+
 async def test_create_with_tags_and_filter(
     client: AsyncClient, topic_id: int, tag_id: int
 ) -> None:

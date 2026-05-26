@@ -7,23 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.coerce import coerce_optional_date
 from app.schemas.common import GoalLinkTarget
-
-
-def _coerce_optional_date(value: Any) -> date | None:
-    """Принимает YYYY-MM-DD или ISO datetime (обрезает до даты)."""
-    if value is None or value == '':
-        return None
-    if isinstance(value, date) and not isinstance(value, datetime):
-        return value
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, str):
-        raw = value.strip()
-        if 'T' in raw:
-            raw = raw.split('T', 1)[0]
-        return date.fromisoformat(raw)
-    raise TypeError('deadline должен быть датой YYYY-MM-DD')
 
 
 class GoalLinkBase(BaseModel):
@@ -44,7 +29,7 @@ class GoalBase(BaseModel):
     @field_validator('deadline', mode='before')
     @classmethod
     def parse_deadline(cls, value: Any) -> date | None:
-        return _coerce_optional_date(value)
+        return coerce_optional_date(value)
 
 
 class GoalCreate(GoalBase):
@@ -61,7 +46,7 @@ class GoalUpdate(BaseModel):
     @field_validator('deadline', mode='before')
     @classmethod
     def parse_deadline(cls, value: Any) -> date | None:
-        return _coerce_optional_date(value)
+        return coerce_optional_date(value)
 
 
 class GoalRead(GoalBase):

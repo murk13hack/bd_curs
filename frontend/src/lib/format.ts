@@ -24,6 +24,27 @@ export function toIsoDateTimeLocal(d: Date): string {
   return format(d, "yyyy-MM-dd'T'HH:mm");
 }
 
+/** Значение из input[type=datetime-local] → ISO UTC (локальное время пользователя). */
+export function datetimeLocalToIso(local: string): string | null {
+  const trimmed = local.trim();
+  if (!trimmed) return null;
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (!match) return null;
+  const [, y, mo, d, h, mi, s] = match;
+  const dt = new Date(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    Number(h),
+    Number(mi),
+    s ? Number(s) : 0,
+    0,
+  );
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
 export function minutesLabel(m: number): string {
   if (m < 60) return `${m} мин`;
   const h = Math.floor(m / 60);
