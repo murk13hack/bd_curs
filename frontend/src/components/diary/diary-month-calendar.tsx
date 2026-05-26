@@ -6,6 +6,7 @@ import {
   format,
   getDay,
   isToday,
+  startOfMonth,
   subMonths,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';

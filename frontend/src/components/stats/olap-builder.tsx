@@ -164,6 +164,8 @@ export function OlapBuilder({
 
   const useLineChart =
     OLAP_TIME_DIMENSIONS.has(dim) && chartData.length > 1 && chartData.length <= 60;
+  const dimMeta = meta.data?.dimensions.find((d) => d.id === dim);
+  const measureMeta = meta.data?.measures.find((m) => m.id === measure);
   const dimLabel = dimMeta?.label ?? 'Измерение';
   const measureLabel = measureMeta?.label ?? 'Значение';
   const yAxisLabel = olapYAxisLabel(measure);
