@@ -30,8 +30,10 @@ export type { PomodoroPhase };
 interface PomodoroContextValue extends PomodoroState {
   notice: string | null;
   clearNotice: () => void;
-  start: (taskId: number, taskTitle: string) => void;
-  selectTask: (taskId: number, taskTitle: string) => void;
+  /** Старт work-фазы; задача необязательна (время пишется в задачу только если она выбрана). */
+  start: (taskId?: number, taskTitle?: string) => void;
+  /** Привязка / смена задачи; null — отвязать (накопленное по старой задаче сохранится). */
+  selectTask: (taskId: number | null, taskTitle?: string) => void;
   pause: () => void;
   resume: () => void;
   reset: () => void;
@@ -68,6 +70,11 @@ async function writeWorkLog(taskId: number, focusedSec: number): Promise<string 
     if (e instanceof Error) return e.message;
     return 'Не удалось сохранить время в задачу.';
   }
+}
+
+function taskFromArgs(taskId?: number, taskTitle?: string): { id: number; title: string } | null {
+  if (taskId == null) return null;
+  return { id: taskId, title: taskTitle ?? '' };
 }
 
 export function PomodoroProvider({ children }: { children: ReactNode }) {
@@ -176,23 +183,33 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   }, [settings.workMinutes]);
 
   const start = useCallback(
-    (taskId: number, taskTitle: string) => {
+    (taskId?: number, taskTitle?: string) => {
       clearNotice();
-      commit(startWorkState(taskId, taskTitle, settingsRef.current, 0));
+      commit(startWorkState(settingsRef.current, taskFromArgs(taskId, taskTitle), 0));
     },
     [commit, clearNotice],
   );
 
   const selectTask = useCallback(
-    async (taskId: number, taskTitle: string) => {
+    async (taskId: number | null, taskTitle = '') => {
       clearNotice();
       let prev = syncFromClock(stateRef.current);
+
+      if (taskId === null) {
+        if (prev.phase === 'work' && prev.taskId != null && prev.workFocusedSec >= POMODORO_MIN_LOG_SEC) {
+          await flushWork(prev.taskId, prev.workFocusedSec);
+          prev = { ...prev, workFocusedSec: 0, savedAt: Date.now() };
+        }
+        commit({ ...prev, taskId: null, taskTitle: '' });
+        return;
+      }
+
       if (prev.phase === 'work' && prev.taskId != null && prev.taskId !== taskId) {
         await flushWork(prev.taskId, prev.workFocusedSec);
         prev = { ...prev, workFocusedSec: 0, savedAt: Date.now() };
       }
-      const next = { ...prev, taskId, taskTitle };
-      commit(next);
+
+      commit({ ...prev, taskId, taskTitle });
     },
     [clearNotice, commit, flushWork],
   );
@@ -221,7 +238,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     }
     if (prev.remainingSec <= 0) return;
     playPhaseEndSound();
-    commit(advancePhase({ ...prev, remainingSec: 0, workFocusedSec: prev.workFocusedSec }, settingsRef.current));
+    commit(advancePhase({ ...prev, remainingSec: 0 }, settingsRef.current));
   }, [commit, flushWork]);
 
   const value = useMemo(

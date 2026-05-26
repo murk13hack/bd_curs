@@ -9,14 +9,22 @@ export function PomodoroSidebarWidget() {
 
   if (!active) {
     return (
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3 space-y-2">
         <Link
           to="/pomodoro"
           className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm transition hover:border-accent/40"
         >
           <span className="font-medium">Фокус</span>
-          <span className="text-xs text-ink-muted">Pomodoro →</span>
+          <span className="text-xs text-ink-muted">открыть →</span>
         </Link>
+        <button
+          type="button"
+          className="btn-secondary w-full text-xs"
+          onClick={() => p.start()}
+        >
+          <Play size={14} className="inline mr-1" />
+          Быстрый старт
+        </button>
       </div>
     );
   }

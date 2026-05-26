@@ -99,17 +99,16 @@ export function resumeState(state: PomodoroState, now = Date.now()): PomodoroSta
 }
 
 export function startWorkState(
-  taskId: number,
-  taskTitle: string,
   settings: PomodoroSettings,
+  task: { id: number; title: string } | null = null,
   cycles = 0,
   now = Date.now(),
 ): PomodoroState {
   const totalSec = phaseDuration('work', settings);
   return {
     phase: 'work',
-    taskId,
-    taskTitle,
+    taskId: task?.id ?? null,
+    taskTitle: task?.title ?? '',
     remainingSec: totalSec,
     totalSec,
     cycles,

@@ -7,10 +7,18 @@ import {
   pomodoroProgress,
 } from '@/lib/pomodoro-timer';
 
+function sessionTaskLabel(taskId: number | null, taskTitle: string, phase: string): string {
+  if (taskTitle) return taskTitle;
+  if (taskId != null) return 'Задача';
+  if (phase !== 'idle') return 'Без задачи — время не сохраняется';
+  return '';
+}
+
 export function PomodoroTimerView({ compact = false }: { compact?: boolean }) {
   const p = usePomodoro();
   const progress = pomodoroProgress(p.totalSec, p.remainingSec);
-  const canStart = p.phase === 'idle' && p.taskId != null;
+  const taskLabel = sessionTaskLabel(p.taskId, p.taskTitle, p.phase);
+
   return (
     <div className={`flex flex-col items-center gap-4 ${compact ? 'py-2' : 'py-6'}`}>
       {!compact && (
@@ -45,9 +53,13 @@ export function PomodoroTimerView({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      {p.taskTitle && (
-        <p className={`max-w-full truncate text-center text-ink-muted ${compact ? 'text-[10px]' : 'text-sm'}`}>
-          {p.taskTitle}
+      {taskLabel && (
+        <p
+          className={`max-w-full truncate text-center ${compact ? 'text-[10px]' : 'text-sm'} ${
+            p.taskId ? 'text-ink' : 'text-ink-muted'
+          }`}
+        >
+          {taskLabel}
         </p>
       )}
 
@@ -65,9 +77,7 @@ export function PomodoroTimerView({ compact = false }: { compact?: boolean }) {
           <button
             type="button"
             className={compact ? 'btn-primary w-full text-xs' : 'btn-primary'}
-            disabled={!canStart}
-            title={canStart ? undefined : 'Сначала выберите задачу'}
-            onClick={() => p.taskId && p.start(p.taskId, p.taskTitle)}
+            onClick={() => p.start(p.taskId ?? undefined, p.taskTitle || undefined)}
           >
             <Play size={16} /> Старт
           </button>
@@ -97,7 +107,14 @@ export function PomodoroTimerView({ compact = false }: { compact?: boolean }) {
       {!compact && p.phase !== 'idle' && (
         <p className="text-xs text-ink-muted">
           Циклов: {p.cycles}
-          {p.phase === 'work' && p.workFocusedSec > 0 && ` · фокус ${Math.floor(p.workFocusedSec / 60)}:${(p.workFocusedSec % 60).toString().padStart(2, '0')}`}
+          {p.phase === 'work' && p.workFocusedSec > 0 && (
+            <>
+              {' '}
+              · фокус {Math.floor(p.workFocusedSec / 60)}:
+              {(p.workFocusedSec % 60).toString().padStart(2, '0')}
+              {!p.taskId && ' (не привязано)'}
+            </>
+          )}
         </p>
       )}
     </div>
