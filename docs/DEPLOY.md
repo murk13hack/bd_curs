@@ -162,7 +162,8 @@ $migrations = @(
   "011_markers_success_and_streak_fix.sql",
   "012_time_logs_allow_overlap.sql",
   "013_drop_tasks_start_after_created.sql",
-  "014_pre_freeze_cleanup.sql"
+  "014_pre_freeze_cleanup.sql",
+  "015_auto_task_created_at.sql"
 )
 foreach ($f in $migrations) {
   docker cp "db/migrations/$f" ptt-db:/tmp/$f
@@ -190,7 +191,8 @@ for f in \
   011_markers_success_and_streak_fix.sql \
   012_time_logs_allow_overlap.sql \
   013_drop_tasks_start_after_created.sql \
-  014_pre_freeze_cleanup.sql
+  014_pre_freeze_cleanup.sql \
+  015_auto_task_created_at.sql
 do
   echo ">>> $f"
   docker cp "db/migrations/$f" ptt-db:/tmp/"$f"
