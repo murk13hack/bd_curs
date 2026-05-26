@@ -124,8 +124,6 @@ export function OlapBuilder({
   const [moodFilter, setMoodFilter] = useState('');
   const [energyFilter, setEnergyFilter] = useState('');
 
-  const dimMeta = meta.data?.dimensions.find((d) => d.id === dim);
-  const measureMeta = meta.data?.measures.find((m) => m.id === measure);
   const dayBlocked = period > OLAP_MAX_DAY_PERIOD;
 
   useEffect(() => {
@@ -179,38 +177,29 @@ export function OlapBuilder({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-5xl space-y-4">
-      {meta.isError && <ErrorBanner message={`OLAP meta: ${queryError(meta.error)}`} />}
-      {queryMut.isError && <ErrorBanner message={`OLAP: ${queryError(queryMut.error)}`} />}
-
-      {meta.data?.help && (
-        <p className="rounded-lg border border-border bg-surface-2/80 px-4 py-3 text-sm text-ink-muted">
-          {meta.data.help}
-        </p>
-      )}
+      {meta.isError && <ErrorBanner message={queryError(meta.error)} />}
+      {queryMut.isError && <ErrorBanner message={queryError(queryMut.error)} />}
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <div className="card min-w-0">
           <div className="card-body space-y-3">
-            <h2 className="font-semibold">OLAP-конструктор</h2>
+            <h2 className="font-semibold">Сводные отчёты</h2>
             <p className="text-xs text-ink-muted">
               {fmtDate(range.from)} — {fmtDate(range.to)} ({period} д)
             </p>
 
-            <FormField label="Измерение (разрез)">
+            <FormField label="Разрез">
               <select className="select w-full" value={dim} onChange={(e) => setDim(e.target.value)}>
                 {(meta.data?.dimensions ?? []).map((d) => (
                   <option key={d.id} value={d.id} disabled={d.id === 'day' && dayBlocked}>
                     {d.label}
-                    {d.id === 'day' && dayBlocked ? ' (только ≤30 д)' : ''}
+                    {d.id === 'day' && dayBlocked ? ' (до 30 д)' : ''}
                   </option>
                 ))}
               </select>
-              {dimMeta?.hint && (
-                <p className="mt-1 text-[11px] text-ink-muted">{dimMeta.hint}</p>
-              )}
             </FormField>
 
-            <FormField label="Мера">
+            <FormField label="Показатель">
               <select
                 className="select w-full"
                 value={measure}
@@ -222,12 +211,9 @@ export function OlapBuilder({
                   </option>
                 ))}
               </select>
-              {measureMeta?.hint && (
-                <p className="mt-1 text-[11px] text-ink-muted">{measureMeta.hint}</p>
-              )}
             </FormField>
 
-            <FormField label="Фильтр: настроение">
+            <FormField label="Настроение">
               <select
                 className="select w-full"
                 value={moodFilter}
@@ -241,7 +227,7 @@ export function OlapBuilder({
               </select>
             </FormField>
 
-            <FormField label="Фильтр: энергия">
+            <FormField label="Энергия">
               <select
                 className="select w-full"
                 value={energyFilter}
@@ -271,10 +257,8 @@ export function OlapBuilder({
           loading={queryMut.isPending || meta.isLoading}
           empty={!queryMut.isPending && !meta.isLoading && chartData.length === 0 && !queryMut.isError}
           emptyMessage="Нет данных — ослабьте фильтры или смените период"
-          caption={`${measureLabel} в разрезе «${dimLabel}». ${
-            useLineChart ? 'Линия — динамика по времени.' : 'Столбцы — категории.'
-          } Задачи считаются по дедлайну в день; паттерны — слоты «паттерн×день».`}
-        >
+
+      >
           <ResponsiveContainer width="100%" height={280}>
             {useLineChart ? (
               <LineChart data={chartData} margin={chartMargin}>

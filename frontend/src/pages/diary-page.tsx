@@ -1,16 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { endOfMonth, parseISO, startOfMonth } from 'date-fns';
 import { api } from '@/api/client';
+import { DiaryDayNav } from '@/components/diary/diary-day-nav';
+import { DiaryEntryCard } from '@/components/diary/diary-entry-card';
+import { DiaryMonthCalendar } from '@/components/diary/diary-month-calendar';
+import { DiarySearchPanel } from '@/components/diary/diary-search-panel';
+import { MoodScalePicker } from '@/components/diary/mood-scale-picker';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import { FormField } from '@/components/ui/form-field';
-import { fmtDate, toIsoDate } from '@/lib/format';
-import { ENERGY_EMOJI, MOOD_EMOJI } from '@/lib/labels';
+import { toIsoDate } from '@/lib/format';
 import { confirmDelete } from '@/lib/confirm';
+
 export function DiaryPage() {
   const qc = useQueryClient();
   const today = toIsoDate(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
+  const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [searchQ, setSearchQ] = useState('');
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<number | ''>('');
@@ -18,9 +24,16 @@ export function DiaryPage() {
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [error, setError] = useState('');
 
+  const monthFrom = toIsoDate(startOfMonth(monthCursor));
+  const monthTo = toIsoDate(endOfMonth(monthCursor));
+
   const tags = useQuery({ queryKey: ['tags'], queryFn: api.tags.list });
-  const entries = useQuery({
-    queryKey: ['diary'],
+  const monthEntries = useQuery({
+    queryKey: ['diary', 'month', monthFrom, monthTo],
+    queryFn: () => api.diary.list({ from: monthFrom, to: monthTo }),
+  });
+  const recentEntries = useQuery({
+    queryKey: ['diary', 'recent'],
     queryFn: () => api.diary.list(),
   });
   const current = useQuery({
@@ -34,6 +47,22 @@ export function DiaryPage() {
     enabled: searchQ.trim().length >= 2,
   });
 
+  const entriesByDate = useMemo(
+    () => new Map((monthEntries.data ?? []).map((e) => [e.entry_date, e])),
+    [monthEntries.data],
+  );
+  const tagsById = useMemo(
+    () => new Map((tags.data ?? []).map((t) => [t.id, t])),
+    [tags.data],
+  );
+
+  const invalidateDiary = () => {
+    qc.invalidateQueries({ queryKey: ['diary'] });
+    qc.invalidateQueries({ queryKey: ['diary-entry', selectedDate] });
+    qc.invalidateQueries({ queryKey: ['diary', 'month'] });
+    qc.invalidateQueries({ queryKey: ['diary', 'recent'] });
+  };
+
   const saveMut = useMutation({
     mutationFn: async () => {
       const body = {
@@ -42,12 +71,12 @@ export function DiaryPage() {
         mood: mood || null,
         energy: energy || null,
         tag_ids: tagIds,
-      };      if (current.data) return api.diary.update(current.data.id, body);
+      };
+      if (current.data) return api.diary.update(current.data.id, body);
       return api.diary.create(body);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['diary'] });
-      qc.invalidateQueries({ queryKey: ['diary-entry', selectedDate] });
+      invalidateDiary();
       setError('');
     },
     onError: (e: Error) => setError(e.message),
@@ -59,8 +88,8 @@ export function DiaryPage() {
       setContent('');
       setMood('');
       setEnergy('');
-      qc.invalidateQueries({ queryKey: ['diary'] });
-      qc.invalidateQueries({ queryKey: ['diary-entry', selectedDate] });
+      setTagIds([]);
+      invalidateDiary();
     },
   });
 
@@ -74,108 +103,96 @@ export function DiaryPage() {
       setContent('');
       setMood('');
       setEnergy('');
-      setTagIds([]);    }
+      setTagIds([]);
+    }
   }, [current.data, current.isLoading, current.isError, selectedDate]);
+
+  const pickDate = (iso: string) => {
+    setSelectedDate(iso);
+    setMonthCursor(startOfMonth(parseISO(iso.slice(0, 10))));
+  };
+
+  const toggleTag = (id: number) => {
+    setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   return (
     <div>
-      <PageHeader title="Дневник" subtitle="Записи, настроение и полнотекстовый поиск" />
+      <PageHeader title="Дневник" subtitle="Записи по дням и настроение" />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <FormField label="Поиск" className="min-w-[200px] flex-1">
-          <div className="relative">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink-muted" />
-            <input
-              className="input pl-9"
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-            />
-          </div>
-        </FormField>
-        <FormField label="Дата записи">
-          <input
-            type="date"
-            className="input w-auto"
-            value={selectedDate}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setContent('');
-              setMood('');
-              setEnergy('');
-              setTagIds([]);
-            }}
-          />
-        </FormField>
-      </div>
+      <DiarySearchPanel
+        query={searchQ}
+        onQueryChange={setSearchQ}
+        hits={search.data ?? []}
+        loading={search.isLoading}
+        onPickDate={pickDate}
+      />
 
-      {searchQ.trim().length >= 2 && (
-        <section className="card mb-6">
-          <div className="card-body">
-            <h2 className="mb-3 font-semibold">Результаты поиска</h2>
-            {search.isLoading ? (
-              <Spinner />
-            ) : (search.data ?? []).length === 0 ? (
-              <p className="text-sm text-ink-muted">Ничего не найдено.</p>
-            ) : (
-              <ul className="space-y-3">
-                {(search.data ?? []).map((hit) => (
-                  <li key={hit.entry_id} className="rounded-lg border border-border p-3">
-                    <div className="mb-1 text-xs text-ink-muted">{fmtDate(hit.entry_date)}</div>
-                    <div
-                      className="text-sm"
-                      dangerouslySetInnerHTML={{ __html: hit.snippet.replace(/<<|>>/g, '') }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-      )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        <DiaryMonthCalendar
+          monthCursor={monthCursor}
+          onMonthChange={setMonthCursor}
+          entriesByDate={entriesByDate}
+          selectedDate={selectedDate}
+          onSelectDate={pickDate}
+          loading={monthEntries.isLoading}
+        />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="card lg:col-span-2">
+        <section className="card min-w-0">
           <div className="card-body space-y-4">
-            <h2 className="font-semibold">Запись на {fmtDate(selectedDate)}</h2>
+            <DiaryDayNav selectedDate={selectedDate} onDateChange={pickDate} />
+
             {error && <ErrorBanner message={error} />}
             {current.isLoading ? (
               <Spinner />
             ) : (
               <>
-                <FormField label="Текст записи">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <MoodScalePicker kind="mood" label="Настроение" value={mood} onChange={setMood} />
+                  <MoodScalePicker
+                    kind="energy"
+                    label="Энергия"
+                    value={energy}
+                    onChange={setEnergy}
+                  />
+                </div>
+
+                <FormField label="Запись">
                   <textarea
-                    className="input min-h-48"
+                    className="input min-h-52 resize-y text-base leading-relaxed"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
+                    placeholder="Как прошёл ваш день?"
                   />
                 </FormField>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <MoodPicker label="Настроение" value={mood} onChange={setMood} emojis={MOOD_EMOJI} />
-                  <MoodPicker label="Энергия" value={energy} onChange={setEnergy} emojis={ENERGY_EMOJI} />
-                </div>
+
                 {(tags.data ?? []).length > 0 && (
                   <FormField label="Теги">
-                  <div className="flex flex-wrap gap-2">
-                    {(tags.data ?? []).map((tag) => (
-                      <label key={tag.id} className="flex items-center gap-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={tagIds.includes(tag.id)}
-                          onChange={(e) =>
-                            setTagIds((prev) =>
-                              e.target.checked
-                                ? [...prev, tag.id]
-                                : prev.filter((id) => id !== tag.id),
-                            )
-                          }
-                        />
-                        {tag.name}
-                      </label>
-                    ))}
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(tags.data ?? []).map((tag) => {
+                        const on = tagIds.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            className={`rounded-full border px-3 py-1 text-sm transition ${
+                              on
+                                ? 'border-accent bg-accent-soft text-ink'
+                                : 'border-border bg-surface-2 text-ink-muted hover:border-accent/50'
+                            }`}
+                            onClick={() => toggleTag(tag.id)}
+                            aria-pressed={on}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </FormField>
                 )}
-                <div className="flex gap-2">                  <button
+
+                <div className="flex flex-wrap gap-2">
+                  <button
                     type="button"
                     className="btn-primary"
                     disabled={!content.trim() || saveMut.isPending}
@@ -190,7 +207,8 @@ export function DiaryPage() {
                       disabled={deleteMut.isPending}
                       onClick={() => {
                         if (confirmDelete('запись дневника')) deleteMut.mutate();
-                      }}                    >
+                      }}
+                    >
                       Удалить
                     </button>
                   )}
@@ -199,68 +217,29 @@ export function DiaryPage() {
             )}
           </div>
         </section>
-
-        <section className="card">
-          <div className="card-body">
-            <h2 className="mb-3 font-semibold">Лента</h2>
-            {entries.isLoading ? (
-              <Spinner />
-            ) : (
-              <ul className="max-h-[32rem] space-y-2 overflow-auto">
-                {(entries.data ?? []).map((e) => (
-                  <li key={e.id}>
-                    <button
-                      type="button"
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                        e.entry_date === selectedDate
-                          ? 'border-accent bg-accent-soft'
-                          : 'border-border hover:bg-surface-3'
-                      }`}
-                      onClick={() => setSelectedDate(e.entry_date)}
-                    >
-                      <div className="font-medium">{fmtDate(e.entry_date)}</div>
-                      <div className="line-clamp-2 text-ink-muted">{e.content}</div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
       </div>
-    </div>
-  );
-}
 
-function MoodPicker({
-  label,
-  value,
-  onChange,
-  emojis,
-}: {
-  label: string;
-  value: number | '';
-  onChange: (v: number | '') => void;
-  emojis: string[];
-}) {
-  return (
-    <div>
-      <div className="mb-2 text-sm font-medium">{label}</div>
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg ${
-              value === n ? 'border-accent bg-accent-soft' : 'border-border'
-            }`}
-            onClick={() => onChange(value === n ? '' : n)}
-            title={`${n}/5`}
-          >
-            {emojis[n]}
-          </button>
-        ))}
-      </div>
+      <section className="mt-8">
+        <h2 className="mb-3 text-base font-semibold">Недавние записи</h2>
+        {recentEntries.isLoading ? (
+          <Spinner />
+        ) : (recentEntries.data ?? []).length === 0 ? (
+          <p className="text-sm text-ink-muted">Пока нет записей — начните с сегодняшнего дня.</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {(recentEntries.data ?? []).map((e) => (
+              <li key={e.id}>
+                <DiaryEntryCard
+                  entry={e}
+                  tagsById={tagsById}
+                  selected={e.entry_date === selectedDate}
+                  onSelect={() => pickDate(e.entry_date)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

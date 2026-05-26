@@ -84,8 +84,25 @@ export const PRIORITY_COLOR: Record<TaskPriority, string> = {
   urgent: 'text-red-600',
 };
 
+/** Индексы 1–5; [0] пустой для удобства массива */
 export const MOOD_EMOJI = ['', '😞', '😐', '🙂', '😊', '🤩'];
-export const ENERGY_EMOJI = ['', '🔋', '🔋', '⚡', '⚡', '🚀'];
+export const ENERGY_EMOJI = ['', '🪫', '😴', '🔋', '⚡', '🚀'];
+
+export const MOOD_LABEL = ['', 'Тяжело', 'Так себе', 'Нормально', 'Хорошо', 'Отлично'];
+export const ENERGY_LABEL = ['', 'Нет сил', 'Устал', 'Бодрость', 'Энергично', 'На пике'];
+
+export const MOOD_LEVEL_COLOR = ['', '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'];
+export const ENERGY_LEVEL_COLOR = ['', '#94a3b8', '#64748b', '#38bdf8', '#6366f1', '#a855f7'];
+
+export function moodEmoji(level: number | null | undefined): string {
+  if (level == null || level < 1 || level > 5) return '';
+  return MOOD_EMOJI[level];
+}
+
+export function energyEmoji(level: number | null | undefined): string {
+  if (level == null || level < 1 || level > 5) return '';
+  return ENERGY_EMOJI[level];
+}
 
 export const NAV_ITEMS = [
   { to: '/', label: 'Обзор', icon: 'LayoutDashboard' },

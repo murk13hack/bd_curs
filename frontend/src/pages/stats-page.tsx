@@ -43,15 +43,6 @@ const COLORS = ['#16a34a', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#6b7280'
 
 type Tab = 'overview' | 'tasks' | 'patterns' | 'diary' | 'olap';
 
-const TAB_HINTS: Record<Tab, string> = {
-  overview: 'Сводка за период. Блок «Связи показателей» — краткий превью; подробности во вкладке «Связи».',
-  tasks: 'Задачи с дедлайном в выбранном периоде.',
-  patterns: 'Паттерны за последние 30 д по расписанию (не зависит от 7/30/90).',
-  diary:
-    'Связи = корреляция дневника (настроение/энергия) с % задач и паттернов. Не путать с привязками в «Целях».',
-  olap: 'Произвольный срез по дням активности (OLAP).',
-};
-
 function queryError(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
@@ -121,7 +112,7 @@ export function StatsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Статистика"
-        subtitle="Задачи, паттерны, OLAP и связи дневника с продуктивностью (вкладка «Связи показателей»)"
+        subtitle="Сводка по задачам, паттернам и дневнику"
       />
 
       <FieldGroup legend="Период отчёта">
@@ -138,8 +129,7 @@ export function StatsPage() {
           ))}
         </div>
         <p className="mt-2 text-xs text-ink-muted">
-          {fmtDate(range.from)} — {fmtDate(range.to)}. Влияет на KPI, обзор, задачи, связи и OLAP.
-          Паттерны в таблице — всегда последние 30 д по расписанию.
+          {fmtDate(range.from)} — {fmtDate(range.to)}
         </p>
       </FieldGroup>
 
@@ -155,7 +145,7 @@ export function StatsPage() {
               ['tasks', 'Задачи'],
               ['patterns', 'Паттерны'],
               ['diary', 'Связи показателей'],
-              ['olap', 'OLAP-конструктор'],
+              ['olap', 'Сводные отчёты'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -170,7 +160,6 @@ export function StatsPage() {
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-ink-muted">{TAB_HINTS[tab]}</p>
       </FieldGroup>
 
       {tab === 'overview' && (
@@ -178,7 +167,6 @@ export function StatsPage() {
           <StatsConnectionsTeaser
             data={diaryInsights.data}
             loading={diaryInsights.isLoading}
-            periodLabel={`${period} д`}
             onOpenTab={() => setTab('diary')}
           />
 
@@ -190,7 +178,6 @@ export function StatsPage() {
             empty={!weekly.isLoading && !weekly.isError && !weeklyHasData}
             emptyMessage="Нет задач и записей дневника за период"
             className="lg:col-span-2"
-            caption="Три отдельных графика по неделям — у каждого своя ось и единицы (шт., % или баллы 1–5). Так проще сравнивать динамику без смешения шкал."
           >
             <StatsWeeklyMiniGrid rows={weeklyChart} series={OVERVIEW_WEEKLY_SERIES} />
           </ChartCard>
@@ -202,7 +189,6 @@ export function StatsPage() {
             errorMessage={queryError(heatmap.error)}
             empty={!heatmap.isLoading && !heatmap.isError && (heatmap.data ?? []).length === 0}
             emptyMessage="Нет событий за период"
-            caption="Календарь активности: в каждой ячейке — один день, цвет — суммарный счётчик событий (задачи, дневник, паттерны, метки). Чем темнее зелёный, тем больше действий в этот день."
           >
             <StatsHeatmapGrid points={heatmap.data ?? []} />
           </ChartCard>
@@ -214,7 +200,6 @@ export function StatsPage() {
             errorMessage={queryError(timeDist.error)}
             empty={!timeDist.isLoading && !timeDist.isError && (timeDist.data ?? []).length === 0}
             emptyMessage="Нет учтённого времени — добавьте time-log к задачам"
-            caption="Доля учтённого времени по темам за период. Размер сектора — минуты из time-log (не Pomodoro). Подписи на секторах — тема и длительность."
           >
             <ResponsiveContainer width="100%" height={260}>
               <PieChart margin={{ top: 8, bottom: 8 }}>
@@ -302,7 +287,6 @@ function TasksTab({
         loading={loading}
         empty={!loading && !topicsError && topics.length === 0}
         emptyMessage="Нет задач с дедлайном за период"
-        caption="Доля выполненных задач с дедлайном в периоде по каждой теме: выполнено ÷ (выполнено + просрочено + в работе). Ось Y — проценты 0–100%."
       >
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={topics} margin={statsChartMargin({ bottom: 48, left: 48 })}>
@@ -324,7 +308,6 @@ function TasksTab({
         loading={loading}
         empty={!loading && !prioritiesError && priorities.length === 0}
         emptyMessage="Нет задач за период"
-        caption="Сложенные столбцы — число задач (шт.), не проценты: зелёный — выполнено, красный — просрочено с дедлайном в выбранном периоде."
       >
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
@@ -394,14 +377,9 @@ function DiaryTab({
   if (!data || (data.diary_days === 0 && data.weeks.length === 0)) {
     return (
       <div className="mx-auto max-w-3xl rounded-lg border border-border bg-surface-2 px-6 py-10 text-center">
-        <h2 className="text-lg font-semibold">Связи показателей</h2>
-        <p className="mt-2 text-sm text-ink-muted">
-          Здесь показывается, как <strong>настроение из дневника</strong> связано с задачами и
-          паттернами за период (корреляции и сравнение по уровню настроения). Сейчас записей с
-          настроением нет — добавьте их в дневнике.
-        </p>
-        <p className="mt-2 text-xs text-ink-muted">
-          Привязки задач к целям — в разделе «Цели», это другая функция.
+        <p className="text-sm text-ink-muted">
+          За этот период в дневнике нет записей с настроением. Добавьте несколько дней — здесь
+          появится сравнение с задачами и паттернами.
         </p>
         <Link to="/diary" className="btn-primary mt-4 inline-flex">
           Открыть дневник
@@ -452,7 +430,6 @@ function PatternsTab({
         loading={loading}
         empty={!loading && chartRows.length === 0}
         emptyMessage="Нет дней по расписанию — задайте напоминания в паттерне"
-        caption="Горизонтальные полосы: % успешных дней за последние 30 календарных дней по расписанию каждого паттерна (успешные ÷ запланированные). Ось X — только проценты."
       >
         <ResponsiveContainer width="100%" height={Math.max(220, chartRows.length * 40)}>
           <BarChart

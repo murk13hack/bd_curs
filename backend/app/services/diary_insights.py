@@ -20,20 +20,14 @@ def _interpret_corr(value: float | None, x: str, y: str) -> str | None:
         return None
     r = round(value, 2)
     if abs(r) < 0.2:
-        return (
-            f"Связь «{x}» и «{y}» за период слабая (r={r}): "
-            "показатели почти не двигаются вместе или мало разных дней."
-        )
-    strength = "заметная" if abs(r) >= 0.45 else "умеренная"
+        return f"{x.capitalize()} и {y} за этот период почти не связаны."
     if r > 0:
-        return (
-            f"{strength.capitalize()} положительная связь «{x}» ↔ «{y}» (r={r}): "
-            "в дни с более высоким первым показателем второй тоже выше."
-        )
-    return (
-        f"{strength.capitalize()} отрицательная связь «{x}» ↔ «{y}» (r={r}): "
-        "при росте одного второй чаще ниже."
-    )
+        if abs(r) >= 0.45:
+            return f"Когда {x} выше, {y} тоже чаще выше."
+        return f"При более высоком {x} {y} немного выше."
+    if abs(r) >= 0.45:
+        return f"Когда {x} выше, {y} чаще ниже."
+    return f"При более высоком {x} {y} немного ниже."
 
 
 def _bucket_insight(buckets: list[dict[str, Any]]) -> str | None:
@@ -188,8 +182,7 @@ async def fetch_diary_insights(
     insights: list[str] = []
     if diary_days < 3:
         insights.append(
-            f"За период только {diary_days} дн. с настроением в дневнике — "
-            "для связей нужно 5–7+ записей в разные дни."
+            "Пока мало записей в дневнике — добавьте ещё несколько дней с настроением."
         )
     else:
         for line in (
@@ -203,17 +196,9 @@ async def fetch_diary_insights(
         bucket_line = _bucket_insight(buckets)
         if bucket_line:
             insights.append(bucket_line)
-        if strict_days >= 3 and strict_corr is not None:
-            insights.append(
-                "Уточнение: в дни с записью дневника и задачами с дедлайном в тот же день "
-                f"корреляция настроение↔выполнение r={strict_corr:.2f} "
-                f"({strict_days} дн.)."
-            )
-
     if not insights:
         insights.append(
-            "Ведите дневник (настроение/энергия) и отмечайте задачи и паттерны — "
-            "тогда появятся выводы о связях."
+            "Заполните дневник и отмечайте задачи — здесь появятся выводы."
         )
 
     return {

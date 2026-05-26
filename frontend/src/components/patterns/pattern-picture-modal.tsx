@@ -133,11 +133,6 @@ export function PatternPictureModal({ pattern, onClose }: Props) {
             {data.diary_correlation && data.diary_correlation.mood_buckets.length > 0 && (
               <section className="rounded-lg border border-border p-3">
                 <h3 className="mb-2 text-sm font-medium">Дневник: настроение и чистые дни</h3>
-                {data.diary_correlation.corr_mood_clean != null && (
-                  <p className="mb-2 text-xs text-ink-muted">
-                    Корреляция настроения и успеха: {data.diary_correlation.corr_mood_clean.toFixed(2)}
-                  </p>
-                )}
                 <div className="grid gap-2 sm:grid-cols-3">
                   {data.diary_correlation.mood_buckets.map((b) => (
                     <div key={b.mood_range} className="rounded-md border border-border px-2 py-2 text-sm">
