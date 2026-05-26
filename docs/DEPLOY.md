@@ -106,7 +106,7 @@ docker compose logs db | Select-String -Pattern "ERROR|FATAL"
 
 ## 7. Тестирование
 
-### Backend (pytest, 55 тестов)
+### Backend (pytest, ~96 тестов)
 
 ```powershell
 docker compose exec backend pytest
@@ -159,7 +159,10 @@ $migrations = @(
   "008_marker_day_closures.sql",
   "009_db_backend_sync.sql",
   "010_recurring_custom_interval.sql",
-  "011_markers_success_and_streak_fix.sql"
+  "011_markers_success_and_streak_fix.sql",
+  "012_time_logs_allow_overlap.sql",
+  "013_drop_tasks_start_after_created.sql",
+  "014_pre_freeze_cleanup.sql"
 )
 foreach ($f in $migrations) {
   docker cp "db/migrations/$f" ptt-db:/tmp/$f
@@ -171,7 +174,7 @@ Linux / Fedora (рекомендуется):
 
 ```bash
 chmod +x scripts/deploy-fedora.sh scripts/apply-migrations.sh
-./scripts/deploy-fedora.sh          # git pull + build + миграции 007–011
+./scripts/deploy-fedora.sh          # git pull + build + миграции 007–013
 # только миграции:
 ./scripts/apply-migrations.sh
 ```
@@ -184,7 +187,10 @@ for f in \
   008_marker_day_closures.sql \
   009_db_backend_sync.sql \
   010_recurring_custom_interval.sql \
-  011_markers_success_and_streak_fix.sql
+  011_markers_success_and_streak_fix.sql \
+  012_time_logs_allow_overlap.sql \
+  013_drop_tasks_start_after_created.sql \
+  014_pre_freeze_cleanup.sql
 do
   echo ">>> $f"
   docker cp "db/migrations/$f" ptt-db:/tmp/"$f"
@@ -208,7 +214,7 @@ docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f /tmp/smoke.sql
 
 1. `git clone git@github.com:murk13hack/bd_curs.git` (или HTTPS-URL репозитория).
 2. `cd bd_curs`, `Copy-Item .env.example .env`, сменить `POSTGRES_PASSWORD`.
-3. `docker compose up -d --build` — init-скрипты создадут схему **уже с актуальной логикой** (миграции 007–011 влиты в `db/init/`).
+3. `docker compose up -d --build` — init-скрипты создадут схему **уже с актуальной логикой** (миграции 007–013 влиты в `db/init/`).
 4. Миграции из `db/migrations/` **не нужны**, если volume создаётся впервые.
 5. Открыть http://localhost, проверить `/api/v1/ping`.
 

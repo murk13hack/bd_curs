@@ -50,6 +50,26 @@ async def test_attach_and_update_recurring(client: AsyncClient, topic_id: int) -
     assert r.json()["params"]["monthly_day"] == 15
 
 
+async def test_detach_recurring_clears_task_link(
+    client: AsyncClient, topic_id: int
+) -> None:
+    task = (
+        await client.post(
+            "/api/v1/tasks",
+            json={
+                "topic_id": topic_id,
+                "title": "recurring detach",
+                "recurring": {"frequency": "daily", "params": {}, "is_active": True},
+            },
+        )
+    ).json()
+    assert task["recurring_rule_id"] is not None
+    r = await client.delete(f"/api/v1/tasks/{task['id']}/recurring")
+    assert r.status_code == 204
+    updated = (await client.get(f"/api/v1/tasks/{task['id']}")).json()
+    assert updated["recurring_rule_id"] is None
+
+
 async def test_detach_recurring(client: AsyncClient, topic_id: int) -> None:
     task = (
         await client.post(

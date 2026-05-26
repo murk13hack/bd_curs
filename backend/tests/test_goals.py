@@ -18,6 +18,18 @@ async def test_create_goal_deadline_datetime_coerced(client: AsyncClient) -> Non
     assert r.json()["deadline"] == "2003-02-01"
 
 
+async def test_create_goal_invalid_link_rejected(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/goals",
+        json={
+            "title": "bad link goal",
+            "target_value": 1,
+            "links": [{"target_type": "task", "target_id": 999999}],
+        },
+    )
+    assert r.status_code == 404
+
+
 async def test_create_goal_with_links(
     client: AsyncClient, topic_id: int
 ) -> None:

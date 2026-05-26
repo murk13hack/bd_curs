@@ -102,22 +102,33 @@ DECLARE
     v_user   BIGINT;
     v_row_id BIGINT;
     v_diff   JSONB;
+    v_row    JSONB;
 BEGIN
     IF TG_OP = 'INSERT' THEN
         v_action := 'insert';
-        v_row_id := (row_to_json(NEW)::jsonb ->> 'id')::BIGINT;
-        v_user   := (row_to_json(NEW)::jsonb ->> 'user_id')::BIGINT;
-        v_diff   := jsonb_build_object('new', to_jsonb(NEW));
+        v_row := to_jsonb(NEW);
+        v_row_id := (v_row ->> 'id')::BIGINT;
+        v_user   := (v_row ->> 'user_id')::BIGINT;
+        v_diff   := jsonb_build_object('new', v_row);
     ELSIF TG_OP = 'UPDATE' THEN
         v_action := 'update';
-        v_row_id := (row_to_json(NEW)::jsonb ->> 'id')::BIGINT;
-        v_user   := (row_to_json(NEW)::jsonb ->> 'user_id')::BIGINT;
-        v_diff   := jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW));
+        v_row := to_jsonb(NEW);
+        v_row_id := (v_row ->> 'id')::BIGINT;
+        v_user   := (v_row ->> 'user_id')::BIGINT;
+        v_diff   := jsonb_build_object('old', to_jsonb(OLD), 'new', v_row);
     ELSE
         v_action := 'delete';
-        v_row_id := (row_to_json(OLD)::jsonb ->> 'id')::BIGINT;
-        v_user   := (row_to_json(OLD)::jsonb ->> 'user_id')::BIGINT;
-        v_diff   := jsonb_build_object('old', to_jsonb(OLD));
+        v_row := to_jsonb(OLD);
+        v_row_id := (v_row ->> 'id')::BIGINT;
+        v_user   := (v_row ->> 'user_id')::BIGINT;
+        v_diff   := jsonb_build_object('old', v_row);
+    END IF;
+
+    IF v_user IS NULL
+       AND TG_TABLE_NAME IN ('pattern_logs', 'pattern_markers', 'pattern_marker_day_closures') THEN
+        SELECT bp.user_id INTO v_user
+          FROM behavior_patterns bp
+         WHERE bp.id = (v_row ->> 'pattern_id')::BIGINT;
     END IF;
 
     INSERT INTO audit_log (user_id, table_name, row_id, action, diff)
@@ -150,27 +161,7 @@ CREATE TRIGGER trg_audit_pattern_logs
 COMMENT ON FUNCTION fn_audit_log()
     IS 'Универсальный обработчик AFTER INSERT/UPDATE/DELETE для записи изменений в audit_log.';
 
--- ---------- 6. trg_pattern_streak_recalc ---------------------------------
-
-CREATE OR REPLACE FUNCTION fn_pattern_streak_touch()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    -- Простейший «touch»: триггер срабатывает, чтобы инвалидировать любые кешированные
-    -- стрики. Реальный пересчёт делается функциями fn_calculate_streak/* по запросу.
-    -- В MVP здесь nop, но триггер оставлен для будущего инкрементального кеширования.
-    PERFORM 1;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_pattern_streak_recalc
-    AFTER INSERT OR UPDATE OF status ON pattern_logs
-    FOR EACH ROW EXECUTE FUNCTION fn_pattern_streak_touch();
-
-COMMENT ON FUNCTION fn_pattern_streak_touch()
-    IS 'Точка расширения для инкрементального пересчёта серий паттернов.';
-
--- ---------- 7. trg_recurring_spawn_on_complete ---------------------------
+-- ---------- 6. trg_recurring_spawn_on_complete ---------------------------
 
 CREATE OR REPLACE FUNCTION fn_recurring_spawn_on_complete()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$

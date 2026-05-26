@@ -262,6 +262,9 @@ export function SettingsPage() {
             </div>
             <ColorField value={topicColor} onChange={setTopicColor} />
             <ul className="space-y-1">
+              {(topics.data ?? []).length === 0 && !topics.isLoading && (
+                <p className="text-sm text-ink-muted">Добавьте первую тему — она нужна для задач и паттернов.</p>
+              )}
               {(topics.data ?? []).map((t) => (
                 <li key={t.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
                   <span className="flex items-center gap-2">
@@ -304,6 +307,9 @@ export function SettingsPage() {
               </button>
             </div>
             <ul className="flex flex-wrap gap-2">
+              {(tags.data ?? []).length === 0 && !tags.isLoading && (
+                <p className="text-sm text-ink-muted">Тегов пока нет — добавьте для задач и дневника.</p>
+              )}
               {(tags.data ?? []).map((t) => (
                 <li key={t.id} className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-sm">
                   {t.name}

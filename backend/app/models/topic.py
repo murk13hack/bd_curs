@@ -17,4 +17,5 @@ class Topic(Base):
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String, nullable=False)
+    # DB domain hex_color; ORM uses String(7)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#3B82F6")

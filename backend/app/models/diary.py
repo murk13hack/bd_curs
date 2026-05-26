@@ -31,6 +31,8 @@ class DiaryEntry(Base):
     )
     entry_date: Mapped[date] = mapped_column(Date, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # content_tsv обновляется триггером trg_diary_tsv_update (не маппится в ORM)
+    # DB domain mood_score 1–5
     mood: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     energy: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

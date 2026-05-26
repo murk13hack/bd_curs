@@ -19,6 +19,7 @@ from app.models import (
     PatternSchedule,
     PatternStep,
     PatternStepAnswer,
+    Topic,
 )
 from app.schemas.pattern import (
     PatternCreate,
@@ -40,6 +41,7 @@ from app.schemas.pattern import (
     PatternStepRead,
     PatternStepsReplace,
     PatternStreakRead,
+    PatternStreakSummary,
     PatternTodayRead,
     PatternUpdate,
 )
@@ -153,6 +155,8 @@ async def list_patterns(session: SessionDep, user_id: UserIdDep) -> list[Pattern
 async def create_pattern(
     payload: PatternCreate, session: SessionDep, user_id: UserIdDep
 ) -> PatternRead:
+    if payload.topic_id is not None:
+        await _ensure_topic(session, user_id, payload.topic_id)
     pattern = BehaviorPattern(
         user_id=user_id,
         topic_id=payload.topic_id,
@@ -569,6 +573,17 @@ async def replace_steps(
     pattern = await _get(session, pattern_id, user_id)
     if pattern.pattern_mode != "scenario":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Шаги только для scenario")
+    open_sess = await session.execute(
+        select(PatternDaySession.id).where(
+            PatternDaySession.pattern_id == pattern_id,
+            PatternDaySession.status == "in_progress",
+        )
+    )
+    if open_sess.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Нельзя менять шаги во время незавершённой сессии",
+        )
     if not payload.steps:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нужен хотя бы один шаг")
     await session.execute(delete(PatternStep).where(PatternStep.pattern_id == pattern_id))
@@ -929,10 +944,10 @@ async def pattern_insights(
     return await build_pattern_insights(session, pattern, days, user_id, time_filter)  # type: ignore[arg-type]
 
 
-@router.get("/{pattern_id}/streak")
+@router.get("/{pattern_id}/streak", response_model=PatternStreakSummary)
 async def get_streak(
     pattern_id: int, session: SessionDep, user_id: UserIdDep
-) -> dict:
+) -> PatternStreakSummary:
     await _get(session, pattern_id, user_id)
     res = await session.execute(
         text(
@@ -941,7 +956,19 @@ async def get_streak(
         ).bindparams(p=pattern_id)
     )
     row = res.one()
-    return {"current_streak": row[0], "max_streak": row[1], "anti_streak": row[2]}
+    return PatternStreakSummary(
+        current_streak=int(row[0] or 0),
+        max_streak=int(row[1] or 0),
+        anti_streak=int(row[2] or 0),
+    )
+
+
+async def _ensure_topic(session: SessionDep, user_id: int, topic_id: int) -> None:
+    res = await session.execute(
+        select(Topic.id).where(Topic.id == topic_id, Topic.user_id == user_id)
+    )
+    if res.scalar_one_or_none() is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Тема не найдена")
 
 
 async def _get(session: SessionDep, pattern_id: int, user_id: int) -> BehaviorPattern:

@@ -321,5 +321,5 @@ COMMENT ON PROCEDURE sp_import_user_data(BIGINT, JSONB)
 
 DO $$
 BEGIN
-    RAISE NOTICE 'PTT 07-procedures: 8 procedures created';
+    RAISE NOTICE 'PTT 07-procedures: stored procedures created';
 END $$;

@@ -1,18 +1,23 @@
 # Синхронизация БД ↔ backend ↔ frontend
 
-Актуально после миграций `009`–`013`.
+Актуально после миграций `009`–`014`.
 
 ### `012_time_logs_allow_overlap`
 
-Снят exclusion-констрейнт `task_time_logs_no_overlap` — пересекающиеся интервалы учёта времени по разным задачам допустимы (параллельный фокус / несколько записей).
+Снят exclusion-констрейнт `task_time_logs_no_overlap` — пересекающиеся интервалы учёта времени по разным задачам допустимы (параллельный фокус / несколько записей). Это **осознанное отступление** от ТЗ с EXCLUDE USING gist: UX Pomodoro требует параллельного учёта времени.
 
 ### `013_drop_tasks_start_after_created`
 
 Снят check-констрейнт `tasks_start_after_created`. Поле `start_at` — это начало окна выполнения и может быть раньше фактического `created_at` (например, пользователь создаёт задачу в 00:02:35 с `start_at=00:02:00`).
 
-## Таблицы (18)
+### `014_pre_freeze_cleanup`
 
-Все таблицы из `db/init/03-tables.sql` покрыты ORM (`backend/app/models/`) и REST API.
+- Удалён NOP-триггер `trg_pattern_streak_recalc`.
+- `fn_audit_log`: для `pattern_logs` / `pattern_markers` / `pattern_marker_day_closures` подставляется `user_id` из `behavior_patterns`.
+
+## Таблицы (23)
+
+23 таблицы в `db/init/03-tables.sql`: 18 базовых по ТЗ + 5 для режимов паттернов (`pattern_steps`, `pattern_day_sessions`, `pattern_step_answers`, `pattern_markers`, `pattern_marker_day_closures`). ORM покрывает 22 таблицы; `audit_log` — только триггер.
 
 | Таблица | API |
 |---------|-----|
@@ -79,17 +84,17 @@ UI: редактор повторения в задаче — все четыр�
 
 | View | API |
 |------|-----|
-| `v_task_topic_breakdown` | `/stats/topics` |
+| `v_task_topic_breakdown` | `/stats/topics` (JOIN view + фильтр по deadline) |
 | `v_pattern_streaks` | `/patterns/streaks/all`, `/stats/patterns` |
-| `v_overdue_tasks` | обновляется `sp_recalc_calendar_cache` (кэш, не в REST) |
+| `v_overdue_tasks` | `GET /tasks/overdue`, обновляется `sp_recalc_calendar_cache` |
 | `v_mood_productivity_correlation` | `/stats/correlation` |
 | `v_olap_daily_facts` | `/stats/olap`, overview; см. [OLAP.md](./OLAP.md) |
 | `v_mood_holistic_correlation` | `/stats/holistic` |
-| `v_stats_task_priority` | `/stats/priorities` |
+| `v_stats_task_priority` | `/stats/priorities` (JOIN view + фильтр по deadline) |
 | `v_weekly_summary` | `/stats/weekly` |
 | `v_year_heatmap` | `/calendar/heatmap` |
 | `v_task_subtree_progress` | поля `subtask_*` в `TaskRead` |
-| `v_topic_time_distribution` | `/stats/time-distribution` |
+| `v_topic_time_distribution` | `/stats/time-distribution` (JOIN view + фильтр по дате логов) |
 
 ## Процедуры
 
@@ -108,7 +113,7 @@ UI: редактор повторения в задаче — все четыр�
 
 ## Миграции на существующей БД
 
-Актуальный набор для уже развёрнутого volume: **007 → 013** (включая исправление streak/markers в `011`).
+Актуальный набор для уже развёрнутого volume: **007 → 014** (включая исправление streak/markers в `011`).
 
 Fedora / bash:
 

@@ -68,6 +68,15 @@ export interface Task {
   subtask_progress?: number | null;
 }
 
+export interface OverdueTask {
+  id: number;
+  topic_id: number;
+  title: string;
+  priority: TaskPriority;
+  deadline: string;
+  overdue_minutes: number;
+}
+
 export interface RecurringRule {
   id: number;
   frequency: 'daily' | 'weekly' | 'monthly' | 'custom';

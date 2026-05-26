@@ -23,6 +23,7 @@ from app.schemas.stats import (
     TopicBreakdown,
     TopicTimeBreakdown,
     WeeklySummary,
+    CompletionRateResponse,
 )
 from app.services.diary_insights import fetch_diary_insights
 from app.services.olap import fetch_overview, olap_meta, run_olap_query
@@ -91,20 +92,20 @@ async def topics_breakdown(
     date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT t.topic_id, tp.name AS topic_name,"
-            " COUNT(*)::INT AS total,"
-            " COUNT(*) FILTER (WHERE t.status = 'done')::INT AS done,"
-            " COUNT(*) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
-            " CASE WHEN COUNT(*) = 0 THEN 0"
-            "      ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE t.status = 'done') / COUNT(*), 2) END,"
+            "SELECT v.topic_id, v.topic_name,"
+            " COUNT(t.id)::INT AS total,"
+            " COUNT(t.id) FILTER (WHERE t.status = 'done')::INT AS done,"
+            " COUNT(t.id) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
+            " CASE WHEN COUNT(t.id) = 0 THEN 0"
+            "      ELSE ROUND(100.0 * COUNT(t.id) FILTER (WHERE t.status = 'done') / COUNT(t.id), 2) END,"
             " AVG(t.planned_minutes)::INT AS avg_planned_minutes,"
             " AVG(EXTRACT(EPOCH FROM (t.completed_at - t.deadline)) / 60.0)"
             "     FILTER (WHERE t.status = 'overdue')::NUMERIC(10,2) AS avg_overdue_minutes "
-            "FROM tasks t "
-            "JOIN topics tp ON tp.id = t.topic_id "
-            "WHERE t.user_id = :uid AND t.deadline IS NOT NULL "
+            "FROM v_task_topic_breakdown v "
+            "JOIN tasks t ON t.user_id = v.user_id AND t.topic_id = v.topic_id "
+            "WHERE v.user_id = :uid AND t.deadline IS NOT NULL "
             "  AND t.deadline::date BETWEEN :f AND :t "
-            "GROUP BY t.topic_id, tp.name "
+            "GROUP BY v.topic_id, v.topic_name "
             "ORDER BY total DESC"
         ).bindparams(uid=user_id, f=date_from, t=date_to)
     )
@@ -134,16 +135,17 @@ async def priority_breakdown(
     date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT t.priority,"
-            " COUNT(*)::INT AS total,"
-            " COUNT(*) FILTER (WHERE t.status = 'done')::INT AS done,"
-            " COUNT(*) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
-            " CASE WHEN COUNT(*) = 0 THEN 0"
-            "      ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE t.status = 'done') / COUNT(*), 2) END "
-            "FROM tasks t "
-            "WHERE t.user_id = :uid AND t.deadline IS NOT NULL "
+            "SELECT v.priority,"
+            " COUNT(t.id)::INT AS total,"
+            " COUNT(t.id) FILTER (WHERE t.status = 'done')::INT AS done,"
+            " COUNT(t.id) FILTER (WHERE t.status = 'overdue')::INT AS overdue,"
+            " CASE WHEN COUNT(t.id) = 0 THEN 0"
+            "      ELSE ROUND(100.0 * COUNT(t.id) FILTER (WHERE t.status = 'done') / COUNT(t.id), 2) END "
+            "FROM v_stats_task_priority v "
+            "JOIN tasks t ON t.user_id = v.user_id AND t.priority = v.priority "
+            "WHERE v.user_id = :uid AND t.deadline IS NOT NULL "
             "  AND t.deadline::date BETWEEN :f AND :t "
-            "GROUP BY t.priority "
+            "GROUP BY v.priority "
             "ORDER BY total DESC"
         ).bindparams(uid=user_id, f=date_from, t=date_to)
     )
@@ -199,16 +201,16 @@ async def time_distribution(
     date_from, date_to = _resolve_period(days, from_, to)
     res = await session.execute(
         text(
-            "SELECT t.topic_id, tp.name AS topic_name,"
+            "SELECT v.topic_id, v.topic_name,"
             " COALESCE(SUM(ttl.duration_seconds), 0)::INT / 60 AS minutes,"
             " COALESCE(SUM(ttl.duration_seconds) FILTER (WHERE ttl.is_pomodoro), 0)::INT / 60 "
             "  AS pomodoro_minutes "
-            "FROM tasks t "
-            "JOIN topics tp ON tp.id = t.topic_id "
+            "FROM v_topic_time_distribution v "
+            "JOIN tasks t ON t.user_id = v.user_id AND t.topic_id = v.topic_id "
             "LEFT JOIN task_time_logs ttl ON ttl.task_id = t.id "
             " AND ttl.started_at::date BETWEEN :f AND :t "
-            "WHERE t.user_id = :uid "
-            "GROUP BY t.topic_id, tp.name "
+            "WHERE v.user_id = :uid "
+            "GROUP BY v.topic_id, v.topic_name "
             "HAVING COALESCE(SUM(ttl.duration_seconds), 0) > 0 "
             "ORDER BY minutes DESC"
         ).bindparams(uid=user_id, f=date_from, t=date_to)
@@ -368,18 +370,20 @@ async def weekly(
     ]
 
 
-@router.get("/completion-rate")
+@router.get("/completion-rate", response_model=CompletionRateResponse)
 async def completion_rate(
     session: SessionDep,
     user_id: UserIdDep,
     from_: date = Query(alias="from"),
     to: date = Query(),
     topic_id: int | None = None,
-) -> dict:
+) -> CompletionRateResponse:
     res = await session.execute(
         text("SELECT fn_completion_rate(:uid, :f, :t, :tp)").bindparams(
             uid=user_id, f=from_, t=to, tp=topic_id
         )
     )
     val = res.scalar_one()
-    return {"from": from_, "to": to, "topic_id": topic_id, "rate": float(val or 0)}
+    return CompletionRateResponse(
+        date_from=from_, date_to=to, topic_id=topic_id, rate=float(val or 0)
+    )

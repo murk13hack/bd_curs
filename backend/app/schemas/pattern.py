@@ -148,6 +148,12 @@ class PatternStreakRead(BaseModel):
     success_rate_30d: float = 0.0
 
 
+class PatternStreakSummary(BaseModel):
+    current_streak: int
+    max_streak: int
+    anti_streak: int
+
+
 class PatternTodayRead(BaseModel):
     pattern_id: int
     day: str

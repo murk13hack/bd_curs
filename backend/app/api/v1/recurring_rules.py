@@ -7,6 +7,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.api.v1.deps import SessionDep, UserIdDep
+from app.services.db_errors import integrity_error_to_http
 from app.models import RecurringRule, Task
 from app.schemas.recurring_rule import RecurringRuleCreate, RecurringRuleRead, RecurringRuleUpdate
 
@@ -84,7 +85,7 @@ async def update_recurring_rule(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc.orig)) from exc
+        raise integrity_error_to_http(exc, fallback="Не удалось обновить правило") from exc
     await session.refresh(rule)
     return rule
 

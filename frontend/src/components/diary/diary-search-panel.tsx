@@ -69,12 +69,7 @@ export function DiarySearchPanel({
                           }}
                         >
                           <div className="mb-1 text-xs text-ink-muted">{fmtDate(hit.entry_date)}</div>
-                          <div
-                            className="text-sm"
-                            dangerouslySetInnerHTML={{
-                              __html: hit.snippet.replace(/<<|>>/g, ''),
-                            }}
-                          />
+                          <div className="text-sm">{hit.snippet.replace(/<<|>>/g, '')}</div>
                         </button>
                       </li>
                     ))}

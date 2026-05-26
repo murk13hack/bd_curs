@@ -86,6 +86,15 @@ class TaskRead(TaskBase):
     subtask_progress: float | None = None
 
 
+class OverdueTaskRead(BaseModel):
+    id: int
+    topic_id: int
+    title: str
+    priority: TaskPriority
+    deadline: datetime
+    overdue_minutes: float
+
+
 class TimeLogCreate(BaseModel):
     started_at: datetime
     ended_at: datetime

@@ -166,3 +166,10 @@ class OlapMeta(BaseModel):
     dimensions: list[OlapMetaItem]
     measures: list[OlapMetaItem]
     help: str = ""
+
+
+class CompletionRateResponse(BaseModel):
+    date_from: date
+    date_to: date
+    topic_id: int | None
+    rate: float

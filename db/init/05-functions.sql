@@ -660,5 +660,5 @@ COMMENT ON FUNCTION fn_get_calendar_stats(BIGINT, INT, INT)
 
 DO $$
 BEGIN
-    RAISE NOTICE 'PTT 05-functions: 9 functions created';
+    RAISE NOTICE 'PTT 05-functions: business functions created';
 END $$;

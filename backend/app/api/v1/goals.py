@@ -65,6 +65,8 @@ async def create_goal(
     session.add(goal)
     await session.flush()
     for link in payload.links:
+        await _validate_link_target(session, user_id, link.target_type, link.target_id)
+    for link in payload.links:
         session.add(
             GoalLink(
                 goal_id=goal.id,

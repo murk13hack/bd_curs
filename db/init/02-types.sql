@@ -92,5 +92,5 @@ COMMENT ON DOMAIN hex_color IS 'HEX-цвет в формате #RRGGBB.';
 
 DO $$
 BEGIN
-    RAISE NOTICE 'PTT 02-types: 6 ENUM + 4 DOMAIN created';
+    RAISE NOTICE 'PTT 02-types: ENUM and DOMAIN types created';
 END $$;

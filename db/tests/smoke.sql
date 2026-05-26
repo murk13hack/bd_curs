@@ -37,7 +37,7 @@ BEGIN
     RAISE NOTICE 'TABLES=%, VIEWS=%, MATVIEWS=%, FUNCS=%, PROCS=%, TRIGGERS=%, INDEXES=%',
                  v_tables, v_views, v_matviews, v_funcs, v_procs, v_triggers, v_indexes;
 
-    ASSERT v_tables   >= 18, 'Tables expected >= 18';
+    ASSERT v_tables   >= 23, 'Tables expected >= 23';
     ASSERT v_views    >=  9, 'Views (regular) expected >= 9';
     ASSERT v_matviews >=  1, 'Materialized views expected >= 1';
     ASSERT v_funcs    >=  9, 'Functions expected >= 9';
@@ -149,6 +149,51 @@ DELETE FROM diary_entries WHERE user_id = 1 AND entry_date = current_date;
 DELETE FROM tasks WHERE title = 'smoke: задача-просрочка';
 
 CALL sp_recalc_calendar_cache();
+
+-- ---------- 8. start_at раньше created_at (013) --------------------------
+
+INSERT INTO tasks (user_id, topic_id, title, start_at, deadline)
+VALUES (
+    1,
+    (SELECT id FROM topics WHERE user_id = 1 LIMIT 1),
+    'smoke: early start_at',
+    now() - INTERVAL '5 minutes',
+    now() + INTERVAL '1 hour'
+);
+
+DELETE FROM tasks WHERE title = 'smoke: early start_at';
+
+-- ---------- 9. overlap time-logs (012) -----------------------------------
+
+DO $$
+DECLARE
+    v_task_a BIGINT;
+    v_task_b BIGINT;
+    v_topic  BIGINT;
+BEGIN
+    SELECT id INTO v_topic FROM topics WHERE user_id = 1 LIMIT 1;
+    INSERT INTO tasks (user_id, topic_id, title) VALUES (1, v_topic, 'smoke: overlap A')
+        RETURNING id INTO v_task_a;
+    INSERT INTO tasks (user_id, topic_id, title) VALUES (1, v_topic, 'smoke: overlap B')
+        RETURNING id INTO v_task_b;
+    INSERT INTO task_time_logs (task_id, user_id, started_at, ended_at)
+    VALUES (v_task_a, 1, now() - INTERVAL '30 minutes', now() - INTERVAL '20 minutes');
+    INSERT INTO task_time_logs (task_id, user_id, started_at, ended_at)
+    VALUES (v_task_b, 1, now() - INTERVAL '25 minutes', now() - INTERVAL '15 minutes');
+    DELETE FROM task_time_logs WHERE task_id IN (v_task_a, v_task_b);
+    DELETE FROM tasks WHERE id IN (v_task_a, v_task_b);
+END $$;
+
+-- ---------- 10. views smoke ----------------------------------------------
+
+DO $$
+DECLARE v_cnt INT;
+BEGIN
+    SELECT COUNT(*) INTO v_cnt FROM v_pattern_streaks WHERE user_id = 1;
+    RAISE NOTICE 'v_pattern_streaks rows for user 1: %', v_cnt;
+    SELECT COUNT(*) INTO v_cnt FROM v_olap_daily_facts WHERE user_id = 1;
+    RAISE NOTICE 'v_olap_daily_facts rows for user 1: %', v_cnt;
+END $$;
 
 ROLLBACK;
 

@@ -38,6 +38,35 @@ async def test_create_task_start_and_deadline_iso(
     assert body["deadline"] is not None
 
 
+async def test_create_task_invalid_topic(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/tasks",
+        json={"topic_id": 999999, "title": "orphan topic"},
+    )
+    assert r.status_code == 404
+
+
+async def test_create_task_start_after_deadline_rejected(
+    client: AsyncClient, topic_id: int
+) -> None:
+    r = await client.post(
+        "/api/v1/tasks",
+        json={
+            "topic_id": topic_id,
+            "title": "bad window",
+            "start_at": "2030-01-02T12:00:00+00:00",
+            "deadline": "2030-01-01T12:00:00+00:00",
+        },
+    )
+    assert r.status_code == 422
+
+
+async def test_list_overdue_tasks(client: AsyncClient, topic_id: int) -> None:
+    r = await client.get("/api/v1/tasks/overdue")
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
 async def test_create_with_tags_and_filter(
     client: AsyncClient, topic_id: int, tag_id: int
 ) -> None:

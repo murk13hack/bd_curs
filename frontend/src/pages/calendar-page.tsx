@@ -14,7 +14,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '@/api/client';
 import type { CalendarDay } from '@/api/types';
-import { PageHeader, Spinner } from '@/components/ui/primitives';
+import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import { toIsoDate } from '@/lib/format';
 
 export function CalendarPage() {
@@ -44,6 +44,12 @@ export function CalendarPage() {
   return (
     <div>
       <PageHeader title="Календарь" subtitle="Прогресс задач, праздники и активность" />
+
+      {(monthData.isError || heatmap.isError) && (
+        <div className="mb-4">
+          <ErrorBanner message="Не удалось загрузить данные календаря" />
+        </div>
+      )}
 
       <div className="mb-6 flex items-center justify-between">
         <button type="button" className="btn-ghost" onClick={() => setCursor(subMonths(cursor, 1))}>

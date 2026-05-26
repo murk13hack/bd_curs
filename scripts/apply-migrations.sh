@@ -3,7 +3,7 @@
 # На чистой установке (первый docker compose up) миграции не нужны — init уже актуален.
 #
 # Использование:
-#   ./scripts/apply-migrations.sh              # миграции 007–011 (рекомендуется)
+#   ./scripts/apply-migrations.sh              # миграции 007–014 (рекомендуется)
 #   ./scripts/apply-migrations.sh --all        # все db/migrations/*.sql по порядку
 #   ./scripts/apply-migrations.sh --from 009   # с 009 и выше
 

@@ -199,7 +199,7 @@ export function StatsPage() {
             error={timeDist.isError}
             errorMessage={queryError(timeDist.error)}
             empty={!timeDist.isLoading && !timeDist.isError && (timeDist.data ?? []).length === 0}
-            emptyMessage="Нет учтённого времени — добавьте time-log к задачам"
+            emptyMessage="Нет учтённого времени — добавьте запись времени к задачам"
           >
             <ResponsiveContainer width="100%" height={260}>
               <PieChart margin={{ top: 8, bottom: 8 }}>
@@ -422,7 +422,7 @@ function PatternsTab({
       {errorMessage && <ErrorBanner message={errorMessage} />}
       <p className="text-xs text-ink-muted">
         Последние 30 календарных дней по расписанию каждого паттерна (не зависит от переключателя
-        7/30/90). При завышенных % примените миграцию <code className="text-[10px]">011</code>.
+        7/30/90).
       </p>
 
       <ChartCard

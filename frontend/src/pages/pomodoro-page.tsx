@@ -56,6 +56,12 @@ export function PomodoroPage() {
         </div>
       )}
 
+      {tasks.isError && (
+        <div className="mb-4">
+          <ErrorBanner message="Не удалось загрузить список задач" />
+        </div>
+      )}
+
       {p.sessions.length > 0 && (
         <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {p.sessions.map((session) => (
@@ -76,6 +82,10 @@ export function PomodoroPage() {
 
           {tasks.isLoading ? (
             <Spinner />
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-ink-muted">
+              {q.trim() ? 'Ничего не найдено' : 'Нет активных задач'}
+            </p>
           ) : (
             <ul className="space-y-2">
               {filtered.map((task) => {

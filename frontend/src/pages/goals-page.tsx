@@ -37,6 +37,12 @@ export function GoalsPage() {
         }
       />
 
+      {goals.isError && (
+        <div className="mb-4">
+          <ErrorBanner message="Не удалось загрузить цели" />
+        </div>
+      )}
+
       {goals.isLoading ? (
         <div className="flex justify-center py-16">
           <Spinner />
@@ -161,6 +167,9 @@ function GoalDetail({
   return (
     <section className="card">
       <div className="card-body space-y-4">
+        {progress.isError && (
+          <ErrorBanner message="Не удалось загрузить прогресс цели" />
+        )}
         <div className="flex items-start justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">{goal.title}</h2>

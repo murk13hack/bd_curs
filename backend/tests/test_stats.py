@@ -184,6 +184,18 @@ async def test_time_distribution_with_pomodoro(
     assert row["pomodoro_minutes"] >= 25
 
 
+async def test_priorities_breakdown(client: AsyncClient, topic_id: int) -> None:
+    deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    await client.post(
+        "/api/v1/tasks",
+        json={"topic_id": topic_id, "title": "prio", "priority": "high", "deadline": deadline},
+    )
+    r = await client.get("/api/v1/stats/priorities", params={"days": 30})
+    assert r.status_code == 200
+    rows = r.json()
+    assert any(row["priority"] == "high" for row in rows)
+
+
 async def test_stats_overview_and_olap(client: AsyncClient, topic_id: int) -> None:
     deadline = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
     await client.post(

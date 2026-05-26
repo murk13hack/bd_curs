@@ -1,10 +1,21 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { api } from '@/api/client';
+import type { Task } from '@/api/types';
 import { PageHeader, Spinner, ErrorBanner } from '@/components/ui/primitives';
 import { fmtDate, pct, toIsoDate } from '@/lib/format';
 import { STATUS_COLOR, TASK_STATUS_LABEL } from '@/lib/labels';
+
+function sortByDeadline(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+}
 
 export function DashboardPage() {
   const today = toIsoDate(new Date());
@@ -14,6 +25,14 @@ export function DashboardPage() {
   const tasks = useQuery({
     queryKey: ['tasks', { view: 'active', archived: false }],
     queryFn: () => api.tasks.list({ view: 'active', archived: false, limit: 200 }),
+  });
+  const completedTasks = useQuery({
+    queryKey: ['tasks', { view: 'completed', archived: false }],
+    queryFn: () => api.tasks.list({ view: 'completed', archived: false, limit: 200 }),
+  });
+  const overdueTasks = useQuery({
+    queryKey: ['tasks-overdue'],
+    queryFn: () => api.tasks.overdue(),
   });
   const streaks = useQuery({
     queryKey: ['pattern-streaks'],
@@ -30,7 +49,8 @@ export function DashboardPage() {
   });
 
   const pending = tasks.data ?? [];
-  const doneToday = (tasks.data ?? []).filter(
+  const nearest = useMemo(() => sortByDeadline(pending).slice(0, 6), [pending]);
+  const doneToday = (completedTasks.data ?? []).filter(
     (t) => t.completed_at && t.completed_at.slice(0, 10) === today,
   );
 
@@ -41,7 +61,7 @@ export function DashboardPage() {
         subtitle={`Сегодня ${format(new Date(), 'dd.MM.yyyy')}`}
       />
 
-      {(tasks.isError || streaks.isError || completion.isError) && (
+      {(tasks.isError || completedTasks.isError || streaks.isError || completion.isError) && (
         <div className="mb-4">
           <ErrorBanner message="Не удалось загрузить часть данных обзора" />
         </div>
@@ -61,6 +81,32 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {(overdueTasks.data ?? []).length > 0 && (
+          <section className="card lg:col-span-2">
+            <div className="card-body">
+              <h2 className="mb-3 font-semibold text-red-600">Просроченные задачи</h2>
+              <ul className="space-y-2">
+                {(overdueTasks.data ?? []).slice(0, 5).map((task) => (
+                  <li
+                    key={task.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-red-200 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{task.title}</div>
+                      <div className="text-xs text-ink-muted">
+                        дедлайн {task.deadline ? fmtDate(task.deadline) : '—'}
+                      </div>
+                    </div>
+                    <Link to="/tasks" className="text-sm text-accent hover:underline">
+                      Открыть
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
         <section className="card">
           <div className="card-body">
             <div className="mb-4 flex items-center justify-between">
@@ -77,7 +123,7 @@ export function DashboardPage() {
               <p className="text-sm text-ink-muted">Нет активных задач — отличная работа!</p>
             ) : (
               <ul className="space-y-2">
-                {pending.slice(0, 6).map((task) => (
+                {nearest.map((task) => (
                   <li
                     key={task.id}
                     className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"

@@ -10,8 +10,8 @@
 --   02-types.sql        -- CREATE TYPE / CREATE DOMAIN
 --   03-tables.sql       -- CREATE TABLE + констрейнты
 --   04-indexes.sql      -- CREATE INDEX (B-tree, GIN, BRIN, partial, exclusion)
---   05-views.sql        -- CREATE VIEW / MATERIALIZED VIEW
---   06-functions.sql    -- CREATE FUNCTION
+--   05-functions.sql    -- CREATE FUNCTION
+--   06-views.sql        -- CREATE VIEW / MATERIALIZED VIEW
 --   07-procedures.sql   -- CREATE PROCEDURE
 --   08-triggers.sql     -- CREATE TRIGGER
 --   09-seed.sql         -- наполнение справочников (topics, holidays, ...)

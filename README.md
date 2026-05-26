@@ -6,15 +6,15 @@
 
 ## Возможности
 
-- **Задачи** — темы, теги, дедлайны, приоритеты, подзадачи, просрочка (триггер БД), учёт времени / Pomodoro
-- **Дневник** — mood/energy, FTS-поиск (`fn_search_diary`)
-- **Привычки** — паттерны поведения, расписание, streaks (`fn_calculate_streak`)
+- **Задачи** — темы, теги, дедлайны, приоритеты, подзадачи, просрочка (триггер БД), учёт времени / Pomodoro (до 10 параллельных таймеров)
+- **Дневник** — mood/energy, FTS-поиск (`fn_search_diary`), календарь и лента записей
+- **Паттерны** — три режима: **привычки (habit)**, **сценарий (scenario)**, **точки (markers)**; расписание, streaks, уведомления
 - **Календарь** — заливка дней по прогрессу, праздники РФ, heatmap года
-- **Статистика** — разрезы по темам/неделям, корреляция настроения (Recharts)
-- **Цели** — прогресс через `fn_goal_progress`
+- **Статистика** — KPI, разрезы по темам/неделям, «Связи показателей», OLAP-срезы (Recharts)
+- **Цели** — прогресс через `fn_goal_progress`, привязка к задачам и паттернам
 - **Import/Export** — JSON: экспорт полный; импорт merge (темы/теги) или restore (все сущности); CSV задач
 
-Бизнес-логика расчётов — в PostgreSQL: 18 таблиц, view, функции, процедуры, триггеры, индексы, FTS.
+Бизнес-логика расчётов — в PostgreSQL: **23 таблицы** (18 базовых по ТЗ + 5 для режимов паттернов), views, функции, процедуры, триггеры, индексы, FTS.
 
 ## Быстрый старт
 
@@ -44,39 +44,30 @@ docker compose down -v     # удалить всё (данные БД тоже!)
 
 ```
 bd_curs/
-├── backend/                 # FastAPI, SQLAlchemy, APScheduler, Alembic
+├── backend/                 # FastAPI, SQLAlchemy, APScheduler
 │   ├── app/
-│   │   ├── api/v1/          # 12 роутеров REST API
-│   │   ├── models/          # ORM (18 таблиц)
+│   │   ├── api/v1/          # REST API
+│   │   ├── models/          # ORM (22 модели / 23 таблицы)
 │   │   └── schemas/         # Pydantic DTO
-│   ├── tests/               # pytest (55 интеграционных тестов)
-│   └── alembic/
+│   └── tests/               # pytest (~100 интеграционных тестов)
 ├── frontend/                # React SPA + nginx (prod)
-│   ├── src/
-│   │   ├── api/             # типизированный HTTP-клиент
-│   │   ├── pages/           # 9 экранов
-│   │   └── components/
-│   └── nginx.conf           # прокси /api/ → backend
 ├── db/
 │   ├── init/                # DDL: extensions → tables → functions → triggers → seed
-│   └── tests/smoke.sql      # smoke-тесты SQL-объектов
-├── docs/
-│   └── DEPLOY.md            # инструкция развёртывания (приложение Ж)
+│   └── migrations/          # 007–014 для существующих volume
+├── docs/                    # DEPLOY, DB_SYNC, STATS, OLAP, PRE_FREEZE_FIXES
 ├── docker-compose.yml
-├── .env.example
-├── README.md
-└── ТЗ.md                    # ТЗ по ГОСТ 34.602-89 / 19.201-78
+└── ТЗ.md
 ```
 
 ## Тесты
 
 ```powershell
-# Backend API (55 passed)
+# Backend API
 docker compose exec backend pytest
 
 # SQL smoke (функции, view, триггеры)
 docker cp db/tests/smoke.sql ptt-db:/tmp/smoke.sql
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/smoke.sql
+docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f /tmp/smoke.sql
 ```
 
 ## Разработка
@@ -87,13 +78,23 @@ docker exec ptt-db psql -U ptt -d ptt -f /tmp/smoke.sql
 cd frontend
 npm install
 npm run dev    # http://localhost:5173, proxy /api → :8000
+npm run build  # production build
 ```
 
 ### Backend
 
-API-документация генерируется автоматически: `/docs`, `/redoc`.
+API-документация: `/docs`, `/redoc`. Конфигурация — `backend/app/config.py`, переменные из `.env`.
 
-Конфигурация — `backend/app/config.py`, переменные из `.env`.
+## Документация
+
+- [ТЗ.md](./ТЗ.md) — техническое задание
+- [docs/DEPLOY.md](./docs/DEPLOY.md) — развёртывание, миграции 007–014, troubleshooting
+- [docs/DB_SYNC.md](./docs/DB_SYNC.md) — соответствие таблиц, функций, view и API
+- [docs/STATS.md](./docs/STATS.md) — логика статистики
+- [docs/OLAP.md](./docs/OLAP.md) — OLAP-срезы
+- [docs/PATTERNS_SCENARIO.md](./docs/PATTERNS_SCENARIO.md) — режим «Сценарий»
+- [docs/PRE_FREEZE_FIXES.md](./docs/PRE_FREEZE_FIXES.md) — чеклист аудита перед защитой
+- OpenAPI — http://localhost:8000/docs
 
 ## Резервное копирование
 
@@ -107,11 +108,3 @@ docker exec -t ptt-db pg_dump -U ptt -F c -d ptt > "backups/backup_$(Get-Date -F
 ```powershell
 docker exec -i ptt-db pg_restore -U ptt -d ptt --clean --if-exists < backups/backup_DATE.dump
 ```
-
-## Документация
-
-- [ТЗ.md](./ТЗ.md) — полное техническое задание
-- [docs/DEPLOY.md](./docs/DEPLOY.md) — развёртывание, troubleshooting, dev-режим
-- [docs/PATTERNS_SCENARIO.md](./docs/PATTERNS_SCENARIO.md) — режим «Сценарий»: типы шагов, роли, юзер-кейсы, аудит логики
-- [docs/DB_SYNC.md](./docs/DB_SYNC.md) — соответствие таблиц, функций, view и процедур API
-- OpenAPI — http://localhost:8000/docs

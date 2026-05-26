@@ -29,6 +29,7 @@ import type {
   Tag,
   Task,
   TaskView,
+  OverdueTask,
   TimeLog,
   Topic,
   StatsOverview,
@@ -154,6 +155,7 @@ export const api = {
       }),
     detachRecurring: (id: number) =>
       request<void>(`/tasks/${id}/recurring`, { method: 'DELETE' }),
+    overdue: () => request<OverdueTask[]>('/tasks/overdue'),
     timeLogs: (id: number) => request<TimeLog[]>(`/tasks/${id}/time-logs`),
     addTimeLog: (id: number, body: Record<string, unknown>) =>
       request<TimeLog>(`/tasks/${id}/time-logs`, {
@@ -259,8 +261,10 @@ export const api = {
     patterns: () => request<PatternStatsRow[]>('/stats/patterns'),
     timeDistribution: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<TopicTimeBreakdown[]>(`/stats/time-distribution${qs(params)}`),
+    /** @deprecated Используйте diaryInsights */
     correlation: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<CorrelationWeek[]>(`/stats/correlation${qs(params)}`),
+    /** @deprecated Используйте diaryInsights */
     holistic: (params: { days?: number; from?: string; to?: string } = {}) =>
       request<HolisticCorrelationWeek[]>(`/stats/holistic${qs(params)}`),
     diaryInsights: (params: { days?: number; from?: string; to?: string } = {}) =>

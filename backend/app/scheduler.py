@@ -30,7 +30,6 @@ async def _ensure_habit_logs_today() -> None:
 
 async def _close_overdue_pattern_logs() -> None:
     async with session_scope() as session:
-        await session.execute(text("CALL sp_ensure_habit_logs_for_day(current_date)"))
         await session.execute(text("CALL sp_close_overdue_pattern_logs(now())"))
     logger.info("sp_close_overdue_pattern_logs executed")
 

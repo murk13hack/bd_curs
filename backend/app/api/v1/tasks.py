@@ -10,10 +10,12 @@ from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.api.v1.deps import SessionDep, UserIdDep
-from app.models import RecurringRule, Tag, Task, TaskTag, TaskTimeLog
+from app.services.db_errors import integrity_error_to_http
+from app.models import RecurringRule, Tag, Task, TaskTag, TaskTimeLog, Topic
 from app.schemas.common import TaskPriority, TaskStatus
 from app.schemas.recurring_rule import RecurringRuleCreate, RecurringRuleRead, RecurringRuleUpdate
 from app.schemas.task import (
+    OverdueTaskRead,
     TaskCreate,
     TaskRead,
     TaskUpdate,
@@ -164,10 +166,49 @@ async def list_tasks(
     return [_to_read(t, subtree=prog.get(t.id)) for t in tasks]
 
 
+@router.get(
+    "/overdue",
+    response_model=list[OverdueTaskRead],
+    summary="Просроченные задачи (v_overdue_tasks)",
+)
+async def list_overdue_tasks(
+    session: SessionDep, user_id: UserIdDep
+) -> list[OverdueTaskRead]:
+    res = await session.execute(
+        text(
+            "SELECT id, topic_id, title, priority, deadline, overdue_minutes "
+            "FROM v_overdue_tasks WHERE user_id = :uid ORDER BY deadline"
+        ).bindparams(uid=user_id)
+    )
+    rows = res.all()
+    if not rows:
+        res = await session.execute(
+            text(
+                "SELECT id, topic_id, title, priority, deadline,"
+                " EXTRACT(EPOCH FROM (now() - deadline)) / 60.0 AS overdue_minutes "
+                "FROM tasks WHERE user_id = :uid AND status = 'overdue' "
+                "ORDER BY deadline"
+            ).bindparams(uid=user_id)
+        )
+        rows = res.all()
+    return [
+        OverdueTaskRead(
+            id=int(r[0]),
+            topic_id=int(r[1]),
+            title=str(r[2]),
+            priority=str(r[3]),
+            deadline=r[4],
+            overdue_minutes=float(r[5] or 0),
+        )
+        for r in rows
+    ]
+
+
 @router.post(
     "", response_model=TaskRead, status_code=status.HTTP_201_CREATED, summary="Создать задачу"
 )
 async def create_task(payload: TaskCreate, session: SessionDep, user_id: UserIdDep) -> TaskRead:
+    await _ensure_topic(session, user_id, payload.topic_id)
     rule_id: int | None = None
     if payload.recurring is not None:
         rule = RecurringRule(
@@ -196,7 +237,7 @@ async def create_task(payload: TaskCreate, session: SessionDep, user_id: UserIdD
         await session.flush()
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc.orig)) from exc
+        raise integrity_error_to_http(exc, fallback="Не удалось создать задачу") from exc
 
     if payload.tag_ids:
         await _replace_tags(session, task.id, user_id, payload.tag_ids)
@@ -217,6 +258,8 @@ async def update_task(
 ) -> TaskRead:
     task = await _get(session, task_id, user_id)
     data = payload.model_dump(exclude_unset=True, exclude={"tag_ids"})
+    if payload.topic_id is not None:
+        await _ensure_topic(session, user_id, payload.topic_id)
     if data.get("status") in ("done", "overdue"):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -232,7 +275,7 @@ async def update_task(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc.orig)) from exc
+        raise integrity_error_to_http(exc, fallback="Не удалось обновить задачу") from exc
 
     await session.refresh(task, attribute_names=["tag_links"])
     return await _read_task(session, task)
@@ -422,6 +465,7 @@ async def detach_task_recurring(
     rule = res.scalar_one()
     rule.is_active = False
     rule.next_run_at = None
+    task.recurring_rule_id = None
     await session.commit()
 
 
@@ -496,6 +540,14 @@ async def delete_time_log(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Запись не найдена")
     await session.delete(log)
     await session.commit()
+
+
+async def _ensure_topic(session: SessionDep, user_id: int, topic_id: int) -> None:
+    res = await session.execute(
+        select(Topic.id).where(Topic.id == topic_id, Topic.user_id == user_id)
+    )
+    if res.scalar_one_or_none() is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Тема не найдена")
 
 
 async def _get(session: SessionDep, task_id: int, user_id: int) -> Task:

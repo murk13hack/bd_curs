@@ -67,7 +67,7 @@ done
 
 if [[ $FRESH_HINT -eq 1 ]]; then
   echo ""
-  echo "Режим --fresh: если volume pgdata создан впервые, миграции 007–011 НЕ нужны."
+  echo "Режим --fresh: если volume pgdata создан впервые, миграции 007–013 НЕ нужны."
   echo "Пропускаем apply-migrations.sh"
   SKIP_MIGRATE=1
 fi
