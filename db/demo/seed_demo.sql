@@ -156,8 +156,8 @@ BEGIN
         v_uid, v_topics[1 + (0 % array_length(v_topics, 1))], '[демо] Подготовить презентацию по OLAP',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 1 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        30, FALSE, now() - INTERVAL '1 days'
+        now() - 1 * INTERVAL '1 day' + TIME '09:00', now() + 2 * INTERVAL '1 day' + TIME '18:00',
+        30, FALSE, now() - 1 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -173,8 +173,8 @@ BEGIN
         v_uid, v_topics[1 + (1 % array_length(v_topics, 1))], '[демо] Написать главу 3 отчёта',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'urgent'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        45, FALSE, now() - INTERVAL '2 days'
+        NULL, now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        45, FALSE, now() - 2 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -186,8 +186,8 @@ BEGIN
         v_uid, v_topics[1 + (2 % array_length(v_topics, 1))], '[демо] Ревью миграций 007–014',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        60, FALSE, now() - INTERVAL '3 days'
+        NULL, now() + 4 * INTERVAL '1 day' + TIME '18:00',
+        60, FALSE, now() - 3 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -199,15 +199,14 @@ BEGIN
         v_uid, v_topics[1 + (3 % array_length(v_topics, 1))], '[демо] Настроить CI для pytest',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 8 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date - 6 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        75, FALSE, now() - INTERVAL '4 days'
+        now() - 8 * INTERVAL '1 day' + TIME '09:00', now() - 6 * INTERVAL '1 day' + TIME '18:00',
+        75, FALSE, now() - 15 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '1 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -217,15 +216,14 @@ BEGIN
         v_uid, v_topics[1 + (4 % array_length(v_topics, 1))], '[демо] Протестировать экспорт JSON',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 7 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        90, FALSE, now() - INTERVAL '5 days'
+        NULL, now() - 3 * INTERVAL '1 day' + TIME '18:00',
+        90, FALSE, now() - 16 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO task_tags (task_id, tag_id)
@@ -239,8 +237,8 @@ BEGIN
         v_uid, v_topics[1 + (5 % array_length(v_topics, 1))], '[демо] Сверить view статистики',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        105, FALSE, now() - INTERVAL '6 days'
+        NULL, now() + 2 * INTERVAL '1 day' + TIME '18:00',
+        105, FALSE, now() - 6 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -252,15 +250,13 @@ BEGIN
         v_uid, v_topics[1 + (6 % array_length(v_topics, 1))], '[демо] Обновить DEPLOY.md',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 3 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 7 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        120, FALSE, now() - INTERVAL '7 days'
+        now() - 3 * INTERVAL '1 day' + TIME '09:00', now() + 7 * INTERVAL '1 day' + TIME '18:00',
+        120, FALSE, now() - 7 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
-    UPDATE tasks SET status = 'cancelled'::task_status_enum,
-        completed_at = CASE WHEN 'cancelled' = 'done'
-            THEN now() - INTERVAL '1 days' ELSE NULL END
+    UPDATE tasks SET status = 'cancelled'::task_status_enum
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -270,8 +266,8 @@ BEGIN
         v_uid, v_topics[1 + (7 % array_length(v_topics, 1))], '[демо] Созвон с научруком',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'urgent'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        135, FALSE, now() - INTERVAL '8 days'
+        NULL, now() + 4 * INTERVAL '1 day' + TIME '18:00',
+        135, FALSE, now() - 8 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -283,8 +279,8 @@ BEGIN
         v_uid, v_topics[1 + (8 % array_length(v_topics, 1))], '[демо] Подготовить демо-данные',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        30, FALSE, now() - INTERVAL '9 days'
+        NULL, now() + 5 * INTERVAL '1 day' + TIME '18:00',
+        30, FALSE, now() - 9 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -300,8 +296,8 @@ BEGIN
         v_uid, v_topics[1 + (9 % array_length(v_topics, 1))], '[демо] Рефакторинг API patterns',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 2 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        45, FALSE, now() - INTERVAL '10 days'
+        now() - 2 * INTERVAL '1 day' + TIME '09:00', now() + 6 * INTERVAL '1 day' + TIME '18:00',
+        45, FALSE, now() - 10 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -313,15 +309,14 @@ BEGIN
         v_uid, v_topics[1 + (10 % array_length(v_topics, 1))], '[демо] Проверить Pomodoro-таймер',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        60, FALSE, now() - INTERVAL '11 days'
+        NULL, now() - 5 * INTERVAL '1 day' + TIME '18:00',
+        60, FALSE, now() - 22 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -331,8 +326,8 @@ BEGIN
         v_uid, v_topics[1 + (11 % array_length(v_topics, 1))], '[демо] Аудит триггеров overdue',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        75, FALSE, now() - INTERVAL '12 days'
+        NULL, now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        75, FALSE, now() - 12 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -344,15 +339,14 @@ BEGIN
         v_uid, v_topics[1 + (12 % array_length(v_topics, 1))], '[демо] Документировать сценарии',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 7 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date - 5 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        90, FALSE, now() - INTERVAL '13 days'
+        now() - 5 * INTERVAL '1 day' + TIME '09:00', now() - 3 * INTERVAL '1 day' + TIME '18:00',
+        90, FALSE, now() - 24 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '1 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO task_tags (task_id, tag_id)
@@ -366,15 +360,14 @@ BEGIN
         v_uid, v_topics[1 + (13 % array_length(v_topics, 1))], '[демо] Исправить XSS в diary search',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'urgent'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 6 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        105, FALSE, now() - INTERVAL '14 days'
+        NULL, now() - 4 * INTERVAL '1 day' + TIME '18:00',
+        105, FALSE, now() - 25 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -384,8 +377,8 @@ BEGIN
         v_uid, v_topics[1 + (14 % array_length(v_topics, 1))], '[демо] Календарь: heatmap',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        120, FALSE, now() - INTERVAL '15 days'
+        NULL, now() + 6 * INTERVAL '1 day' + TIME '18:00',
+        120, FALSE, now() - 15 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -397,8 +390,8 @@ BEGIN
         v_uid, v_topics[1 + (15 % array_length(v_topics, 1))], '[демо] Цели: прогресс-бары',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 4 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        135, FALSE, now() - INTERVAL '16 days'
+        now() - 4 * INTERVAL '1 day' + TIME '09:00', now() + 2 * INTERVAL '1 day' + TIME '18:00',
+        135, FALSE, now() - 16 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -410,8 +403,8 @@ BEGIN
         v_uid, v_topics[1 + (16 % array_length(v_topics, 1))], '[демо] Маркеры: insights',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        30, FALSE, now() - INTERVAL '17 days'
+        NULL, now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        30, FALSE, now() - 17 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -427,8 +420,8 @@ BEGIN
         v_uid, v_topics[1 + (17 % array_length(v_topics, 1))], '[демо] Повторяющиеся задачи spawn',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        45, FALSE, now() - INTERVAL '18 days'
+        NULL, now() + 4 * INTERVAL '1 day' + TIME '18:00',
+        45, FALSE, now() - 18 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -440,8 +433,8 @@ BEGIN
         v_uid, v_topics[1 + (18 % array_length(v_topics, 1))], '[демо] Подзадачи: чеклист релиза',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'urgent'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 3 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        60, FALSE, now() - INTERVAL '19 days'
+        now() - 3 * INTERVAL '1 day' + TIME '09:00', now() + 5 * INTERVAL '1 day' + TIME '18:00',
+        60, FALSE, now() - 19 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -453,15 +446,14 @@ BEGIN
         v_uid, v_topics[1 + (19 % array_length(v_topics, 1))], '[демо] Архив: старые задачи',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 7 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        75, TRUE, now() - INTERVAL '20 days'
+        NULL, now() - 6 * INTERVAL '1 day' + TIME '18:00',
+        75, TRUE, now() - 31 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -471,8 +463,8 @@ BEGIN
         v_uid, v_topics[1 + (20 % array_length(v_topics, 1))], '[демо] Просрочка: отчёт',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'urgent'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        90, FALSE, now() - INTERVAL '21 days'
+        NULL, now() + 2 * INTERVAL '1 day' + TIME '18:00',
+        90, FALSE, now() - 21 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -488,8 +480,8 @@ BEGIN
         v_uid, v_topics[1 + (21 % array_length(v_topics, 1))], '[демо] Учёба: лабораторная №5',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 2 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        105, FALSE, now() - INTERVAL '22 days'
+        now() - 2 * INTERVAL '1 day' + TIME '09:00', now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        105, FALSE, now() - 22 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -501,15 +493,14 @@ BEGIN
         v_uid, v_topics[1 + (22 % array_length(v_topics, 1))], '[демо] Здоровье: пробежка 5 км',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 5 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        120, FALSE, now() - INTERVAL '23 days'
+        NULL, now() - 5 * INTERVAL '1 day' + TIME '18:00',
+        120, FALSE, now() - 34 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -519,8 +510,8 @@ BEGIN
         v_uid, v_topics[1 + (23 % array_length(v_topics, 1))], '[демо] Привычка: чтение 30 мин',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        135, FALSE, now() - INTERVAL '24 days'
+        NULL, now() + 5 * INTERVAL '1 day' + TIME '18:00',
+        135, FALSE, now() - 24 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -532,8 +523,8 @@ BEGIN
         v_uid, v_topics[1 + (24 % array_length(v_topics, 1))], '[демо] Личное: подарок',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 1 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        30, FALSE, now() - INTERVAL '25 days'
+        now() - 1 * INTERVAL '1 day' + TIME '09:00', now() + 6 * INTERVAL '1 day' + TIME '18:00',
+        30, FALSE, now() - 25 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -549,15 +540,14 @@ BEGIN
         v_uid, v_topics[1 + (25 % array_length(v_topics, 1))], '[демо] Бэкенд: scheduler test',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        45, FALSE, now() - INTERVAL '26 days'
+        NULL, now() - 4 * INTERVAL '1 day' + TIME '18:00',
+        45, FALSE, now() - 37 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -567,8 +557,8 @@ BEGIN
         v_uid, v_topics[1 + (26 % array_length(v_topics, 1))], '[демо] Фронт: dashboard KPI',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        60, FALSE, now() - INTERVAL '27 days'
+        NULL, now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        60, FALSE, now() - 27 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -580,8 +570,8 @@ BEGIN
         v_uid, v_topics[1 + (27 % array_length(v_topics, 1))], '[демо] DB: smoke.sql расширить',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 4 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        75, FALSE, now() - INTERVAL '28 days'
+        now() - 4 * INTERVAL '1 day' + TIME '09:00', now() + 4 * INTERVAL '1 day' + TIME '18:00',
+        75, FALSE, now() - 28 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -593,15 +583,14 @@ BEGIN
         v_uid, v_topics[1 + (28 % array_length(v_topics, 1))], '[демо] Import merge idempotent',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 6 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        90, FALSE, now() - INTERVAL '29 days'
+        NULL, now() - 3 * INTERVAL '1 day' + TIME '18:00',
+        90, FALSE, now() - 40 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO task_tags (task_id, tag_id)
@@ -615,15 +604,13 @@ BEGIN
         v_uid, v_topics[1 + (29 % array_length(v_topics, 1))], '[демо] Restore full backup',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 7 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        105, FALSE, now() - INTERVAL '30 days'
+        NULL, now() + 7 * INTERVAL '1 day' + TIME '18:00',
+        105, FALSE, now() - 30 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
-    UPDATE tasks SET status = 'cancelled'::task_status_enum,
-        completed_at = CASE WHEN 'cancelled' = 'done'
-            THEN now() - INTERVAL '3 days' ELSE NULL END
+    UPDATE tasks SET status = 'cancelled'::task_status_enum
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -633,15 +620,14 @@ BEGIN
         v_uid, v_topics[1 + (30 % array_length(v_topics, 1))], '[демо] Overlap time logs',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 5 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date - 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        120, FALSE, now() - INTERVAL '31 days'
+        now() - 7 * INTERVAL '1 day' + TIME '09:00', now() - 5 * INTERVAL '1 day' + TIME '18:00',
+        120, FALSE, now() - 42 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '1 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -651,8 +637,8 @@ BEGIN
         v_uid, v_topics[1 + (31 % array_length(v_topics, 1))], '[демо] start_at окно выполнения',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        135, FALSE, now() - INTERVAL '32 days'
+        NULL, now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        135, FALSE, now() - 32 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -664,8 +650,8 @@ BEGIN
         v_uid, v_topics[1 + (32 % array_length(v_topics, 1))], '[демо] planned_minutes оценка',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        30, FALSE, now() - INTERVAL '33 days'
+        NULL, now() + 4 * INTERVAL '1 day' + TIME '18:00',
+        30, FALSE, now() - 33 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -681,8 +667,8 @@ BEGIN
         v_uid, v_topics[1 + (33 % array_length(v_topics, 1))], '[демо] Теги: комбинации',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 2 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        45, FALSE, now() - INTERVAL '34 days'
+        now() - 2 * INTERVAL '1 day' + TIME '09:00', now() + 5 * INTERVAL '1 day' + TIME '18:00',
+        45, FALSE, now() - 34 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -694,15 +680,14 @@ BEGIN
         v_uid, v_topics[1 + (34 % array_length(v_topics, 1))], '[демо] FTS дневник PostgreSQL',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 7 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        60, FALSE, now() - INTERVAL '35 days'
+        NULL, now() - 5 * INTERVAL '1 day' + TIME '18:00',
+        60, FALSE, now() - 46 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -712,8 +697,8 @@ BEGIN
         v_uid, v_topics[1 + (35 % array_length(v_topics, 1))], '[демо] Weekly summary chart',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        75, FALSE, now() - INTERVAL '36 days'
+        NULL, now() + 2 * INTERVAL '1 day' + TIME '18:00',
+        75, FALSE, now() - 36 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -725,8 +710,8 @@ BEGIN
         v_uid, v_topics[1 + (36 % array_length(v_topics, 1))], '[демо] Topic breakdown pie',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 1 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        90, FALSE, now() - INTERVAL '37 days'
+        now() - 1 * INTERVAL '1 day' + TIME '09:00', now() + 3 * INTERVAL '1 day' + TIME '18:00',
+        90, FALSE, now() - 37 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -742,15 +727,14 @@ BEGIN
         v_uid, v_topics[1 + (37 % array_length(v_topics, 1))], '[демо] Pattern streaks 30d',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'low'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date - 5 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        105, FALSE, now() - INTERVAL '38 days'
+        NULL, now() - 4 * INTERVAL '1 day' + TIME '18:00',
+        105, FALSE, now() - 49 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
 
     UPDATE tasks SET status = 'done'::task_status_enum,
-        completed_at = CASE WHEN 'done' = 'done'
-            THEN now() - INTERVAL '2 days' ELSE NULL END
+        completed_at = deadline + INTERVAL '2 hours'
      WHERE id = v_task;
 
     INSERT INTO tasks (
@@ -760,8 +744,8 @@ BEGIN
         v_uid, v_topics[1 + (38 % array_length(v_topics, 1))], '[демо] Scenario top paths',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'medium'::task_priority_enum, 'pending'::task_status_enum,
-        NULL, (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        120, FALSE, now() - INTERVAL '39 days'
+        NULL, now() + 5 * INTERVAL '1 day' + TIME '18:00',
+        120, FALSE, now() - 39 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
@@ -773,8 +757,8 @@ BEGIN
         v_uid, v_topics[1 + (39 % array_length(v_topics, 1))], '[демо] Markers hourly chart',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         'high'::task_priority_enum, 'pending'::task_status_enum,
-        (current_date - 4 * INTERVAL '1 day')::timestamptz + TIME '09:00', (current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00',
-        135, FALSE, now() - INTERVAL '40 days'
+        now() - 4 * INTERVAL '1 day' + TIME '09:00', now() + 6 * INTERVAL '1 day' + TIME '18:00',
+        135, FALSE, now() - 40 * INTERVAL '1 day'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{tasks}', (v_reg->'tasks') || to_jsonb(v_task));
     v_tasks_pool := array_append(v_tasks_pool, v_task);
