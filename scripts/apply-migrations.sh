@@ -58,17 +58,24 @@ fi
 mapfile -t ALL_FILES < <(find db/migrations -maxdepth 1 -name '*.sql' | sort)
 
 pick_files() {
-  local f base num
+  local f base num num_dec from_dec
   for f in "${ALL_FILES[@]}"; do
     base="$(basename "$f")"
     num="${base%%_*}"
     case "$MODE" in
       all) echo "$f" ;;
       recent)
-        [[ "$num" =~ ^[0-9]+$ ]] && (( num >= 7 )) && echo "$f"
+        if [[ "$num" =~ ^[0-9]+$ ]]; then
+          num_dec=$((10#$num))
+          (( num_dec >= 7 )) && echo "$f"
+        fi
         ;;
       from)
-        [[ "$num" =~ ^[0-9]+$ ]] && (( num >= FROM_VER )) && echo "$f"
+        if [[ "$num" =~ ^[0-9]+$ ]]; then
+          num_dec=$((10#$num))
+          from_dec=$((10#$FROM_VER))
+          (( num_dec >= from_dec )) && echo "$f"
+        fi
         ;;
     esac
   done

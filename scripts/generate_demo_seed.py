@@ -242,16 +242,41 @@ def main() -> None:
 
     for idx, (title, prio, status) in enumerate(TASK_TITLES):
         topic_var = f"v_topics[1 + ({idx} % array_length(v_topics, 1))]"
-        deadline = (
-            "current_date + INTERVAL '3 days'"
-            if status in ("pending", "in_progress")
-            else "current_date - INTERVAL '2 days'"
-            if status == "done"
-            else "current_date + INTERVAL '7 days'"
-        )
-        start_at = f"now() - INTERVAL '{idx % 5 + 1} days'" if idx % 3 == 0 else "NULL"
         planned = 30 + (idx % 8) * 15
         archived = "TRUE" if "Архив" in title else "FALSE"
+        has_window = idx % 3 == 0
+
+        if has_window:
+            if status == "done":
+                dead_ago = 3 + (idx % 5)
+                start_ago = dead_ago + 2
+                start_at = (
+                    f"(current_date - {start_ago} * INTERVAL '1 day')::timestamptz + TIME '09:00'"
+                )
+                deadline = (
+                    f"(current_date - {dead_ago} * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+                )
+            elif status == "cancelled":
+                start_at = (
+                    f"(current_date - {(idx % 4) + 1} * INTERVAL '1 day')::timestamptz + TIME '09:00'"
+                )
+                deadline = "(current_date + 7 * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+            else:
+                start_at = (
+                    f"(current_date - {(idx % 4) + 1} * INTERVAL '1 day')::timestamptz + TIME '09:00'"
+                )
+                deadline = "(current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+        else:
+            start_at = "NULL"
+            if status in ("pending", "in_progress"):
+                deadline = "(current_date + 3 * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+            elif status == "done":
+                deadline = (
+                    f"(current_date - {3 + (idx % 5)} * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+                )
+            else:
+                deadline = "(current_date + 7 * INTERVAL '1 day')::timestamptz + TIME '18:00'"
+
         lines.append(
             f"""
     INSERT INTO tasks (
@@ -261,7 +286,7 @@ def main() -> None:
         v_uid, {topic_var}, '{q(title)}',
         'Автоматически сгенерированная демо-задача для тестирования UI и статистики.',
         '{prio}'::task_priority_enum, 'pending'::task_status_enum,
-        {start_at}, ({deadline})::timestamptz + TIME '18:00',
+        {start_at}, {deadline},
         {planned}, {archived}, now() - INTERVAL '{idx + 1} days'
     ) RETURNING id INTO v_task;
     v_reg := jsonb_set(v_reg, '{{tasks}}', (v_reg->'tasks') || to_jsonb(v_task));
