@@ -54,7 +54,7 @@ bd_curs/
 ├── db/
 │   ├── init/                # DDL: extensions → tables → functions → triggers → seed
 │   └── migrations/          # 007–014 для существующих volume
-├── docs/                    # DEPLOY, DB_SYNC, STATS, OLAP, PRE_FREEZE_FIXES
+├── docs/                    # DEPLOY, DB_SYNC, DEMO_DATA, STATS, OLAP, PRE_FREEZE_FIXES
 ├── docker-compose.yml
 └── ТЗ.md
 ```
@@ -93,6 +93,7 @@ API-документация: `/docs`, `/redoc`. Конфигурация — `b
 - [docs/STATS.md](./docs/STATS.md) — логика статистики
 - [docs/OLAP.md](./docs/OLAP.md) — OLAP-срезы
 - [docs/PATTERNS_SCENARIO.md](./docs/PATTERNS_SCENARIO.md) — режим «Сценарий»
+- [docs/DEMO_DATA.md](./docs/DEMO_DATA.md) — объёмный демо-набор для скриншотов и проверки всех функций
 - [docs/PRE_FREEZE_FIXES.md](./docs/PRE_FREEZE_FIXES.md) — чеклист аудита перед защитой
 - OpenAPI — http://localhost:8000/docs
 

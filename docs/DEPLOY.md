@@ -210,6 +210,17 @@ docker exec ptt-db psql -U ptt -d ptt -v ON_ERROR_STOP=1 -f /tmp/smoke.sql
 
 Подробная карта объектов БД ↔ API: [DB_SYNC.md](./DB_SYNC.md).
 
+### Демонстрационные данные (для отчёта и скриншотов)
+
+После развёртывания можно загрузить объёмный тестовый набор (задачи, дневник, все режимы паттернов, статистика):
+
+```powershell
+.\scripts\demo-data.ps1 seed
+.\scripts\demo-data.ps1 wipe   # удалить только демо, базовый seed сохранится
+```
+
+Подробности: [DEMO_DATA.md](./DEMO_DATA.md).
+
 ### Чистая установка на новой машине
 
 1. `git clone git@github.com:murk13hack/bd_curs.git` (или HTTPS-URL репозитория).
