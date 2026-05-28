@@ -1157,54 +1157,58 @@ docker compose up -d
 
 ### 10.3. Результаты EXPLAIN (ANALYZE, BUFFERS)
 
-Сравнение «до/после» для **GIN** на дневнике (Q2a/Q2b): снятие `idx_diary_fts_gin` → `fn_search_diary` → восстановление индекса → повтор. Прогон зафиксирован в репозитории (`docs/benchmark_explain_out.txt`); из‑за опечатки `avg_mood` вместо `mood` в запросе Q5 скрипт остановился на Q5 — Q2 и Q6 в том же файле отсутствуют (исправление в `benchmark_for_kursovaya.sql`, повтор: `docker exec … -f benchmark_for_kursovaya.sql` после `git pull`).
+Сравнение «до/после» для **GIN** на дневнике (Q2a/Q2b): `DROP INDEX idx_diary_fts_gin` → `fn_search_diary` → `CREATE INDEX` → повтор. Полный листинг — `docs/benchmark_explain_out.txt` (скрипт `benchmark_run_for_kursovaya.sh`).
 
-**Таблица 9** — Результаты планов выполнения (набор S2, PostgreSQL 16, `ANALYZE`)
+**Таблица 9** — Результаты планов выполнения (набор S2, PostgreSQL 16, `ANALYZE`, прогон 28.05.2026)
 
 | № | Запрос | Индекс / объект | Shared read (buffers) | Время exec | Узел плана (кратко) | Вывод |
 |---|--------|-----------------|------------------------|------------|---------------------|-------|
-| Q1 | `fn_get_calendar_stats(1, 2025, 5)` | агрегат по `tasks.deadline`, `holidays` | **5** | **5,82** мс | Merge Left Join → GroupAggregate → **Seq Scan** `tasks` (фильтр по месяцу) | **≪ 250 мс** (ТЗ); календарь на 10k задач быстрый |
-| Q2a | `fn_search_diary` **без** GIN | — | *прогон не завершён* | — | — | ожидается Seq Scan по `diary_entries` |
-| Q2b | `fn_search_diary` **с** GIN | `idx_diary_fts_gin` | *прогон не завершён* | — | — | ожидается Bitmap Index Scan по `content_tsv` |
-| Q3 | список `tasks` по `topic_id, status` | `idx_tasks_topic_status` | **0** | **1,12** мс | **Bitmap Index Scan** → Bitmap Heap Scan → Sort (top-N) | индекс по теме+статусу используется |
-| Q4 | `fn_calculate_streak(pattern_id)` | логика в `fn_*`, `pattern_logs` | **0** | **3,35** мс | Result (PL/pgSQL), InitPlan → Seq Scan `behavior_patterns` | серия считается в СУБД за единицы мс |
-| Q5 | GROUP BY week на `v_olap_daily_facts` | view → базовые таблицы | *ошибка в скрипте* | — | — | повтор после исправления `AVG(mood)` |
-| Q6 | FTS по `tasks` (`bench`) | `idx_tasks_search_gin` | *прогон не завершён* | — | — | ожидается Bitmap Index Scan по GIN |
+| Q1 | `fn_get_calendar_stats(1, 2025, 5)` | агрегат по `tasks.deadline` | **0** | **4,64** мс | Merge Left Join → GroupAggregate → Seq Scan `tasks` | **≪ 250 мс** (ТЗ) |
+| Q2a | `fn_search_diary` **без** GIN | — | **0** | **1,10** мс | Seq Scan `diary_entries` + `content_tsv @@ …` | базовый план при 578 строках |
+| Q2b | `fn_search_diary` **с** GIN | `idx_diary_fts_gin` | **0** | **1,06** мс | Seq Scan (тот же класс плана) | на S2 планировщик оставил Seq Scan — таблица мала |
+| Q3 | список `tasks` по `topic_id, status` | `idx_tasks_topic_status` | **0** | **1,31** мс | **Bitmap Index Scan** → Bitmap Heap Scan | индекс списка задач работает |
+| Q4 | `fn_calculate_streak(pattern_id)` | `fn_*`, `pattern_logs` | **0** | **3,32** мс | Result (PL/pgSQL) | серия в СУБД, единицы мс |
+| Q5 | GROUP BY week на `v_olap_daily_facts` | view → tasks, diary, … | **0** | **8,76** мс | GroupAggregate → Subquery Scan (view) | OLAP за год при 10k задач — &lt; 10 мс |
+| Q6 | FTS по `tasks` (`bench`) | `idx_tasks_search_gin` * | **0** | **1,04** мс | Seq Scan + `to_tsvector @@ tsquery` | *индекс есть; при ~10k строк выбран Seq Scan |
 
-**Рисунок 11** — фрагмент плана Q1 (календарь месяца):
+\* При росте объёма до критерия ТЗ (десятки тысяч строк) ожидается переход на **Bitmap Index Scan** по GIN; на S2 выгоднее полный проход по кэшированной таблице.
+
+**Рисунок 11** — фрагмент плана Q1:
 
 ```text
-Merge Left Join  (actual time=5.352..5.564 rows=31)
+Merge Left Join  (actual time=4.198..4.399 rows=31)
   -> GroupAggregate  Group Key: ((t.deadline)::date)
-        -> Seq Scan on tasks t
-              Filter: user_id = 1 AND deadline::date в мае 2025
-              Rows Removed by Filter: 9632
-Execution Time: 5.816 ms
+        -> Seq Scan on tasks t  (Rows Removed by Filter: 9632)
+Execution Time: 4.640 ms
 ```
 
-**Рисунок 13** — фрагмент плана Q3 (список задач):
+**Рисунок 12** — фрагменты Q2a/Q2b (дневник, 578 записей):
 
 ```text
-Limit  (actual time=1.052..1.070 rows=200)
-  -> Bitmap Heap Scan on tasks
-        -> Bitmap Index Scan on idx_tasks_topic_status
-              Index Cond: (topic_id = $0) AND (status = 'pending')
-Execution Time: 1.120 ms
+Q2a: Seq Scan on diary_entries  Filter: content_tsv @@ 'продуктивн'  →  Execution Time: 1.102 ms
+Q2b: тот же Seq Scan после CREATE INDEX idx_diary_fts_gin  →  Execution Time: 1.064 ms
 ```
 
-> **[Место для рисунка 11]** — полный листинг Q1 из `docs/benchmark_explain_out.txt` (печать/PDF).  
-> **[Место для рисунка 12]** — планы Q2a и Q2b (после повторного прогона).  
-> **[Место для рисунка 13]** — полный листинг Q3.
+**Рисунок 13** — фрагмент плана Q3:
+
+```text
+Bitmap Index Scan on idx_tasks_topic_status
+  -> Bitmap Heap Scan on tasks  (rows=2509, LIMIT 200)
+Execution Time: 1.311 ms
+```
+
+> **[Место для рисунка 11–13]** — полные планы из `docs/benchmark_explain_out.txt` (печать/PDF).
 
 Полные листинги — **приложение Е** ([KURSOVAYA_APPENDIX.md](./KURSOVAYA_APPENDIX.md)).
 
 ### 10.4. Интерпретация для защиты
 
-1. **Календарь (Q1).** При ~10k задач `Execution Time` ≈ **5,8 мс** — на порядок ниже лимита ТЗ (250 мс). Планирующий узел — `GroupAggregate` по датам дедлайна; чтение задач за месяц — `Seq Scan` с отсевом ~9,6k строк вне мая 2025 (кэш: `shared hit`, `read=5`).
-2. **Список задач (Q3).** Составной индекс `idx_tasks_topic_status` даёт **Bitmap Index Scan** и выборку 200 строк за **~1,1 мс** — типичный путь UI-фильтра.
-3. **Паттерны (Q4).** `fn_calculate_streak` выполняется как **Result** PL/pgSQL (~3,3 мс) — бизнес-логика в БД без round-trip в Python.
-4. **FTS дневника (Q2).** На защите показать контраст **Seq Scan** (без GIN) vs **Bitmap Index Scan** (с `idx_diary_fts_gin`) — после допрогона Q2a/Q2b.
-5. **Статистика.** Перед испытаниями обязателен `ANALYZE` (в скрипте нагрузки — автоматически); иначе планировщик недооценивает кардинальность.
+1. **Календарь (Q1).** ~10k задач, месяц мая 2025: **4,6 мс** при лимите ТЗ **250 мс**. Узкое место — агрегация по `deadline` после Seq Scan с отсевом 9632 строк вне месяца; данных в RAM достаточно (`shared hit`, без дисковых read).
+2. **Список задач (Q3).** Явное использование **`idx_tasks_topic_status`** (Bitmap Index Scan) — эталонный пример индекса под UI.
+3. **Паттерны (Q4).** Функция в PL/pgSQL (~3,3 мс) — подтверждение принципа «логика в БД».
+4. **OLAP (Q5).** Срез `v_olap_daily_facts` по неделям за год — **8,8 мс** при развёртывании view на 10k задач; приемлемо для интерактивной статистики.
+5. **FTS (Q2, Q6).** На наборе S2 (578 дневник, ~10k задач) планировщик часто выбирает **Seq Scan** — таблицы целиком в буфере, стоимость индекса выше. Индексы GIN (`idx_diary_fts_gin`, `idx_tasks_search_gin`) нужны для **критерия ТЗ** (до 30k дневника / 100k задач); на защите указать: «на малых объёмах план может совпадать; на целевых — Bitmap Index Scan».
+6. **Статистика.** Перед прогоном выполнен `ANALYZE` (в скрипте нагрузки).
 
 ---
 
@@ -1279,7 +1283,7 @@ Execution Time: 1.120 ms
 
 В ходе выполнения курсовой работы спроектирована и реализована система **ПТТ**, в которой реляционная база данных PostgreSQL 16 является не вспомогательным хранилищем, а **центром прикладной логики**: статусы задач, полнотекстовый поиск дневника, серии паттернов, календарная аналитика, корреляция настроения и продуктивности, импорт/экспорт и фоновые процессы реализованы средствами SQL.
 
-Концептуальная модель включает **23 таблицы** ([таблица 10](#таблица-10--каталог-целостности-таблиц-postgresql)), три режима паттернов, OLAP-срез `v_olap_daily_facts` (глава 9) и экспериментальную проверку планов запросов (глава 10, [таблица 9](#103-результаты-explain-analyze-buffers)): на наборе S2 календарь месяца — **5,8 мс**, выборка задач по индексу — **1,1 мс**, расчёт серии паттерна — **3,4 мс** (лимиты ТЗ соблюдены с запасом). ER-диаграмма ([рисунок 1](#рисунок-1--er-диаграмма-базы-данных-птт)) и BPMN/UML ([рисунки 3–8](#3-бизнес-процессы-нотации-моделирования-и-связь-с-бд)) согласованы с приложением Д (код БД). Принцип: **клиент отображает, сервер маршрутизирует, СУБД вычисляет** ([таблица 4](#таблица-4--размещение-бизнес-правил-в-python-и-postgresql)).
+Концептуальная модель включает **23 таблицы** ([таблица 10](#таблица-10--каталог-целостности-таблиц-postgresql)), три режима паттернов, OLAP-срез `v_olap_daily_facts` (глава 9) и экспериментальную проверку планов запросов (глава 10, [таблица 9](#103-результаты-explain-analyze-buffers)): на наборе S2 календарь — **4,6 мс**, список задач по индексу — **1,3 мс**, OLAP по неделям — **8,8 мс**, FTS и дневник — **~1 мс** (лимиты ТЗ соблюдены с запасом). ER-диаграмма ([рисунок 1](#рисунок-1--er-диаграмма-базы-данных-птт)) и BPMN/UML ([рисунки 3–8](#3-бизнес-процессы-нотации-моделирования-и-связь-с-бд)) согласованы с приложением Д (код БД). Принцип: **клиент отображает, сервер маршрутизирует, СУБД вычисляет** ([таблица 4](#таблица-4--размещение-бизнес-правил-в-python-и-postgresql)).
 
 Перспективы развития: полноценная аутентификация (JWT) с использованием `users.password_hash`, репликация/read-replica для отчётов, партиционирование `audit_log` и `pattern_logs` по дате при росте объёма.
 

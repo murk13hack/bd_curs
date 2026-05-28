@@ -156,9 +156,16 @@ Execution Time: 5.816 ms
 
 #### Рисунок 12 — Планы FTS дневника (до/после GIN)
 
-> После допрогона Q2a/Q2b вставить фрагменты из `benchmark_explain_out.txt` (блоки `Q2a` / `Q2b`).
+```text
+-- Q2a (без idx_diary_fts_gin), 578 записей
+Seq Scan on diary_entries
+  Filter: content_tsv @@ 'продуктивн' AND user_id = 1
+Execution Time: 1.102 ms
 
-*Подпись: Рисунок 12 — Влияние индекса `idx_diary_fts_gin` на `fn_search_diary`.*
+-- Q2b (индекс восстановлен) — тот же Seq Scan, 1.064 ms
+```
+
+*Подпись: Рисунок 12 — `fn_search_diary` на S2; при малом объёме планировщик не переключается на GIN (см. гл. 10).*
 
 #### Рисунок 13 — План выборки задач по индексу (Q3)
 
