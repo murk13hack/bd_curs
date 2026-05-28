@@ -1126,10 +1126,17 @@ sequenceDiagram
 
 | Скрипт | Назначение |
 |--------|------------|
-| `scripts/benchmark_load_tasks.sql` | вставка N задач (`-v count=10000` или `100000`) |
-| `scripts/benchmark_explain.sql` | шесть запросов с `EXPLAIN (ANALYZE, BUFFERS)` |
+| `scripts/benchmark_report.sh` | **автоматический прогон** → `docs/benchmark_results.md` (таблица 9) |
+| `scripts/benchmark_report.py` | движок (вызывается из `.sh`) |
+| `scripts/benchmark_load_tasks.sql` | вставка N задач (вызывается из `.sh`) |
+| `scripts/benchmark_explain.sql` | ручной прогон EXPLAIN (опционально) |
 
-После наполнения обязательно: `ANALYZE tasks;` (включено в скрипт нагрузки).
+```bash
+docker compose up -d
+./scripts/benchmark_report.sh --count 10000
+```
+
+После наполнения выполняется `ANALYZE` автоматически.
 
 ### 10.2. Объём тестовых данных
 

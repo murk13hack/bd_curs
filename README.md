@@ -61,12 +61,18 @@ bd_curs/
 
 ## Бенчмарк для курсовой (EXPLAIN)
 
-```powershell
-docker cp scripts/benchmark_load_tasks.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -v count=10000 -f /tmp/benchmark_load_tasks.sql
-docker cp scripts/benchmark_explain.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/benchmark_explain.sql > explain_out.txt
+Автоматический прогон (таблица 9 + планы для рисунков 11–13):
+
+```bash
+docker compose up -d
+chmod +x scripts/benchmark_report.sh   # один раз
+./scripts/benchmark_report.sh
+# ./scripts/benchmark_report.sh --count 100000 --skip-load
 ```
+
+Windows (Git Bash / WSL): те же команды. Опционально: `.\scripts\benchmark_report.ps1`.
+
+Результат: **`docs/benchmark_results.md`** — скопируйте блок «Таблица 9» в чат с ассистентом.
 
 См. главу 10 в [docs/KURSOVAYA_BD.md](./docs/KURSOVAYA_BD.md).
 
