@@ -16,6 +16,8 @@ const jobs = [
   ['01-er-full.mmd', '01-er-full.png'],
   ['02-architecture.mmd', '02-architecture.png'],
   ['08-sequence-calendar.mmd', '08-sequence-calendar.png'],
+  ['09-olap-star.mmd', '09-olap-star.png'],
+  ['14-deploy-compose.mmd', '14-deploy-compose.png'],
 ];
 
 function run(bin, args) {

@@ -35,7 +35,7 @@
 >
 > **Подпись под рисунком:** «Рисунок 14 — Развёртывание системы ПТТ (Docker Compose)»
 >
-> **Вставить:** схема по `docker-compose.yml` (draw.io), см. [DEPLOY.md](./DEPLOY.md).
+> **Файл для вставки:** `docs/diagrams/png/14-deploy-compose.png` (готов в репозитории).
 
 ---
 

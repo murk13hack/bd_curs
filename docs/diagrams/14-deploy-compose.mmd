@@ -1,0 +1,21 @@
+%% Рисунок 14 — Развёртывание ПТТ (Docker Compose)
+
+flowchart TB
+    USER((Пользователь<br/>браузер))
+
+    subgraph host["Хост (Docker Compose)"]
+        subgraph net["Сеть ptt-net"]
+            FE["frontend<br/>React + nginx<br/>:80"]
+            BE["backend<br/>FastAPI<br/>:8000"]
+            DB[("db<br/>PostgreSQL 16<br/>:5432")]
+        end
+        VOL[("volume pgdata<br/>/var/lib/postgresql/data")]
+    end
+
+    USER -->|"HTTP"| FE
+    FE -->|"REST /api/v1"| BE
+    BE -->|"TCP asyncpg/psycopg"| DB
+    DB --- VOL
+
+    INIT["./db/init →<br/>docker-entrypoint-initdb.d"]
+    INIT -.->|"первый запуск"| DB

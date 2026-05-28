@@ -143,5 +143,19 @@ if [[ "$RUN_PLANTUML" -eq 1 ]]; then
 fi
 
 echo ""
+echo "=== OLAP + Compose PNG (рис. 9, 14) — Pillow ==="
+python3 "$ROOT/scripts/render_diagrams_pil.py" 2>/dev/null || python "$ROOT/scripts/render_diagrams_pil.py"
+
+echo ""
+echo "=== EXPLAIN → PNG (рис. 11–13) ==="
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/scripts/render_explain_png.py"
+elif command -v python >/dev/null 2>&1; then
+  python "$ROOT/scripts/render_explain_png.py"
+else
+  echo "Пропуск: нужен python3 для render_explain_png.py" >&2
+fi
+
+echo ""
 echo "Готово. Файлы:"
 ls -la "$OUT"/*.png 2>/dev/null || echo "(нет PNG — проверьте ошибки выше)"

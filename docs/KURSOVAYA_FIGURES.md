@@ -14,12 +14,12 @@
 | 6 | Диаграмма состояний слота отклика на привычку | pending → answered / missed | 3.3 | `diagrams/png/06-state-pattern-log.png` | вставлен |
 | 7 | Диаграмма деятельности регламентных заданий | Фоновые задания планировщика | 3.7 | `diagrams/png/07-activity-daily.png` | вставлен |
 | 8 | Последовательность формирования данных календаря месяца | UI → API → fn_get_calendar_stats | 3.6 | `diagrams/png/08-sequence-calendar.png` | вставлен |
-| 9 | Зерно OLAP и источники фактов | «Звезда»: v_olap_daily_facts и лучи к таблицам-источникам | 9.2 | draw.io по § 9.2 | **вставить** |
-| 10 | Интерфейс OLAP-конструктора | Скрин «Статистика», измерения и меры | 9.4 | скрин UI | **вставить** |
-| 11 | План запроса календаря месяца при наборе S2 | EXPLAIN Q1, fn_get_calendar_stats | 10.3 | `benchmark_explain_out.txt` Q1 | **вставить** |
-| 12 | Планы полнотекстового поиска дневника (Q2a и Q2b) | Два плана fn_search_diary до/после GIN | 10.3 | `benchmark_explain_out.txt` Q2a–Q2b | **вставить** |
-| 13 | План фильтра задач по составному индексу | EXPLAIN Q3, Bitmap Index Scan | 10.3 | `benchmark_explain_out.txt` Q3 | **вставить** |
-| 14 | Развёртывание системы ПТТ (Docker Compose) | Контейнеры db, backend, frontend, сеть, pgdata | прил. Б | draw.io / DEPLOY | **вставить** |
+| 9 | Зерно OLAP и источники фактов | «Звезда»: v_olap_daily_facts и лучи к таблицам-источникам | 9.2 | `diagrams/png/09-olap-star.png` | готов |
+| 10 | Интерфейс OLAP-конструктора | Скрин «Статистика», измерения и меры | 9.4 | скрин UI | **скриншот** |
+| 11 | План запроса календаря месяца при наборе S2 | EXPLAIN Q1, fn_get_calendar_stats | 10.3 | `png/11-explain-q1-calendar.png` | готов |
+| 12 | Планы полнотекстового поиска дневника (Q2a и Q2b) | Два плана fn_search_diary до/после GIN | 10.3 | `png/12-explain-q2a-q2b-diary.png` | готов |
+| 13 | План фильтра задач по составному индексу | EXPLAIN Q3, Bitmap Index Scan | 10.3 | `png/13-explain-q3-tasks-index.png` | готов |
+| 14 | Развёртывание системы ПТТ (Docker Compose) | Контейнеры db, backend, frontend, сеть, pgdata | прил. Б | `png/14-deploy-compose.png` | готов |
 
 > **Порядок в тексте** рисунков 2–8 не совпадает с номерами страниц: в главе 3 идут 3–8, в главе 4 — рис. 2, в главе 5 — рис. 1. Нумерация **сквозная**, как в таблице.
 

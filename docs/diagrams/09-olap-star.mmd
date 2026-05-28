@@ -1,0 +1,26 @@
+%% Рисунок 9 — Зерно OLAP и источники фактов (звездообразная схема на представлениях)
+
+flowchart TB
+    FACT[("v_olap_daily_facts<br/>Зерно: пользователь × день")]
+
+    TASKS[("tasks<br/>deadline::date")]
+    DIARY[("diary_entries<br/>mood, energy")]
+    PLOGS[("pattern_logs<br/>слоты habit")]
+    PMARK[("pattern_markers<br/>эпизоды")]
+    PSESS[("pattern_day_sessions<br/>сценарий за день")]
+    TTIME[("task_time_logs<br/>минуты, Pomodoro")]
+
+    TASKS -->|"tasks_total, tasks_done,<br/>completion_rate"| FACT
+    DIARY -->|"mood, energy,<br/>mood_bucket, energy_bucket"| FACT
+    PLOGS -->|"patterns_scheduled,<br/>patterns_success"| FACT
+    PMARK -->|"эпизоды markers"| FACT
+    PSESS -->|"успех дня scenario"| FACT
+    TTIME -->|"minutes_logged,<br/>pomodoro_minutes"| FACT
+
+    DIM1["Измерения при срезе:<br/>week, month, weekday, day"]
+    DIM2["Фильтры:<br/>mood_bucket, energy_bucket"]
+    FACT --> DIM1
+    FACT --> DIM2
+
+    API["POST /stats/olap<br/>OLAP-конструктор UI"]
+    API --> FACT

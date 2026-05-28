@@ -94,8 +94,8 @@ FIGURES: dict[int, dict[str, str]] = {
             "pattern_day_sessions, task_time_logs. Подписи связей: метрики задач, настроение, "
             "слоты паттернов, минуты работы."
         ),
-        "file": "нарисовать в draw.io (см. § 9.2)",
-        "status": "вставить",
+        "file": "docs/diagrams/png/09-olap-star.png",
+        "status": "готов (PNG в репозитории)",
     },
     10: {
         "title": "Интерфейс OLAP-конструктора",
@@ -104,8 +104,8 @@ FIGURES: dict[int, dict[str, str]] = {
             "корзины mood/energy) и мер (доля выполненных задач, среднее настроение, минуты "
             "Pomodoro и др.), кнопка построения среза."
         ),
-        "file": "скриншот UI после docker compose up → Статистика",
-        "status": "вставить",
+        "file": "страница «Статистика» → блок OLAP (localhost после docker compose up)",
+        "status": "скриншот",
     },
     11: {
         "title": "План запроса календаря месяца при наборе S2",
@@ -113,8 +113,8 @@ FIGURES: dict[int, dict[str, str]] = {
             "Фрагмент EXPLAIN (ANALYZE, BUFFERS) для fn_get_calendar_stats — запрос Q1, "
             "набор S2 (~10 000 задач): узлы плана, время выполнения, использование буферов."
         ),
-        "file": "docs/benchmark_explain_out.txt, блок Q1 (приложение Е)",
-        "status": "вставить",
+        "file": "docs/diagrams/png/11-explain-q1-calendar.png",
+        "status": "готов (PNG в репозитории)",
     },
     12: {
         "title": "Планы полнотекстового поиска дневника (Q2a и Q2b)",
@@ -122,8 +122,8 @@ FIGURES: dict[int, dict[str, str]] = {
             "Два плана fn_search_diary: Q2a — без GIN-индекса; Q2b — с idx_diary_fts_gin; "
             "сравнение типа сканирования и времени на наборе S2."
         ),
-        "file": "docs/benchmark_explain_out.txt, блоки Q2a и Q2b",
-        "status": "вставить",
+        "file": "docs/diagrams/png/12-explain-q2a-q2b-diary.png",
+        "status": "готов (PNG в репозитории)",
     },
     13: {
         "title": "План фильтра задач по составному индексу",
@@ -131,8 +131,8 @@ FIGURES: dict[int, dict[str, str]] = {
             "Фрагмент EXPLAIN для выборки задач по topic_id и status (Q3): использование "
             "idx_tasks_topic_status (Bitmap Index Scan → Bitmap Heap Scan)."
         ),
-        "file": "docs/benchmark_explain_out.txt, блок Q3",
-        "status": "вставить",
+        "file": "docs/diagrams/png/13-explain-q3-tasks-index.png",
+        "status": "готов (PNG в репозитории)",
     },
     14: {
         "title": "Развёртывание системы ПТТ (Docker Compose)",
@@ -140,19 +140,22 @@ FIGURES: dict[int, dict[str, str]] = {
             "Контейнеры db (PostgreSQL 16), backend (FastAPI), frontend (React + nginx); "
             "сеть docker-compose; том pgdata; порты 5432, 8000, 80."
         ),
-        "file": "draw.io по docker-compose.yml (приложение Б)",
-        "status": "вставить",
+        "file": "docs/diagrams/png/14-deploy-compose.png",
+        "status": "готов (PNG в репозитории)",
     },
 }
 
 
 def figure_blockquote(n: int) -> str:
     spec = FIGURES[n]
-    status_line = (
-        f"**Уже вставлено** (PNG: `{spec['file']}`)."
-        if spec["status"] == "вставлен"
-        else f"**Вставить:** {spec['file']}."
-    )
+    if spec["status"] == "вставлен":
+        status_line = f"**Уже вставлено** (PNG: `{spec['file']}`)."
+    elif spec["status"].startswith("готов"):
+        status_line = f"**Файл для вставки:** `{spec['file']}` ({spec['status']})."
+    elif spec["status"] == "скриншот":
+        status_line = f"**Скриншот (вставить вручную):** {spec['file']}."
+    else:
+        status_line = f"**Вставить:** {spec['file']}."
     return (
         f"> **Содержание рисунка.** {spec['content']}\n"
         f">\n"
