@@ -399,7 +399,7 @@ def preprocess_markdown(text: str) -> str:
             continue
 
         # Подписи таблиц **Таблица N** —
-        m_tab = re.match(r"^\*\*(Таблица \d+[^*]*)\*\*", line.strip())
+        m_tab = re.match(r"^\*\*(Таблица \d+.*?)\*\*", line.strip())
         if m_tab:
             cap = m_tab.group(1).strip()
             out.append("")
