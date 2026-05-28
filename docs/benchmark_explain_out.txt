@@ -11,125 +11,345 @@ Timing is on.
  pattern_logs       | 149
  behavior_patterns  | 11
 
-Time: 8.962 ms
+Time: 8.611 ms
 
 Если tasks_user_1 < 1000 — сначала выполните benchmark_load_tasks.sql (см. benchmark_run_for_kursovaya.sh).
 
 psql:/tmp/benchmark_for_kursovaya.sql:106: NOTICE:  Q4: используем существующий behavior_patterns (demo/seed).
 DO
-Time: 1.385 ms
+Time: 0.979 ms
 ANALYZE
-Time: 83.366 ms
+Time: 92.987 ms
 ANALYZE
-Time: 4.518 ms
+Time: 5.265 ms
 ANALYZE
-Time: 2.408 ms
+Time: 2.998 ms
 ANALYZE
-Time: 2.469 ms
+Time: 2.126 ms
 
 ========== Q1 | fn_get_calendar_stats | лимит ТЗ 250 ms ==========
                                                                  QUERY PLAN                                                                  
 ---------------------------------------------------------------------------------------------------------------------------------------------
- Merge Left Join  (cost=510.53..9104.87 rows=1000 width=110) (actual time=5.352..5.564 rows=31 loops=1)
+ Merge Left Join  (cost=682.53..9276.87 rows=1000 width=110) (actual time=4.198..4.399 rows=31 loops=1)
    Merge Cond: (((d.d)::date) = ((t.deadline)::date))
-   Buffers: shared hit=463 read=5
+   Buffers: shared hit=664
    CTE range
-     ->  Result  (cost=0.00..0.01 rows=1 width=8) (actual time=0.001..0.002 rows=1 loops=1)
-   ->  Sort  (cost=107.59..110.09 rows=1000 width=44) (actual time=0.372..0.378 rows=31 loops=1)
+     ->  Result  (cost=0.00..0.01 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=1)
+   ->  Sort  (cost=107.59..110.09 rows=1000 width=44) (actual time=0.089..0.094 rows=31 loops=1)
          Sort Key: ((d.d)::date)
          Sort Method: quicksort  Memory: 26kB
-         Buffers: shared read=1
-         ->  Hash Left Join  (cost=34.98..57.76 rows=1000 width=44) (actual time=0.329..0.346 rows=31 loops=1)
+         Buffers: shared hit=1
+         ->  Hash Left Join  (cost=34.98..57.76 rows=1000 width=44) (actual time=0.053..0.067 rows=31 loops=1)
                Hash Cond: ((d.d)::date = h.holiday_date)
-               Buffers: shared read=1
-               ->  Nested Loop  (cost=0.01..20.03 rows=1000 width=8) (actual time=0.023..0.029 rows=31 loops=1)
-                     ->  CTE Scan on range  (cost=0.00..0.02 rows=1 width=8) (actual time=0.003..0.004 rows=1 loops=1)
-                     ->  Function Scan on generate_series d  (cost=0.01..10.01 rows=1000 width=8) (actual time=0.018..0.020 rows=31 loops=1)
-               ->  Hash  (cost=21.10..21.10 rows=1110 width=36) (actual time=0.282..0.283 rows=16 loops=1)
+               Buffers: shared hit=1
+               ->  Nested Loop  (cost=0.01..20.03 rows=1000 width=8) (actual time=0.020..0.025 rows=31 loops=1)
+                     ->  CTE Scan on range  (cost=0.00..0.02 rows=1 width=8) (actual time=0.002..0.003 rows=1 loops=1)
+                     ->  Function Scan on generate_series d  (cost=0.01..10.01 rows=1000 width=8) (actual time=0.016..0.017 rows=31 loops=1)
+               ->  Hash  (cost=21.10..21.10 rows=1110 width=36) (actual time=0.014..0.014 rows=16 loops=1)
                      Buckets: 2048  Batches: 1  Memory Usage: 18kB
-                     Buffers: shared read=1
-                     ->  Seq Scan on holidays h  (cost=0.00..21.10 rows=1110 width=36) (actual time=0.267..0.269 rows=16 loops=1)
-                           Buffers: shared read=1
-   ->  GroupAggregate  (cost=402.93..404.15 rows=48 width=20) (actual time=2.190..2.253 rows=31 loops=1)
+                     Buffers: shared hit=1
+                     ->  Seq Scan on holidays h  (cost=0.00..21.10 rows=1110 width=36) (actual time=0.004..0.006 rows=16 loops=1)
+                           Buffers: shared hit=1
+   ->  GroupAggregate  (cost=574.93..576.15 rows=48 width=20) (actual time=2.160..2.219 rows=31 loops=1)
          Group Key: ((t.deadline)::date)
-         Buffers: shared hit=175
+         Buffers: shared hit=347
          InitPlan 4 (returns $3)
            ->  CTE Scan on range range_1  (cost=0.00..0.02 rows=1 width=4) (actual time=0.000..0.001 rows=1 loops=1)
          InitPlan 5 (returns $4)
            ->  CTE Scan on range range_2  (cost=0.00..0.02 rows=1 width=4) (actual time=0.000..0.000 rows=1 loops=1)
-         ->  Sort  (cost=402.89..403.01 rows=50 width=8) (actual time=2.183..2.202 rows=428 loops=1)
+         ->  Sort  (cost=574.89..575.01 rows=50 width=8) (actual time=2.154..2.170 rows=428 loops=1)
                Sort Key: ((t.deadline)::date)
                Sort Method: quicksort  Memory: 38kB
-               Buffers: shared hit=175
-               ->  Seq Scan on tasks t  (cost=0.00..401.48 rows=50 width=8) (actual time=0.141..2.103 rows=428 loops=1)
+               Buffers: shared hit=347
+               ->  Seq Scan on tasks t  (cost=0.00..573.48 rows=50 width=8) (actual time=0.170..2.091 rows=428 loops=1)
                      Filter: ((deadline IS NOT NULL) AND (user_id = '1'::bigint) AND ((deadline)::date >= $3) AND ((deadline)::date <= $4))
                      Rows Removed by Filter: 9632
-                     Buffers: shared hit=175
+                     Buffers: shared hit=347
    SubPlan 3
-     ->  Seq Scan on diary_entries de  (cost=0.00..37.23 rows=578 width=4) (actual time=0.006..0.092 rows=578 loops=1)
+     ->  Seq Scan on diary_entries de  (cost=0.00..61.23 rows=578 width=4) (actual time=0.005..0.101 rows=578 loops=1)
            Filter: (user_id = '1'::bigint)
-           Buffers: shared hit=30
+           Buffers: shared hit=54
  Planning:
-   Buffers: shared hit=441 read=7 dirtied=1
- Planning Time: 5.537 ms
- Execution Time: 5.816 ms
+   Buffers: shared hit=448
+ Planning Time: 2.933 ms
+ Execution Time: 4.640 ms
 
-Time: 11.861 ms
+Time: 8.076 ms
 
 ========== Q3 | tasks topic_id + status | idx_tasks_topic_status ==========
                                                                    QUERY PLAN                                                                   
 ------------------------------------------------------------------------------------------------------------------------------------------------
- Limit  (cost=209.68..210.18 rows=200 width=32) (actual time=1.052..1.070 rows=200 loops=1)
-   Buffers: shared hit=179
+ Limit  (cost=384.72..385.22 rows=200 width=32) (actual time=1.240..1.258 rows=200 loops=1)
+   Buffers: shared hit=353
    InitPlan 1 (returns $0)
-     ->  Limit  (cost=0.00..4.84 rows=1 width=8) (actual time=0.005..0.005 rows=1 loops=1)
+     ->  Limit  (cost=0.00..4.84 rows=1 width=8) (actual time=0.004..0.005 rows=1 loops=1)
            Buffers: shared hit=1
-           ->  Seq Scan on topics  (cost=0.00..19.38 rows=4 width=8) (actual time=0.004..0.005 rows=1 loops=1)
+           ->  Seq Scan on topics  (cost=0.00..19.38 rows=4 width=8) (actual time=0.004..0.004 rows=1 loops=1)
                  Filter: (user_id = 1)
                  Buffers: shared hit=1
-   ->  Sort  (cost=204.84..205.63 rows=317 width=32) (actual time=1.051..1.058 rows=200 loops=1)
+   ->  Sort  (cost=379.88..380.67 rows=317 width=32) (actual time=1.239..1.246 rows=200 loops=1)
          Sort Key: tasks.deadline
          Sort Method: top-N heapsort  Memory: 47kB
-         Buffers: shared hit=179
-         ->  Bitmap Heap Scan on tasks  (cost=7.53..191.67 rows=317 width=32) (actual time=0.085..0.648 rows=2509 loops=1)
+         Buffers: shared hit=353
+         ->  Bitmap Heap Scan on tasks  (cost=7.53..366.71 rows=317 width=32) (actual time=0.154..0.827 rows=2509 loops=1)
                Recheck Cond: ((topic_id = $0) AND (status = 'pending'::task_status_enum))
                Filter: (user_id = 1)
-               Heap Blocks: exact=175
-               Buffers: shared hit=179
-               ->  Bitmap Index Scan on idx_tasks_topic_status  (cost=0.00..7.46 rows=317 width=0) (actual time=0.068..0.068 rows=2509 loops=1)
+               Heap Blocks: exact=347
+               Buffers: shared hit=353
+               ->  Bitmap Index Scan on idx_tasks_topic_status  (cost=0.00..7.46 rows=317 width=0) (actual time=0.122..0.122 rows=5009 loops=1)
                      Index Cond: ((topic_id = $0) AND (status = 'pending'::task_status_enum))
-                     Buffers: shared hit=4
+                     Buffers: shared hit=6
  Planning:
-   Buffers: shared hit=78
- Planning Time: 0.607 ms
- Execution Time: 1.120 ms
+   Buffers: shared hit=76
+ Planning Time: 0.581 ms
+ Execution Time: 1.311 ms
 
-Time: 2.508 ms
+Time: 2.876 ms
 
 ========== Q4 | fn_calculate_streak | idx_pattern_logs_pattern_date ==========
                                                            QUERY PLAN                                                            
 ---------------------------------------------------------------------------------------------------------------------------------
- Result  (cost=1.19..1.45 rows=1 width=4) (actual time=3.330..3.331 rows=1 loops=1)
+ Result  (cost=1.19..1.45 rows=1 width=4) (actual time=3.298..3.300 rows=1 loops=1)
    Buffers: shared hit=291
    InitPlan 1 (returns $0)
-     ->  Limit  (cost=1.19..1.19 rows=1 width=8) (actual time=0.016..0.016 rows=1 loops=1)
+     ->  Limit  (cost=1.19..1.19 rows=1 width=8) (actual time=0.015..0.017 rows=1 loops=1)
            Buffers: shared hit=1
-           ->  Sort  (cost=1.19..1.22 rows=11 width=8) (actual time=0.015..0.015 rows=1 loops=1)
+           ->  Sort  (cost=1.19..1.22 rows=11 width=8) (actual time=0.015..0.016 rows=1 loops=1)
                  Sort Key: behavior_patterns.id
                  Sort Method: top-N heapsort  Memory: 25kB
                  Buffers: shared hit=1
-                 ->  Seq Scan on behavior_patterns  (cost=0.00..1.14 rows=11 width=8) (actual time=0.005..0.006 rows=11 loops=1)
+                 ->  Seq Scan on behavior_patterns  (cost=0.00..1.14 rows=11 width=8) (actual time=0.004..0.005 rows=11 loops=1)
                        Filter: (user_id = 1)
                        Buffers: shared hit=1
  Planning:
-   Buffers: shared hit=17
- Planning Time: 0.185 ms
- Execution Time: 3.351 ms
+   Buffers: shared hit=6
+ Planning Time: 0.100 ms
+ Execution Time: 3.316 ms
 
-Time: 3.975 ms
+Time: 3.686 ms
 
 ========== Q5 | OLAP v_olap_daily_facts by week ==========
-psql:/tmp/benchmark_for_kursovaya.sql:160: ERROR:  column "avg_mood" does not exist
-LINE 6:     ROUND(AVG(avg_mood)::numeric, 2) AS avg_mood
-                      ^
-Time: 2.334 ms
+                                                                                                                                             QUERY PLAN                                                                                                                                             
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=1337.10..1344.21 rows=200 width=52) (actual time=8.206..8.269 rows=53 loops=1)
+   Group Key: ((date_trunc('week'::text, (v_olap_daily_facts.day)::timestamp with time zone))::date)
+   Buffers: shared hit=771
+   ->  Sort  (cost=1337.10..1337.62 rows=209 width=14) (actual time=8.200..8.220 rows=364 loops=1)
+         Sort Key: ((date_trunc('week'::text, (v_olap_daily_facts.day)::timestamp with time zone))::date)
+         Sort Method: quicksort  Memory: 39kB
+         Buffers: shared hit=771
+         ->  Subquery Scan on v_olap_daily_facts  (cost=1254.87..1329.05 rows=209 width=14) (actual time=7.941..8.137 rows=364 loops=1)
+               Buffers: shared hit=771
+               ->  Hash Left Join  (cost=1254.87..1325.39 rows=209 width=144) (actual time=7.938..8.026 rows=364 loops=1)
+                     Hash Cond: (u.day = mm.day)
+                     Buffers: shared hit=771
+                     ->  Hash Right Join  (cost=1247.18..1314.83 rows=209 width=22) (actual time=7.781..7.817 rows=364 loops=1)
+                           Hash Cond: (diary_entries.entry_date = u.day)
+                           Buffers: shared hit=768
+                           ->  Seq Scan on diary_entries  (cost=0.00..61.23 rows=578 width=14) (actual time=0.002..0.093 rows=578 loops=1)
+                                 Filter: (user_id = 1)
+                                 Buffers: shared hit=54
+                           ->  Hash  (cost=1244.57..1244.57 rows=209 width=20) (actual time=7.630..7.636 rows=364 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 28kB
+                                 Buffers: shared hit=714
+                                 ->  Hash Right Join  (cost=1219.14..1244.57 rows=209 width=20) (actual time=7.404..7.575 rows=364 loops=1)
+                                       Hash Cond: (((tasks.deadline)::date) = u.day)
+                                       Buffers: shared hit=714
+                                       ->  HashAggregate  (cost=598.41..611.49 rows=747 width=32) (actual time=3.298..3.384 rows=743 loops=1)
+                                             Group Key: (tasks.deadline)::date
+                                             Batches: 1  Memory Usage: 105kB
+                                             Buffers: shared hit=347
+                                             ->  Seq Scan on tasks  (cost=0.00..497.88 rows=10053 width=16) (actual time=0.006..2.019 rows=10053 loops=1)
+                                                   Filter: ((deadline IS NOT NULL) AND (user_id = 1))
+                                                   Rows Removed by Filter: 7
+                                                   Buffers: shared hit=347
+                                       ->  Hash  (cost=620.02..620.02 rows=56 width=12) (actual time=4.088..4.093 rows=364 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 26kB
+                                             Buffers: shared hit=367
+                                             ->  Hash Right Join  (cost=615.18..620.02 rows=56 width=12) (actual time=4.015..4.043 rows=364 loops=1)
+                                                   Hash Cond: (((task_time_logs.started_at)::date) = u.day)
+                                                   Buffers: shared hit=367
+                                                   ->  HashAggregate  (cost=6.85..8.89 rows=163 width=24) (actual time=0.058..0.067 rows=87 loops=1)
+                                                         Group Key: (task_time_logs.started_at)::date
+                                                         Batches: 1  Memory Usage: 40kB
+                                                         Buffers: shared hit=4
+                                                         ->  Seq Scan on task_time_logs  (cost=0.00..6.44 rows=163 width=12) (actual time=0.002..0.031 rows=176 loops=1)
+                                                               Filter: (user_id = 1)
+                                                               Buffers: shared hit=4
+                                                   ->  Hash  (cost=607.63..607.63 rows=56 width=12) (actual time=3.927..3.931 rows=364 loops=1)
+                                                         Buckets: 1024  Batches: 1  Memory Usage: 26kB
+                                                         Buffers: shared hit=363
+                                                         ->  Subquery Scan on u  (cost=606.51..607.63 rows=56 width=12) (actual time=3.809..3.867 rows=364 loops=1)
+                                                               Buffers: shared hit=363
+                                                               ->  HashAggregate  (cost=606.51..607.07 rows=56 width=12) (actual time=3.808..3.843 rows=364 loops=1)
+                                                                     Group Key: tasks_1.user_id, ((tasks_1.deadline)::date)
+                                                                     Batches: 1  Memory Usage: 69kB
+                                                                     Buffers: shared hit=363
+                                                                     ->  Append  (cost=0.00..606.23 rows=56 width=12) (actual time=0.161..3.166 rows=4877 loops=1)
+                                                                           Buffers: shared hit=363
+                                                                           ->  Seq Scan on tasks tasks_1  (cost=0.00..573.48 rows=50 width=12) (actual time=0.160..2.678 rows=4877 loops=1)
+                                                                                 Filter: ((deadline IS NOT NULL) AND (user_id = 1) AND ((deadline)::date >= '2025-01-01'::date) AND ((deadline)::date <= '2025-12-31'::date))
+                                                                                 Rows Removed by Filter: 5183
+                                                                                 Buffers: shared hit=347
+                                                                           ->  Index Only Scan using diary_entries_user_date_uniq on diary_entries diary_entries_1  (cost=0.28..10.07 rows=2 width=12) (actual time=0.067..0.068 rows=0 loops=1)
+                                                                                 Index Cond: ((user_id = 1) AND (entry_date >= '2025-01-01'::date) AND (entry_date <= '2025-12-31'::date))
+                                                                                 Heap Fetches: 0
+                                                                                 Buffers: shared hit=5
+                                                                           ->  Nested Loop  (cost=0.00..8.38 rows=1 width=12) (actual time=0.058..0.059 rows=0 loops=1)
+                                                                                 Join Filter: (bp.id = pl.pattern_id)
+                                                                                 Buffers: shared hit=3
+                                                                                 ->  Seq Scan on pattern_logs pl  (cost=0.00..7.10 rows=1 width=16) (actual time=0.058..0.058 rows=0 loops=1)
+                                                                                       Filter: ((status = 'answered'::pattern_log_status_enum) AND ((date_trunc('day'::text, scheduled_at))::date >= '2025-01-01'::date) AND ((date_trunc('day'::text, scheduled_at))::date <= '2025-12-31'::date))
+                                                                                       Rows Removed by Filter: 149
+                                                                                       Buffers: shared hit=3
+                                                                                 ->  Seq Scan on behavior_patterns bp  (cost=0.00..1.14 rows=11 width=16) (never executed)
+                                                                                       Filter: (user_id = 1)
+                                                                           ->  Hash Join  (cost=2.35..3.54 rows=1 width=12) (actual time=0.040..0.041 rows=0 loops=1)
+                                                                                 Hash Cond: (bp_1.id = pm.pattern_id)
+                                                                                 Buffers: shared hit=2
+                                                                                 ->  Seq Scan on behavior_patterns bp_1  (cost=0.00..1.14 rows=11 width=16) (actual time=0.004..0.004 rows=1 loops=1)
+                                                                                       Filter: (user_id = 1)
+                                                                                       Buffers: shared hit=1
+                                                                                 ->  Hash  (cost=2.34..2.34 rows=1 width=16) (actual time=0.018..0.019 rows=0 loops=1)
+                                                                                       Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                                                                                       Buffers: shared hit=1
+                                                                                       ->  Seq Scan on pattern_markers pm  (cost=0.00..2.34 rows=1 width=16) (actual time=0.018..0.018 rows=0 loops=1)
+                                                                                             Filter: (((occurred_at)::date >= '2025-01-01'::date) AND ((occurred_at)::date <= '2025-12-31'::date))
+                                                                                             Rows Removed by Filter: 67
+                                                                                             Buffers: shared hit=1
+                                                                           ->  Hash Join  (cost=1.63..2.82 rows=1 width=12) (actual time=0.023..0.023 rows=0 loops=1)
+                                                                                 Hash Cond: (bp_2.id = pds.pattern_id)
+                                                                                 Buffers: shared hit=2
+                                                                                 ->  Seq Scan on behavior_patterns bp_2  (cost=0.00..1.14 rows=11 width=16) (actual time=0.003..0.003 rows=1 loops=1)
+                                                                                       Filter: (user_id = 1)
+                                                                                       Buffers: shared hit=1
+                                                                                 ->  Hash  (cost=1.61..1.61 rows=1 width=12) (actual time=0.005..0.005 rows=0 loops=1)
+                                                                                       Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                                                                                       Buffers: shared hit=1
+                                                                                       ->  Seq Scan on pattern_day_sessions pds  (cost=0.00..1.61 rows=1 width=12) (actual time=0.005..0.005 rows=0 loops=1)
+                                                                                             Filter: ((session_date >= '2025-01-01'::date) AND (session_date <= '2025-12-31'::date))
+                                                                                             Rows Removed by Filter: 41
+                                                                                             Buffers: shared hit=1
+                                                                           ->  Seq Scan on task_time_logs task_time_logs_1  (cost=0.00..7.67 rows=1 width=12) (actual time=0.040..0.040 rows=0 loops=1)
+                                                                                 Filter: ((user_id = 1) AND ((started_at)::date >= '2025-01-01'::date) AND ((started_at)::date <= '2025-12-31'::date))
+                                                                                 Rows Removed by Filter: 176
+                                                                                 Buffers: shared hit=4
+                     ->  Hash  (cost=6.86..6.86 rows=66 width=12) (actual time=0.126..0.127 rows=43 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                           Buffers: shared hit=3
+                           ->  Subquery Scan on mm  (cost=5.37..6.86 rows=66 width=12) (actual time=0.108..0.116 rows=43 loops=1)
+                                 Buffers: shared hit=3
+                                 ->  HashAggregate  (cost=5.37..6.20 rows=66 width=20) (actual time=0.108..0.112 rows=43 loops=1)
+                                       Group Key: (pm_1.occurred_at)::date
+                                       Batches: 1  Memory Usage: 24kB
+                                       Buffers: shared hit=3
+                                       ->  Hash Join  (cost=2.93..5.21 rows=67 width=12) (actual time=0.065..0.091 rows=67 loops=1)
+                                             Hash Cond: (pm_1.marker_option_id = o.id)
+                                             Buffers: shared hit=3
+                                             ->  Hash Join  (cost=1.27..3.19 rows=67 width=24) (actual time=0.029..0.042 rows=67 loops=1)
+                                                   Hash Cond: (pm_1.pattern_id = bp_3.id)
+                                                   Buffers: shared hit=2
+                                                   ->  Seq Scan on pattern_markers pm_1  (cost=0.00..1.67 rows=67 width=24) (actual time=0.002..0.005 rows=67 loops=1)
+                                                         Buffers: shared hit=1
+                                                   ->  Hash  (cost=1.14..1.14 rows=11 width=16) (actual time=0.010..0.010 rows=11 loops=1)
+                                                         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                         Buffers: shared hit=1
+                                                         ->  Seq Scan on behavior_patterns bp_3  (cost=0.00..1.14 rows=11 width=16) (actual time=0.002..0.003 rows=11 loops=1)
+                                                               Filter: (user_id = 1)
+                                                               Buffers: shared hit=1
+                                             ->  Hash  (cost=1.29..1.29 rows=29 width=8) (actual time=0.018..0.018 rows=29 loops=1)
+                                                   Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                                   Buffers: shared hit=1
+                                                   ->  Seq Scan on pattern_response_options o  (cost=0.00..1.29 rows=29 width=8) (actual time=0.004..0.005 rows=29 loops=1)
+                                                         Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=217 dirtied=1
+ Planning Time: 2.610 ms
+ Execution Time: 8.759 ms
+
+Time: 14.032 ms
+
+========== Q6 | FTS tasks | idx_tasks_search_gin ==========
+                                                                                   QUERY PLAN                                                                                   
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..15.32 rows=50 width=20) (actual time=0.818..1.025 rows=50 loops=1)
+   Buffers: shared hit=176
+   ->  Seq Scan on tasks  (cost=0.00..3063.20 rows=10000 width=20) (actual time=0.818..1.021 rows=50 loops=1)
+         Filter: ((user_id = 1) AND (to_tsvector('russian'::regconfig, ((COALESCE(title, ''::text) || ' '::text) || COALESCE(description, ''::text))) @@ '''bench'''::tsquery))
+         Rows Removed by Filter: 60
+         Buffers: shared hit=176
+ Planning:
+   Buffers: shared hit=10
+ Planning Time: 0.161 ms
+ Execution Time: 1.036 ms
+
+Time: 1.669 ms
+
+========== Q2a | fn_search_diary БЕЗ idx_diary_fts_gin ==========
+DROP INDEX
+Time: 2.765 ms
+ANALYZE
+Time: 3.473 ms
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=80.53..93.78 rows=50 width=48) (actual time=0.445..1.082 rows=50 loops=1)
+   Buffers: shared hit=57
+   ->  Result  (cost=80.53..213.03 rows=500 width=48) (actual time=0.444..1.077 rows=50 loops=1)
+         Buffers: shared hit=57
+         ->  Sort  (cost=80.53..81.78 rows=500 width=158) (actual time=0.409..0.412 rows=50 loops=1)
+               Sort Key: (ts_rank(diary_entries.content_tsv, '''продуктивн'''::tsquery)) DESC, diary_entries.entry_date DESC
+               Sort Method: top-N heapsort  Memory: 51kB
+               Buffers: shared hit=57
+               ->  Seq Scan on diary_entries  (cost=0.00..63.92 rows=500 width=158) (actual time=0.045..0.213 rows=500 loops=1)
+                     Filter: ((content_tsv @@ '''продуктивн'''::tsquery) AND (user_id = '1'::bigint))
+                     Rows Removed by Filter: 78
+                     Buffers: shared hit=54
+ Planning:
+   Buffers: shared hit=126
+ Planning Time: 0.795 ms
+ Execution Time: 1.102 ms
+
+Time: 2.572 ms
+
+========== Q2b | fn_search_diary С idx_diary_fts_gin ==========
+CREATE INDEX
+Time: 5.353 ms
+ANALYZE
+Time: 3.942 ms
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=80.53..93.78 rows=50 width=48) (actual time=0.426..1.044 rows=50 loops=1)
+   Buffers: shared hit=54
+   ->  Result  (cost=80.53..213.03 rows=500 width=48) (actual time=0.425..1.040 rows=50 loops=1)
+         Buffers: shared hit=54
+         ->  Sort  (cost=80.53..81.78 rows=500 width=158) (actual time=0.389..0.391 rows=50 loops=1)
+               Sort Key: (ts_rank(diary_entries.content_tsv, '''продуктивн'''::tsquery)) DESC, diary_entries.entry_date DESC
+               Sort Method: top-N heapsort  Memory: 51kB
+               Buffers: shared hit=54
+               ->  Seq Scan on diary_entries  (cost=0.00..63.92 rows=500 width=158) (actual time=0.044..0.209 rows=500 loops=1)
+                     Filter: ((content_tsv @@ '''продуктивн'''::tsquery) AND (user_id = '1'::bigint))
+                     Rows Removed by Filter: 78
+                     Buffers: shared hit=54
+ Planning:
+   Buffers: shared hit=26
+ Planning Time: 0.464 ms
+ Execution Time: 1.064 ms
+
+Time: 1.748 ms
+
+=== META: итог (скопируйте в чат вместе с планами выше) ===
+      k      |   v   
+-------------+-------
+ dataset     | S2
+ tasks       | 10060
+ diary       | 578
+ bench_tasks | 10000
+
+Time: 2.795 ms
+
+Для таблицы 9 из каждого блока Q* возьмите:
+  - строку "Execution Time: X ms" (в конце плана)
+  - узел: Index Scan / Bitmap Index Scan / Seq Scan / HashAggregate
+  - сумму "shared read=" по плану (buffers)
+
+==================== MARKER_END ====================
