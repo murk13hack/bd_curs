@@ -14,7 +14,7 @@
 Результат:
   docs/benchmark_results.md   — таблица + фрагменты планов (отправить ассистенту)
   docs/benchmark_results.json — машиночитаемый отчёт
-  docs/benchmark_plans/*.txt   — полные планы по запросам
+  docs/benchmark_plans/*.txt   — только этот скрипт (не benchmark_run_for_kursovaya.sh)
 """
 
 from __future__ import annotations
@@ -103,6 +103,9 @@ def docker_psql(
         raise RuntimeError(
             f"psql failed ({proc.returncode}):\n{proc.stderr}\n{proc.stdout}"
         )
+    # NOTICE и прочее иногда только в stderr
+    if proc.stderr.strip():
+        return proc.stdout + ("\n" if proc.stdout else "") + proc.stderr
     return proc.stdout
 
 
@@ -157,19 +160,30 @@ def explain_json(
     explain_sql = (
         "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)\n" + sql.strip().rstrip(";") + ";\n"
     )
-    out = docker_psql(container, user, database, explain_sql, timeout=300)
-    # psql may add headers; find JSON array
-    m = re.search(r"\[\s*\{", out, re.DOTALL)
-    if not m:
-        return None, out
-    json_text = out[m.start() :]
-    try:
-        data = json.loads(json_text)
-        if isinstance(data, list) and data:
-            return data[0], out
-        return None, out
-    except json.JSONDecodeError as e:
-        return None, f"{out}\nJSON error: {e}"
+    # -t -A: одна строка JSON; без этого psql рисует «таблицу» с '+' — json.loads ломается
+    out = docker_psql(
+        container, user, database, explain_sql, timeout=300, tuples_only=True
+    )
+    stripped = out.strip()
+    if not stripped:
+        return None, out or "(пустой stdout psql)"
+
+    candidates: list[str] = []
+    if stripped.startswith("["):
+        candidates.append(stripped)
+    m = re.search(r"\[\s*\{", stripped, re.DOTALL)
+    if m:
+        candidates.append(stripped[m.start() :])
+
+    for json_text in candidates:
+        try:
+            data = json.loads(json_text)
+            if isinstance(data, list) and data:
+                return data[0], out
+        except json.JSONDecodeError:
+            continue
+
+    return None, out
 
 
 def parse_explain(plan_root: dict) -> tuple[float | None, float | None, int, int, list[str]]:
@@ -419,12 +433,24 @@ def write_reports(
             }
         )
 
-    # save plans
-    all_results = [r for r in results if r.spec.id != "Q2"] + [x for x in (q2a, q2b) if x]
-    for r in all_results:
-        fname = PLANS_DIR / f"{r.spec.id.replace(' ', '_')}_plan.txt"
-        body = r.raw_plan_text or r.error or ""
-        fname.write_text(body, encoding="utf-8")
+    def write_plan_file(plan_id: str, r: QueryResult) -> None:
+        parts: list[str] = []
+        if r.error:
+            parts.append(f"# {r.error}\n")
+        if r.raw_plan_text:
+            parts.append(r.raw_plan_text)
+        elif not r.error:
+            parts.append("(нет текста плана)")
+        (PLANS_DIR / f"{plan_id}_plan.txt").write_text("".join(parts), encoding="utf-8")
+
+    for r in results:
+        if r.spec.id == "Q2":
+            continue
+        write_plan_file(r.spec.id, r)
+    if q2a:
+        write_plan_file("Q2a", q2a)
+    if q2b:
+        write_plan_file("Q2b", q2b)
 
     json_path = DOCS / "benchmark_results.json"
     json_path.write_text(
