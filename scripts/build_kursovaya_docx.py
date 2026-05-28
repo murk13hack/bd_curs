@@ -37,6 +37,7 @@ FONT_NAME = "Times New Roman"
 FONT_SIZE = Pt(14)
 LINE_SPACING = 1.5
 FIRST_LINE_INDENT = Cm(1.25)
+BLACK = RGBColor(0, 0, 0)
 
 
 def set_cell_borders(cell) -> None:
@@ -73,6 +74,7 @@ def configure_paragraph_style(
     font.size = size
     font.bold = bold
     font.italic = italic
+    font.color.rgb = BLACK
     if caps:
         font.all_caps = True
     pf = style.paragraph_format
@@ -377,24 +379,30 @@ def preprocess_markdown(text: str) -> str:
             i += 1
             continue
 
-        # СОДЕРЖАНИЕ, титульные строки
-        if line.strip() == "## СОДЕРЖАНИЕ":
-            out.append('## {custom-style="GOST TOC Title"} СОДЕРЖАНИЕ')
+        # Горизонтальные линии Markdown (---) — не выводить в Word
+        if re.match(r"^(-{3,}|\*{3,}|_{3,})\s*$", line.strip()):
+            i += 1
+            continue
+
+        # Титульный блок и содержание — через fenced div (не в заголовке #)
+        if line.strip() == "# ПОЯСНИТЕЛЬНАЯ ЗАПИСКА":
+            out.append('::: {custom-style="GOST Title"}')
+            out.append("ПОЯСНИТЕЛЬНАЯ ЗАПИСКА")
+            out.append(":::")
             i += 1
             continue
 
         if line.strip() == "## к курсовой работе по дисциплине «Базы данных»":
-            out.append(
-                '## {custom-style="GOST Subtitle"} '
-                "к курсовой работе по дисциплине «Базы данных»"
-            )
+            out.append('::: {custom-style="GOST Subtitle"}')
+            out.append("к курсовой работе по дисциплине «Базы данных»")
+            out.append(":::")
             i += 1
             continue
 
-        if line.strip() == "# ПОЯСНИТЕЛЬНАЯ ЗАПИСКА":
-            out.append(
-                '# {custom-style="GOST Title"} ПОЯСНИТЕЛЬНАЯ ЗАПИСКА'
-            )
+        if line.strip() == "## СОДЕРЖАНИЕ":
+            out.append('::: {custom-style="GOST TOC Title"}')
+            out.append("СОДЕРЖАНИЕ")
+            out.append(":::")
             i += 1
             continue
 
@@ -457,6 +465,54 @@ def add_page_numbers(docx_path: Path) -> None:
     doc.save(docx_path)
 
 
+def _remove_paragraph_border(p_element) -> None:
+    p_pr = p_element.get_or_add_pPr()
+    for tag in ("w:pBdr",):
+        existing = p_pr.find(qn(tag))
+        if existing is not None:
+            p_pr.remove(existing)
+
+
+def polish_docx(docx_path: Path) -> None:
+    """Чёрный текст, без синих заголовков и без горизонтальных линий."""
+    from docx import Document as Doc
+
+    doc = Doc(docx_path)
+    custom_style_re = re.compile(r'\{custom-style="[^"]*"\}\s*')
+
+    for p in doc.paragraphs:
+        _remove_paragraph_border(p._p)
+        if p.text.strip():
+            cleaned = custom_style_re.sub("", p.text).strip()
+            if cleaned != p.text:
+                for run in p.runs:
+                    run.text = ""
+                if cleaned:
+                    r = p.add_run(cleaned)
+                    r.font.name = FONT_NAME
+                    r.font.color.rgb = BLACK
+        for run in p.runs:
+            run.font.color.rgb = BLACK
+            run.font.name = FONT_NAME
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    _remove_paragraph_border(p._p)
+                    for run in p.runs:
+                        run.font.color.rgb = BLACK
+
+    for style in doc.styles:
+        try:
+            if hasattr(style, "font") and style.font is not None:
+                style.font.color.rgb = BLACK
+        except (AttributeError, ValueError):
+            pass
+
+    doc.save(docx_path)
+
+
 def patch_tables_borders(docx_path: Path) -> None:
     from docx import Document as Doc
 
@@ -473,6 +529,7 @@ def patch_tables_borders(docx_path: Path) -> None:
                     for run in p.runs:
                         run.font.name = FONT_NAME
                         run.font.size = FONT_SIZE
+                        run.font.color.rgb = BLACK
     doc.save(docx_path)
 
 
@@ -483,7 +540,7 @@ def run_pandoc(md_path: Path, out_path: Path, ref_path: Path) -> None:
         "-o",
         str(out_path),
         "--from",
-        "markdown+smart+raw_attribute",
+        "markdown+smart+fenced_divs+raw_attribute",
         "--reference-doc",
         str(ref_path),
         "--standalone",
@@ -516,8 +573,9 @@ def main() -> int:
     print("Running pandoc…")
     run_pandoc(PREPARED_MD, args.output, args.reference)
 
-    print("Patching table borders…")
+    print("Patching tables and typography…")
     patch_tables_borders(args.output)
+    polish_docx(args.output)
 
     print("Adding page numbers (footer, center)…")
     add_page_numbers(args.output)
