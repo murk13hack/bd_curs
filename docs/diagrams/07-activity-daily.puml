@@ -1,0 +1,32 @@
+' Рисунок 7 — Диаграмма деятельности: фоновые процессы БД (планировщик)
+
+@startuml activity_scheduler
+|APScheduler|
+start
+:sp_spawn_recurring_tasks(current_date);
+note right
+  recurring_rules
+  tasks (новый экземпляр)
+end note
+
+:sp_ensure_habit_logs_for_day(current_date);
+note right
+  pattern_logs (pending)
+end note
+
+:sp_close_overdue_pattern_logs(now());
+note right
+  pattern_logs → missed
+end note
+
+:sp_recalc_calendar_cache();
+note right
+  REFRESH MATERIALIZED VIEW
+  v_overdue_tasks
+end note
+
+if (воскресенье?) then (да)
+  :sp_archive_old_audit(365);
+endif
+stop
+@enduml

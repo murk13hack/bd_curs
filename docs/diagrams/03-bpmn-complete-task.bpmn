@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Рисунок 3 — BPMN 2.0: бизнес-процесс «Завершение задачи»
+     Открыть в Camunda Modeler или draw.io (Insert → Advanced → BPMN)
+     Пул: Пользователь + Система ПТТ; объекты данных: tasks, audit_log -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  id="Definitions_CompleteTask"
+                  targetNamespace="http://ptt.local/bpmn">
+  <bpmn:process id="Process_CompleteTask" name="Завершение задачи" isExecutable="false">
+    <bpmn:startEvent id="Start_UserClicks" name="Пользователь отмечает чек-бокс"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="Start_UserClicks" targetRef="Task_HTTP"/>
+    <bpmn:task id="Task_HTTP" name="POST /tasks/{id}/complete (FastAPI)"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="Task_HTTP" targetRef="Task_CallSP"/>
+    <bpmn:task id="Task_CallSP" name="CALL sp_complete_task(id)"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="Task_CallSP" targetRef="Task_Update"/>
+    <bpmn:task id="Task_Update" name="UPDATE tasks SET status=done"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="Task_Update" targetRef="Gw_Deadline"/>
+    <bpmn:exclusiveGateway id="Gw_Deadline" name="completed_at &gt; deadline и planned_minutes задан?"/>
+    <bpmn:sequenceFlow id="f5_yes" name="Да" sourceRef="Gw_Deadline" targetRef="Task_Overdue">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:task id="Task_Overdue" name="trg_task_overdue_check → status=overdue"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="Task_Overdue" targetRef="Task_Audit"/>
+    <bpmn:sequenceFlow id="f5_no" name="Нет" sourceRef="Gw_Deadline" targetRef="Task_Audit"/>
+    <bpmn:task id="Task_Audit" name="trg_audit_changes → INSERT audit_log"/>
+    <bpmn:sequenceFlow id="f7" sourceRef="Task_Audit" targetRef="Gw_Recurring"/>
+    <bpmn:exclusiveGateway id="Gw_Recurring" name="recurring_rule_id задан?"/>
+    <bpmn:sequenceFlow id="f8_yes" name="Да" sourceRef="Gw_Recurring" targetRef="Task_Spawn"/>
+    <bpmn:task id="Task_Spawn" name="trg_recurring_spawn_on_complete / sp_spawn_recurring_tasks"/>
+    <bpmn:sequenceFlow id="f9" sourceRef="Task_Spawn" targetRef="End_OK"/>
+    <bpmn:sequenceFlow id="f8_no" name="Нет" sourceRef="Gw_Recurring" targetRef="End_OK"/>
+    <bpmn:endEvent id="End_OK" name="COMMIT; ответ JSON TaskRead"/>
+  </bpmn:process>
+</bpmn:definitions>

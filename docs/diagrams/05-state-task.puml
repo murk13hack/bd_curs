@@ -1,0 +1,38 @@
+' Рисунок 5 — Диаграмма состояний задачи (task_status_enum)
+' Рендер: PlantUML Online или расширение VS Code
+
+@startuml state_task
+skinparam state {
+  BackgroundColor<<terminal>> #d1fae5
+  BackgroundColor<<bad>> #fee2e2
+}
+
+[*] --> pending : INSERT tasks
+
+pending --> in_progress : пользователь\nначал работу
+pending --> cancelled : отмена
+pending --> done : sp_complete_task\n(редко напрямую)
+
+in_progress --> done : POST .../complete\nsp_complete_task
+in_progress --> cancelled : отмена
+
+done --> overdue : trg_task_overdue_check\n[completed_at > deadline\nAND planned_minutes NOT NULL]
+done --> in_progress : sp_reopen_task
+
+overdue --> in_progress : sp_reopen_task
+overdue --> [*] : архив / удаление
+
+cancelled --> [*]
+
+note right of done
+  trg_task_set_completed_at
+  проставляет completed_at
+end note
+
+note bottom of overdue
+  Таблица: tasks
+  Индекс: idx_tasks_overdue_partial
+  View: v_overdue_tasks (MATERIALIZED)
+end note
+
+@enduml

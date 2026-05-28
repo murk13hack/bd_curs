@@ -54,10 +54,21 @@ bd_curs/
 ├── db/
 │   ├── init/                # DDL: extensions → tables → functions → triggers → seed
 │   └── migrations/          # 007–014 для существующих volume
-├── docs/                    # DEPLOY, DB_SYNC, DEMO_DATA, STATS, OLAP, PRE_FREEZE_FIXES
+├── docs/                    # KURSOVAYA_BD.md, KURSOVAYA_APPENDIX.md, diagrams/, DEPLOY, …
 ├── docker-compose.yml
 └── ТЗ.md
 ```
+
+## Бенчмарк для курсовой (EXPLAIN)
+
+```powershell
+docker cp scripts/benchmark_load_tasks.sql ptt-db:/tmp/
+docker exec ptt-db psql -U ptt -d ptt -v count=10000 -f /tmp/benchmark_load_tasks.sql
+docker cp scripts/benchmark_explain.sql ptt-db:/tmp/
+docker exec ptt-db psql -U ptt -d ptt -f /tmp/benchmark_explain.sql > explain_out.txt
+```
+
+См. главу 10 в [docs/KURSOVAYA_BD.md](./docs/KURSOVAYA_BD.md).
 
 ## Тесты
 

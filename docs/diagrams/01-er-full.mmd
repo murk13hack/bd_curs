@@ -1,0 +1,59 @@
+%% Рисунок 1 — Концептуальная ER-модель ПТТ (Crow's Foot, Mermaid)
+%% Рендер: https://mermaid.live → Export PNG/SVG
+
+erDiagram
+    users ||--o{ topics : owns
+    users ||--o{ tags : owns
+    users ||--o{ tasks : owns
+    users ||--o{ diary_entries : writes
+    users ||--o{ behavior_patterns : tracks
+    users ||--o{ goals : sets
+    users ||--o{ app_settings : configures
+
+    topics ||--o{ tasks : categorizes
+    topics ||--o{ behavior_patterns : groups
+
+    tasks ||--o{ task_tags : has
+    tags ||--o{ task_tags : labels
+    tasks ||--o{ task_time_logs : timed
+    tasks ||--o{ tasks : subtasks
+    recurring_rules ||--o{ tasks : spawns
+
+    diary_entries ||--o{ diary_tags : has
+    tags ||--o{ diary_tags : labels
+
+    behavior_patterns ||--o{ pattern_response_options : options
+    behavior_patterns ||--o{ pattern_schedules : schedule
+    behavior_patterns ||--o{ pattern_logs : habit_log
+    behavior_patterns ||--o{ pattern_steps : scenario_steps
+    behavior_patterns ||--o{ pattern_day_sessions : scenario_day
+    behavior_patterns ||--o{ pattern_markers : markers
+    behavior_patterns ||--o{ pattern_marker_day_closures : clean_day
+
+    pattern_day_sessions ||--o{ pattern_step_answers : answers
+    pattern_steps ||--o{ pattern_step_answers : step
+    pattern_response_options ||--o{ pattern_logs : answer
+    pattern_response_options ||--o{ pattern_markers : episode_type
+
+    goals ||--o{ goal_links : links
+
+    users {
+        bigint id PK
+        text username UK
+        text timezone
+    }
+    tasks {
+        bigint id PK
+        task_status_enum status
+        timestamptz deadline
+        timestamptz completed_at
+    }
+    behavior_patterns {
+        bigint id PK
+        pattern_mode_enum pattern_mode
+        pattern_type_enum pattern_type
+    }
+    pattern_logs {
+        bigint id PK
+        pattern_log_status_enum status
+    }

@@ -1,0 +1,33 @@
+%% Рисунок 2 — Трёхзвенная архитектура и граница ответственности БД
+
+flowchart TB
+    subgraph client [Уровень представления]
+        UI[React SPA]
+    end
+
+    subgraph app [Уровень приложения — FastAPI]
+        API[REST /api/v1]
+        SCH[APScheduler]
+    end
+
+    subgraph data [Уровень данных — PostgreSQL 16]
+        TBL[(Таблицы + констрейнты)]
+        TRG{{Триггеры trg_*}}
+        FN[Функции fn_*]
+        VW[Представления v_*]
+        SP[[Процедуры sp_*]]
+    end
+
+    UI -->|JSON HTTP| API
+    API -->|ORM CRUD| TBL
+    API -->|CALL / SELECT| SP
+    API -->|SELECT| FN
+    API -->|SELECT| VW
+    SCH -->|CALL по cron| SP
+    SP --> TBL
+    TRG --> TBL
+    FN --> TBL
+    VW --> TBL
+
+    classDef db fill:#e8f4ea,stroke:#166534
+    class TBL,TRG,FN,VW,SP db

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Рисунок 4 — BPMN 2.0: суточный цикл паттерна habit -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="Definitions_PatternHabit"
+                  targetNamespace="http://ptt.local/bpmn">
+  <bpmn:process id="Process_PatternHabitDay" name="Паттерн habit за день" isExecutable="false">
+    <bpmn:startEvent id="Start_Midnight" name="Начало дня / cron"/>
+    <bpmn:task id="T1" name="CALL sp_ensure_habit_logs_for_day(date)"/>
+    <bpmn:task id="T2" name="INSERT pattern_logs status=pending по pattern_schedules"/>
+    <bpmn:task id="T3" name="Уведомление UI (pattern_schedules.time_of_day)"/>
+    <bpmn:exclusiveGateway id="G1" name="Пользователь ответил в течение 12 ч?"/>
+    <bpmn:task id="T4" name="CALL sp_log_pattern_response → status=answered"/>
+    <bpmn:task id="T5" name="fn_calculate_streak / v_pattern_streaks"/>
+    <bpmn:task id="T6" name="CALL sp_close_overdue_pattern_logs → status=missed"/>
+    <bpmn:task id="T7" name="Серия positive: обнуление current_streak"/>
+    <bpmn:endEvent id="End1" name="День учтён в статистике"/>
+
+    <bpmn:sequenceFlow sourceRef="Start_Midnight" targetRef="T1"/>
+    <bpmn:sequenceFlow sourceRef="T1" targetRef="T2"/>
+    <bpmn:sequenceFlow sourceRef="T2" targetRef="T3"/>
+    <bpmn:sequenceFlow sourceRef="T3" targetRef="G1"/>
+    <bpmn:sequenceFlow name="Да" sourceRef="G1" targetRef="T4"/>
+    <bpmn:sequenceFlow sourceRef="T4" targetRef="T5"/>
+    <bpmn:sequenceFlow sourceRef="T5" targetRef="End1"/>
+    <bpmn:sequenceFlow name="Нет" sourceRef="G1" targetRef="T6"/>
+    <bpmn:sequenceFlow sourceRef="T6" targetRef="T7"/>
+    <bpmn:sequenceFlow sourceRef="T7" targetRef="End1"/>
+  </bpmn:process>
+</bpmn:definitions>

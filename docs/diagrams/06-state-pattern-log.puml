@@ -1,0 +1,23 @@
+' Рисунок 6 — Диаграмма состояний записи pattern_logs (режим habit)
+
+@startuml state_pattern_log
+[*] --> pending : sp_ensure_habit_logs_for_day\nили INSERT слота
+
+pending --> answered : sp_log_pattern_response\n+ is_success из\npattern_response_options
+pending --> missed : sp_close_overdue_pattern_logs\n(> 12 ч без ответа)
+
+answered --> [*]
+missed --> [*]
+
+state pending {
+  pending : scheduled_at зафиксирован
+}
+state answered {
+  answered : answered_at NOT NULL
+  answered : response_option_id NOT NULL
+}
+state missed {
+  missed : серия positive обнуляется
+}
+
+@enduml

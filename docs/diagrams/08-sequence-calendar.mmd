@@ -1,0 +1,23 @@
+%% Рисунок 8 — Последовательность: формирование данных календаря месяца
+
+sequenceDiagram
+    autonumber
+    actor U as Пользователь
+    participant FE as Frontend
+    participant API as FastAPI
+    participant FN as fn_get_calendar_stats
+    participant T as tasks
+    participant D as diary_entries
+    participant H as holidays
+    participant FC as fn_day_color
+
+    U->>FE: Открыть календарь (год, месяц)
+    FE->>API: GET /calendar/{y}/{m}
+    API->>FN: SELECT ... (user_id, y, m)
+    FN->>T: агрегация done/total по deadline::date
+    FN->>D: EXISTS запись дневника на день
+    FN->>H: LEFT JOIN праздник
+    FN->>FC: ratio → HEX color
+    FN-->>API: набор строк (day, total, done, ratio, color, ...)
+    API-->>FE: JSON CalendarDay[]
+    FE-->>U: заливка ячеек, подпись done/total
