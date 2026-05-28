@@ -28,6 +28,9 @@ DEFAULT_OUT = DOCS / "KURSOVAYA_BD.docx"
 REF_DOC = DOCS / "gost_reference.docx"
 PREPARED_MD = DOCS / "_KURSOVAYA_BD_prepared.md"
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from figure_specs import FIGURES  # noqa: E402
+
 # ГОСТ 7.32–2017 (типичные параметры курсовой; см. примечание в MD)
 MARGIN_LEFT = Cm(2.0)
 MARGIN_RIGHT = Cm(1.0)
@@ -318,8 +321,24 @@ def preprocess_markdown(text: str) -> str:
     code_lang = ""
 
     chapter_re = re.compile(r"^## (\d+\.\s)")
-    figure_re = re.compile(r"^#### (Рисунок \d+)")
+    figure_re = re.compile(r"^#### (Рисунок (\d+) — (.+))$")
     subsection_re = re.compile(r"^#### (\d+\.\d+\.\d+\.)")
+
+    def flush_figure_placeholder(num: int, title: str, block_lines: list[str]) -> None:
+        out.append("")
+        out.append('::: {custom-style="GOST Placeholder"}')
+        out.append(f"Рисунок {num} — {title}")
+        out.append("")
+        for bl in block_lines:
+            text = bl.strip().lstrip(">").strip()
+            if not text or text.startswith("*Подпись в Word"):
+                continue
+            out.append(text)
+        spec = FIGURES.get(num)
+        if spec and not any("Содержание рисунка" in bl for bl in block_lines):
+            out.append(f"Содержание рисунка. {spec['content']}")
+        out.append(":::")
+        out.append("")
 
     i = 0
     while i < len(lines):
@@ -339,14 +358,7 @@ def preprocess_markdown(text: str) -> str:
                 code_lang = fence
                 if fence == "mermaid":
                     in_mermaid = True
-                    out.append("")
-                    out.append('::: {custom-style="GOST Placeholder"}')
-                    out.append(
-                        "[Здесь вставить рисунок — экспорт из docs/diagrams/, "
-                        "см. KURSOVAYA_INSERT_CHECKLIST.md]"
-                    )
-                    out.append(":::")
-                    out.append("")
+                    # Иллюстрация задаётся блоком «#### Рисунок N» ниже; mermaid в DOCX не выводим
                 else:
                     out.append('```{.GOST-Code}')
                     out.append(line)
@@ -363,14 +375,21 @@ def preprocess_markdown(text: str) -> str:
             i += 1
             continue
 
-        # Заголовки: рисунки — отдельный уровень (не путать с 5.3.1)
+        # Заголовки: рисунки — подпись + блок-заглушка с содержанием
         m = figure_re.match(line)
         if m:
+            _full, num_s, title = m.groups()
+            num = int(num_s)
             out.append("")
             out.append('::: {custom-style="GOST Figure Caption"}')
-            out.append(line.replace("#### ", "", 1).strip())
+            out.append(f"Рисунок {num} — {title}")
             out.append(":::")
             i += 1
+            block: list[str] = []
+            while i < len(lines) and lines[i].strip().startswith(">"):
+                block.append(lines[i])
+                i += 1
+            flush_figure_placeholder(num, title, block)
             continue
 
         m = subsection_re.match(line)
@@ -413,14 +432,6 @@ def preprocess_markdown(text: str) -> str:
             out.append("")
             out.append('::: {custom-style="GOST Table Caption"}')
             out.append(cap)
-            out.append(":::")
-            i += 1
-            continue
-
-        # Заглушки рисунков
-        if "[Вставить рисунок" in line:
-            out.append('::: {custom-style="GOST Placeholder"}')
-            out.append(line.strip().lstrip("> ").strip())
             out.append(":::")
             i += 1
             continue

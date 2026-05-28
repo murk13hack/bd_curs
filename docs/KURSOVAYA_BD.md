@@ -187,13 +187,21 @@
 
 #### Рисунок 3 — BPMN процесса завершения задачи
 
-> **[Вставить рисунок 3]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 3 — BPMN процесса завершения задачи».*
+> **Содержание рисунка.** Участники: пользователь, прикладной сервер, СУБД. Цепочка: отметка о выполнении → вызов процедуры завершения → фиксация статуса и времени → шлюз «срок нарушен» (автоматический перевод в «просрочена») → запись в журнал аудита → шлюз «есть правило повторения» → создание следующего экземпляра задачи → ответ клиенту.
+>
+> **Подпись под рисунком:** «Рисунок 3 — BPMN процесса завершения задачи»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/03-bpmn-complete-task.png`).
+ «Рисунок 3 — BPMN процесса завершения задачи».*
 
 #### Рисунок 5 — Диаграмма состояний жизненного цикла задачи
 
-> **[Вставить рисунок 5]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 5 — Диаграмма состояний жизненного цикла задачи».*
+> **Содержание рисунка.** Состояния: к выполнению, в работе, выполнена, просрочена, отменена. Переход в «просрочена» после отметки о выполнении показан как автоматический (не действие пользователя).
+>
+> **Подпись под рисунком:** «Рисунок 5 — Диаграмма состояний жизненного цикла задачи»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/05-state-task.png`).
+ «Рисунок 5 — Диаграмма состояний жизненного цикла задачи».*
 
 На [рисунке 5](#рисунок-5--диаграмма-состояний-жизненного-цикла-задачи) переход к состоянию «просрочена» после отметки о выполнении показан как **автоматический** — это согласуется с предметным правилом п. 4 и с реализацией в СУБД (§ 3.8).
 
@@ -215,13 +223,21 @@
 
 #### Рисунок 4 — BPMN суточного цикла привычки
 
-> **[Вставить рисунок 4]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 4 — BPMN суточного цикла привычки».*
+> **Содержание рисунка.** Регламент дня: подготовка слотов отклика по расписанию → ожидание времени напоминания → шлюз «пользователь ответил в регламентный срок» — ветви «да» (фиксация ответа, пересчёт серии) и «нет» (пропуск, влияние на серию положительной привычки) → учёт дня в статистике.
+>
+> **Подпись под рисунком:** «Рисунок 4 — BPMN суточного цикла привычки»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/04-bpmn-pattern-habit.png`).
+ «Рисунок 4 — BPMN суточного цикла привычки».*
 
-#### Рисунок 6 — Диаграмма состояний слота отклика
+#### Рисунок 6 — Диаграмма состояний слота отклика на привычку
 
-> **[Вставить рисунок 6]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 6 — Диаграмма состояний слота отклика».*
+> **Содержание рисунка.** Состояния слота: ожидание ответа → отвечено или пропущено (по истечении регламентного интервала без ответа).
+>
+> **Подпись под рисунком:** «Рисунок 6 — Диаграмма состояний слота отклика на привычку»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/06-state-pattern-log.png`).
+ «Рисунок 6 — Диаграмма состояний слота отклика».*
 
 [Рисунок 4](#рисунок-4--bpmn-суточного-цикла-привычки) задаёт операционный регламент; [рисунок 6](#рисунок-6--диаграмма-состояний-слота-отклика) — допустимые состояния слота (ожидание → отвечено / пропущено).
 
@@ -252,15 +268,23 @@
 
 #### Рисунок 8 — Последовательность формирования данных календаря месяца
 
-> **[Вставить рисунок 8]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 8 — Последовательность формирования данных календаря месяца».*
+> **Содержание рисунка.** Пользователь запрашивает календарь месяца → прикладной сервер → функция СУБД агрегирует задачи по дням, проверяет записи дневника и праздники → возврат готовых полей (доля выполнения, цвет ячейки) в ответ API.
+>
+> **Подпись под рисунком:** «Рисунок 8 — Последовательность формирования данных календаря месяца»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/08-sequence-calendar.png`).
+ «Рисунок 8 — Последовательность формирования данных календаря месяца».*
 
 ### 3.7. Регламентные фоновые процессы (диаграмма деятельности)
 
 #### Рисунок 7 — Диаграмма деятельности регламентных заданий
 
-> **[Вставить рисунок 7]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 7 — Диаграмма деятельности регламентных заданий».*
+> **Содержание рисунка.** Фоновые задания без участия пользователя: порождение повторяющихся задач; подготовка слотов привычек на день; закрытие просроченных откликов; обновление материализованных агрегатов; архивирование журнала аудита.
+>
+> **Подпись под рисунком:** «Рисунок 7 — Диаграмма деятельности регламентных заданий»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/07-activity-daily.png`).
+ «Рисунок 7 — Диаграмма деятельности регламентных заданий».*
 
 [Рисунок 7](#рисунок-7--диаграмма-деятельности-регламентных-заданий) объединяет **регламентные** процессы из § 2.4, выполняемые без участия пользователя:
 
@@ -319,18 +343,15 @@
 
 Архитектура показана на [рисунке 2](#рисунок-2--трёхзвенная-архитектура-и-слой-postgresql).
 
-```mermaid
-flowchart LR
-    User((Пользователь)) -->|"HTTP :80"| FE[Frontend React + nginx]
-    FE -->|"REST/JSON :8000"| BE[Backend FastAPI]
-    BE -->|"TCP :5432"| DB[(PostgreSQL 16)]
-    DB --- Vol[(volume pgdata)]
-```
 
 #### Рисунок 2 — Трёхзвенная архитектура и слой PostgreSQL
 
-> **[Вставить рисунок 2]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 2 — Трёхзвенная архитектура и слой PostgreSQL».*
+> **Содержание рисунка.** Пользователь обращается по HTTP к веб-клиенту (React, nginx, порт 80); клиент — к прикладному серверу (FastAPI, REST/JSON, порт 8000); сервер — к PostgreSQL 16 (порт 5432). Показан том pgdata для персистентности данных.
+>
+> **Подпись под рисунком:** «Рисунок 2 — Трёхзвенная архитектура и слой PostgreSQL»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/02-architecture.png`).
+ «Рисунок 2 — Трёхзвенная архитектура и слой PostgreSQL».*
 
 **Принцип «тонкий backend, толстая БД»:** валидация DTO — в Pydantic; фильтрация списков и CRUD — SQLAlchemy ORM; **расчёты** (календарь, серии, корреляция, экспорт, планировщик повторений и паттернов) — SQL-функции, представления и `CALL` процедур.
 
@@ -374,255 +395,14 @@ flowchart LR
 
 #### Рисунок 1 — ER-диаграмма базы данных ПТТ
 
-> **[Вставить рисунок 1]** — см. приложение А.  
-> *Подпись в Word: «Рисунок 1 — ER-диаграмма базы данных ПТТ».*
+> **Содержание рисунка.** Концептуальная модель в нотации «воронья лапка»: сущности users, topics, tags, tasks, recurring_rules, diary_entries, behavior_patterns (режимы habit / scenario / markers — разные группы таблиц), goals, goal_links, holidays; связи 1:N и M:N (task_tags, diary_tags). Отражены суррогатные ключи и основные атрибуты сущностей.
+>
+> **Подпись под рисунком:** «Рисунок 1 — ER-диаграмма базы данных ПТТ»
+>
+> **Уже вставлено** (PNG: `docs/diagrams/png/01-er-full.png`).
+ «Рисунок 1 — ER-диаграмма базы данных ПТТ».*
 
-Ниже — исходник для генерации (в печатную версию можно не включать).
-
-```mermaid
-erDiagram
-    %% ========== ЯДРО ПОЛЬЗОВАТЕЛЯ ==========
-    users ||--o{ topics : "владеет"
-    users ||--o{ tags : "владеет"
-    users ||--o{ tasks : "создаёт"
-    users ||--o{ diary_entries : "пишет"
-    users ||--o{ behavior_patterns : "отслеживает"
-    users ||--o{ goals : "ставит"
-    users ||--o{ app_settings : "настраивает"
-    users ||--o{ task_time_logs : "логирует время"
-    users ||--o{ audit_log : "инициирует изменения"
-
-    %% ========== ЗАДАЧИ ==========
-    topics ||--o{ tasks : "категоризирует"
-    topics ||--o{ behavior_patterns : "группирует"
-    tasks ||--o{ task_tags : "имеет"
-    tags ||--o{ task_tags : "помечает"
-    tasks ||--o{ task_time_logs : "учёт времени"
-    tasks ||--o{ tasks : "parent_task_id подзадачи"
-    recurring_rules ||--o{ tasks : "порождает экземпляры"
-
-    %% ========== ДНЕВНИК ==========
-    diary_entries ||--o{ diary_tags : "имеет"
-    tags ||--o{ diary_tags : "помечает"
-
-    %% ========== ПАТТЕРН: ОБЩЕЕ + HABIT ==========
-    behavior_patterns ||--o{ pattern_response_options : "варианты ответа"
-    behavior_patterns ||--o{ pattern_schedules : "расписание"
-    behavior_patterns ||--o{ pattern_logs : "журнал habit"
-    pattern_response_options ||--o{ pattern_logs : "выбранный ответ"
-
-    %% ========== ПАТТЕРН: SCENARIO ==========
-    behavior_patterns ||--o{ pattern_steps : "шаги сценария"
-    behavior_patterns ||--o{ pattern_day_sessions : "сессия за день"
-    pattern_day_sessions ||--o{ pattern_step_answers : "ответы на шаги"
-    pattern_steps ||--o{ pattern_step_answers : "по шагу"
-
-    %% ========== ПАТТЕРН: MARKERS ==========
-    behavior_patterns ||--o{ pattern_markers : "эпизоды"
-    pattern_response_options ||--o{ pattern_markers : "тип эпизода"
-    behavior_patterns ||--o{ pattern_marker_day_closures : "день без эпизодов"
-
-    %% ========== ЦЕЛИ И СПРАВОЧНИКИ ==========
-    goals ||--o{ goal_links : "связывает task или pattern"
-    holidays ||--o{ tasks : "косвенно через календарь"
-
-    users {
-        bigint id PK "Суррогатный ключ владельца"
-        text username UK "Логин; в однопользовательском режиме одна строка"
-        text password_hash "Зарезервировано под будущую аутентификацию"
-        text timezone "IANA; влияет на отображение timestamptz"
-        timestamptz created_at
-    }
-
-    topics {
-        bigint id PK
-        bigint user_id FK "CASCADE: удаление пользователя — удаление тем"
-        text name "UK в паре с user_id"
-        hex_color color "DOMAIN: #RRGGBB для UI и графиков"
-    }
-
-    tags {
-        bigint id PK
-        bigint user_id FK
-        text name "Универсальные теги для tasks и diary"
-    }
-
-    recurring_rules {
-        bigint id PK
-        recurrence_freq_enum frequency "daily|weekly|monthly|custom"
-        jsonb params "Маска недели, interval_days, monthly_day"
-        timestamptz next_run_at "Для планировщика sp_spawn_recurring_tasks"
-        boolean is_active
-    }
-
-    tasks {
-        bigint id PK
-        bigint user_id FK
-        bigint topic_id FK "RESTRICT: нельзя удалить тему с задачами"
-        bigint parent_task_id FK "SET NULL; иерархия подзадач"
-        bigint recurring_rule_id FK "Связь с правилом повторения"
-        text title
-        text description "Участвует в GIN FTS"
-        task_status_enum status "pending|in_progress|done|overdue|cancelled"
-        task_priority_enum priority
-        timestamptz start_at "Начало окна выполнения"
-        timestamptz deadline "Конец окна; участвует в просрочке"
-        positive_int planned_minutes "Плановая оценка; нужна для overdue-триггера"
-        timestamptz completed_at "Проставляется триггером при done"
-        boolean is_archived
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    task_tags {
-        bigint task_id PK,FK
-        bigint tag_id PK,FK "M:N без дублирования тегов на задаче"
-    }
-
-    task_time_logs {
-        bigint id PK
-        bigint task_id FK
-        bigint user_id FK
-        timestamptz started_at
-        timestamptz ended_at
-        int duration_seconds "GENERATED STORED"
-        boolean is_pomodoro "Различение Pomodoro и ручного ввода"
-    }
-
-    diary_entries {
-        bigint id PK
-        bigint user_id FK
-        date entry_date UK "Одна запись на пользователя в день"
-        text content
-        tsvector content_tsv "Обновляется триггером; GIN-индекс"
-        mood_score mood "DOMAIN 1..5"
-        mood_score energy
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    diary_tags {
-        bigint entry_id PK,FK
-        bigint tag_id PK,FK
-    }
-
-    behavior_patterns {
-        bigint id PK
-        bigint user_id FK
-        bigint topic_id FK "Опциональная тематика"
-        text title
-        pattern_type_enum pattern_type "positive|negative"
-        pattern_mode_enum pattern_mode "habit|scenario|markers"
-        boolean is_boolean "Два варианта Y/N"
-        boolean auto_create_task
-        text guide_intro "Подсказка для режима scenario"
-    }
-
-    pattern_response_options {
-        bigint id PK
-        bigint pattern_id FK
-        text label
-        boolean is_success "Учитывается в серии habit/markers"
-        int sort_order
-    }
-
-    pattern_schedules {
-        bigint id PK
-        bigint pattern_id FK
-        time time_of_day
-        smallint dow_mask "Битовая маска Пн..Вс"
-        smallint day_of_month "Опционально: раз в месяц"
-    }
-
-    pattern_logs {
-        bigint id PK
-        bigint pattern_id FK
-        bigint response_option_id FK
-        timestamptz scheduled_at
-        timestamptz answered_at
-        pattern_log_status_enum status "pending|answered|missed"
-    }
-
-    pattern_steps {
-        bigint id PK
-        bigint pattern_id FK
-        pattern_step_kind_enum step_kind "check|single_choice|note"
-        pattern_step_role_enum step_role "context|trigger|choice|action|outcome"
-        jsonb choices "Варианты для single_choice"
-        boolean marks_success "Итоговый шаг сценария"
-    }
-
-    pattern_day_sessions {
-        bigint id PK
-        bigint pattern_id FK
-        date session_date UK "Одна сессия на паттерн в день"
-        pattern_session_status_enum status
-        boolean outcome_success "Итог дня для серии"
-    }
-
-    pattern_step_answers {
-        bigint id PK
-        bigint session_id FK
-        bigint step_id FK
-        text choice_id
-        boolean checked
-        text note_text
-    }
-
-    pattern_markers {
-        bigint id PK
-        bigint pattern_id FK
-        bigint marker_option_id FK "Тип эпизода из response_options"
-        timestamptz occurred_at
-        text note
-    }
-
-    pattern_marker_day_closures {
-        bigint id PK
-        bigint pattern_id FK
-        date closure_date UK "Явное «сегодня без эпизодов»"
-    }
-
-    goals {
-        bigint id PK
-        bigint user_id FK
-        text title
-        date deadline
-        positive_int target_value
-        boolean is_completed
-        timestamptz completed_at
-    }
-
-    goal_links {
-        bigint goal_id PK,FK
-        text target_type PK "task|pattern"
-        bigint target_id PK "Полиморфная ссылка без FK на одну таблицу"
-    }
-
-    holidays {
-        bigint id PK
-        date holiday_date UK
-        text name
-        boolean is_official "false — пользовательские даты"
-    }
-
-    audit_log {
-        bigint id PK
-        bigint user_id FK
-        text table_name
-        bigint row_id
-        audit_action_enum action
-        jsonb diff "Снимок изменений"
-        timestamptz changed_at
-    }
-
-    app_settings {
-        bigint id PK
-        bigint user_id FK
-        text key UK "theme, pomodoro_minutes, dnd, ..."
-        jsonb value
-    }
-```
+Исходник ER — приложение А (`01-er-full.mmd`).
 
 ### 5.3. Развёрнутые комментарии к ER-диаграмме
 
@@ -667,25 +447,6 @@ Pomodoro и ручной ввод различаются флагом `is_pomodo
 
 `behavior_patterns.pattern_mode` определяет, **какие таблицы** участвуют в жизненном цикле:
 
-```mermaid
-flowchart TB
-    BP[behavior_patterns]
-    BP --> H[habit]
-    BP --> S[scenario]
-    BP --> M[markers]
-
-    H --> PS[pattern_schedules]
-    H --> PRO[pattern_response_options]
-    H --> PL[pattern_logs]
-
-    S --> PST[pattern_steps]
-    S --> PDS[pattern_day_sessions]
-    PDS --> PSA[pattern_step_answers]
-
-    M --> PM[pattern_markers]
-    M --> PMD[pattern_marker_day_closures]
-    M --> PRO
-```
 
 | Режим | Таблицы | Семантика «успеха» |
 |---|---|---|
@@ -923,24 +684,7 @@ flowchart TB
 
 Все мутирующие API-операции выполняются в рамках сессии SQLAlchemy с `commit`/`rollback`. Процедуры `sp_*` объявлены `LANGUAGE plpgsql` и при необходимости открывают явные подтранзакции.
 
-**Пример сквозного сценария «Завершить задачу с просрочкой»:**
-
-```mermaid
-sequenceDiagram
-    participant UI as React UI
-    participant API as FastAPI
-    participant PG as PostgreSQL
-
-    UI->>API: POST /tasks/42/complete
-    API->>PG: BEGIN
-    API->>PG: CALL sp_complete_task(42)
-    PG->>PG: UPDATE tasks SET status=done
-    PG->>PG: trg_task_set_completed_at
-    PG->>PG: trg_task_overdue_check → overdue
-    PG->>PG: trg_audit_changes → audit_log
-    API->>PG: COMMIT
-    API->>UI: 200 TaskRead(status=overdue)
-```
+**Пример сквозного сценария «Завершить задачу с просрочкой»** (см. рисунки 3 и 5): UI → `POST /tasks/{id}/complete` → `CALL sp_complete_task` → триггеры `trg_task_set_completed_at`, `trg_task_overdue_check`, `trg_audit_changes` → ответ с итоговым статусом (`done` или `overdue`).
 
 ### 7.5. Тестирование БД
 
@@ -1057,10 +801,14 @@ sequenceDiagram
 - `pattern_logs`, `pattern_markers`, `pattern_day_sessions` — слоты и успехи паттернов;
 - `task_time_logs` — `minutes_logged`, `pomodoro_minutes`.
 
-#### Рисунок 9 — Зерно OLAP и источники данных
+#### Рисунок 9 — Зерно OLAP и источники фактов
 
-> **[Вставить рисунок 9]** — схема «звезда»: центр `v_olap_daily_facts`, лучи к `tasks`, `diary_entries`, `pattern_*`, `task_time_logs` (по § 9.2).  
-> *Подпись в Word: «Рисунок 9 — Зерно OLAP и источники фактов».*
+> **Содержание рисунка.** Схема «звезда»: в центре представление v_olap_daily_facts (зерно: пользователь × день); лучи к источникам — tasks, diary_entries, pattern_logs, pattern_markers, pattern_day_sessions, task_time_logs. Подписи связей: метрики задач, настроение, слоты паттернов, минуты работы.
+>
+> **Подпись под рисунком:** «Рисунок 9 — Зерно OLAP и источники фактов»
+>
+> **Вставить:** нарисовать в draw.io (см. § 9.2).
+ «Рисунок 9 — Зерно OLAP и источники фактов».*
 
 ### 9.3. Измерения и меры (логический уровень)
 
@@ -1092,8 +840,12 @@ sequenceDiagram
 
 #### Рисунок 10 — Интерфейс OLAP-конструктора
 
-> **[Вставить рисунок 10]** — скриншот страницы «Статистика», блок OLAP (измерения и меры).  
-> *Подпись в Word: «Рисунок 10 — Интерфейс OLAP-среза».*
+> **Содержание рисунка.** Скриншот страницы «Статистика»: блок выбора измерений (неделя, месяц, день недели, корзины mood/energy) и мер (доля выполненных задач, среднее настроение, минуты Pomodoro и др.), кнопка построения среза.
+>
+> **Подпись под рисунком:** «Рисунок 10 — Интерфейс OLAP-конструктора»
+>
+> **Вставить:** скриншот UI после docker compose up → Статистика.
+ «Рисунок 10 — Интерфейс OLAP-среза».*
 
 ### 9.5. Ограничения модели
 
@@ -1142,20 +894,32 @@ sequenceDiagram
 
 \* При росте объёма до критерия ТЗ (десятки тысяч строк) ожидается переход на **Bitmap Index Scan** по GIN; на S2 выгоднее полный проход по кэшированной таблице.
 
-#### Рисунок 11 — План выполнения `fn_get_calendar_stats`
+#### Рисунок 11 — План запроса календаря месяца при наборе S2
 
-> **[Вставить рисунок 11]** — фрагмент приложения Е, блок Q1.  
-> *Подпись в Word: «Рисунок 11 — План запроса календаря месяца при наборе S2».*
+> **Содержание рисунка.** Фрагмент EXPLAIN (ANALYZE, BUFFERS) для fn_get_calendar_stats — запрос Q1, набор S2 (~10 000 задач): узлы плана, время выполнения, использование буферов.
+>
+> **Подпись под рисунком:** «Рисунок 11 — План запроса календаря месяца при наборе S2»
+>
+> **Вставить:** docs/benchmark_explain_out.txt, блок Q1 (приложение Е).
+ «Рисунок 11 — План запроса календаря месяца при наборе S2».*
 
-#### Рисунок 12 — Планы FTS дневника (Q2a / Q2b)
+#### Рисунок 12 — Планы полнотекстового поиска дневника (Q2a и Q2b)
 
-> **[Вставить рисунок 12]** — фрагменты приложения Е, блоки Q2a и Q2b.  
-> *Подпись в Word: «Рисунок 12 — Планы `fn_search_diary` до и после индекса GIN».*
+> **Содержание рисунка.** Два плана fn_search_diary: Q2a — без GIN-индекса; Q2b — с idx_diary_fts_gin; сравнение типа сканирования и времени на наборе S2.
+>
+> **Подпись под рисунком:** «Рисунок 12 — Планы полнотекстового поиска дневника (Q2a и Q2b)»
+>
+> **Вставить:** docs/benchmark_explain_out.txt, блоки Q2a и Q2b.
+ «Рисунок 12 — Планы `fn_search_diary` до и после индекса GIN».*
 
-#### Рисунок 13 — План выборки задач по индексу
+#### Рисунок 13 — План фильтра задач по составному индексу
 
-> **[Вставить рисунок 13]** — фрагмент приложения Е, блок Q3.  
-> *Подпись в Word: «Рисунок 13 — План фильтра задач по `idx_tasks_topic_status`».*
+> **Содержание рисунка.** Фрагмент EXPLAIN для выборки задач по topic_id и status (Q3): использование idx_tasks_topic_status (Bitmap Index Scan → Bitmap Heap Scan).
+>
+> **Подпись под рисунком:** «Рисунок 13 — План фильтра задач по составному индексу»
+>
+> **Вставить:** docs/benchmark_explain_out.txt, блок Q3.
+ «Рисунок 13 — План фильтра задач по `idx_tasks_topic_status`».*
 
 Полные листинги планов выполнения — **приложение Е**.
 

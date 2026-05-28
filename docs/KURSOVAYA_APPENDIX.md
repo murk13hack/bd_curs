@@ -29,10 +29,13 @@
 
 См. [DEPLOY.md](./DEPLOY.md), [ТЗ.md](../ТЗ.md).
 
-#### Рисунок 14 — Схема развёртывания Docker Compose
+#### Рисунок 14 — Развёртывание системы ПТТ (Docker Compose)
 
-> **[Вставить рисунок 14]** — схема контейнеров `db` / `backend` / `frontend`, сеть, volume `pgdata` (см. [DEPLOY.md](./DEPLOY.md)).  
-> *Подпись в Word: «Рисунок 14 — Развёртывание системы ПТТ (Docker Compose)».*
+> **Содержание рисунка.** Контейнеры db (PostgreSQL 16), backend (FastAPI), frontend (React + nginx); сеть docker-compose; том pgdata; порты 5432, 8000, 80.
+>
+> **Подпись под рисунком:** «Рисунок 14 — Развёртывание системы ПТТ (Docker Compose)»
+>
+> **Вставить:** схема по `docker-compose.yml` (draw.io), см. [DEPLOY.md](./DEPLOY.md).
 
 ---
 
