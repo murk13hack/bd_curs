@@ -41,7 +41,7 @@ SELECT
     date_trunc('week', day)::date AS week,
     SUM(tasks_total) AS tasks_total,
     SUM(tasks_done) AS tasks_done,
-    ROUND(AVG(avg_mood)::numeric, 2) AS avg_mood
+    ROUND(AVG(mood)::numeric, 2) AS avg_mood_week
   FROM v_olap_daily_facts
  WHERE user_id = :user_id
    AND day BETWEEN '2025-01-01' AND '2025-12-31'

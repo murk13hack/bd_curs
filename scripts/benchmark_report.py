@@ -299,7 +299,7 @@ SELECT fn_calculate_streak(
             """
 SELECT date_trunc('week', day)::date AS week,
        SUM(tasks_total), SUM(tasks_done),
-       ROUND(AVG(avg_mood)::numeric, 2)
+       ROUND(AVG(mood)::numeric, 2)
   FROM v_olap_daily_facts
  WHERE user_id = 1 AND day BETWEEN '2025-01-01' AND '2025-12-31'
  GROUP BY 1 ORDER BY 1

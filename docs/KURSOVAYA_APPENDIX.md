@@ -138,43 +138,40 @@ CREATE TRIGGER trg_task_overdue_check
 
 ## Приложение Е. Планы выполнения запросов (EXPLAIN)
 
-Получение листингов:
+Получение листингов: `./scripts/benchmark_run_for_kursovaya.sh 10000` → `docs/benchmark_explain_out.txt`.
 
-```powershell
-docker cp scripts/benchmark_load_tasks.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -v count=10000 -f /tmp/benchmark_load_tasks.sql
-docker cp scripts/benchmark_explain.sql ptt-db:/tmp/
-docker exec ptt-db psql -U ptt -d ptt -f /tmp/benchmark_explain.sql > explain_out.txt
+#### Рисунок 11 — План `fn_get_calendar_stats` (Q1, набор S2)
+
+```text
+Merge Left Join  (cost=510.53..9104.87 ... actual time=5.352..5.564 rows=31)
+  Buffers: shared hit=463 read=5
+  -> GroupAggregate  Group Key: ((t.deadline)::date)  (actual time=2.190..2.253)
+        -> Seq Scan on tasks t
+              Filter: user_id = 1 AND deadline::date в диапазоне мая 2025
+              Rows Removed by Filter: 9632
+Execution Time: 5.816 ms
 ```
 
-Сравнение GIN (Q2): `DROP INDEX idx_diary_fts_gin` → прогон → `CREATE INDEX` из `04-indexes.sql` → повтор.
-
-#### Рисунок 11 — План `fn_get_calendar_stats`
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  [ ВСТАВИТЬ: фрагмент explain_out.txt, запрос Q1 ]           │
-│  Подпись: Рисунок 11 — План выполнения календаря месяца      │
-└──────────────────────────────────────────────────────────────┘
-```
+*Подпись: Рисунок 11 — План выполнения `fn_get_calendar_stats` при ~10 000 задач.*
 
 #### Рисунок 12 — Планы FTS дневника (до/после GIN)
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  [ ВСТАВИТЬ: Q2a Seq Scan и Q2b Bitmap Index Scan ]          │
-│  Подпись: Рисунок 12 — Влияние индекса idx_diary_fts_gin     │
-└──────────────────────────────────────────────────────────────┘
+> После допрогона Q2a/Q2b вставить фрагменты из `benchmark_explain_out.txt` (блоки `Q2a` / `Q2b`).
+
+*Подпись: Рисунок 12 — Влияние индекса `idx_diary_fts_gin` на `fn_search_diary`.*
+
+#### Рисунок 13 — План выборки задач по индексу (Q3)
+
+```text
+Limit  (actual time=1.052..1.070 rows=200)
+  -> Bitmap Heap Scan on tasks
+        Recheck Cond: (topic_id = $0) AND (status = 'pending')
+        -> Bitmap Index Scan on idx_tasks_topic_status
+              Index Cond: (topic_id = $0) AND (status = 'pending')
+Execution Time: 1.120 ms
 ```
 
-#### Рисунок 13 — План выборки задач по индексу
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  [ ВСТАВИТЬ: Q3, Index Scan idx_tasks_topic_status ]          │
-│  Подпись: Рисунок 13 — План фильтра задач по теме и статусу  │
-└──────────────────────────────────────────────────────────────┘
-```
+*Подпись: Рисунок 13 — План фильтра задач по `idx_tasks_topic_status`.*
 
 Результаты сводятся в **таблицу 9** основного текста (глава 10).
 
