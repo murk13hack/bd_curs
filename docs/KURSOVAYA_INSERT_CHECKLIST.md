@@ -30,7 +30,22 @@
 
 ## 2. Генерация рисунков 1–8 из `docs/diagrams/`
 
-Общий порядок: открыть исходник → экспорт **PNG** (ширина 1200–1600 px для A4) → сохранить как `figures/figNN.png` → в Word вставить под заглушкой `[Вставить рисунок N]`.
+### Автоматически на Fedora (рекомендуется)
+
+```bash
+chmod +x scripts/render-diagrams-fedora.sh
+./scripts/render-diagrams-fedora.sh --install-deps
+```
+
+(`--install-deps` — один раз ставит через `dnf`: nodejs, npm, chromium, plantuml, graphviz и библиотеки для headless Chrome)
+
+PNG появятся в **`docs/diagrams/png/`** (все рис. 1–8). Подробности: [scripts/diagrams-render/README.md](../scripts/diagrams-render/README.md).
+
+> **BPMN:** исходные `.bpmn` без координат — в Camunda/draw.io пустой лист. Скрипт строит разметку и кладёт версию с DI в `docs/diagrams/_laid/`.
+
+### Вручную (если без Linux)
+
+Общий порядок: открыть исходник → экспорт **PNG** (ширина 1200–1600 px для A4) → в Word вставить под заглушкой `[Вставить рисунок N]`.
 
 | № | Исходник | Инструмент | Куда в тексте (поиск в Word) |
 |---|----------|------------|------------------------------|

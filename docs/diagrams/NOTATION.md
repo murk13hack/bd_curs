@@ -15,6 +15,8 @@
 
 **Практическая связка для курсовой:** черновик в Mermaid/PlantUML → финальный рисунок в draw.io или Camunda (BPMN) → вставка в Word с нумерацией «Рисунок 1…».
 
+**Автоэкспорт PNG на Fedora:** `./scripts/render-diagrams-fedora.sh` → `docs/diagrams/png/` (см. [scripts/diagrams-render/README.md](../../scripts/diagrams-render/README.md)). Файлы `.bpmn` без BPMNDI вручную не рисуются — скрипт добавляет разметку через `bpmn-auto-layout`.
+
 ## Условные обозначения (для текста записки)
 
 | Символ / элемент | Нотация | Значение в ПТТ |
@@ -35,8 +37,9 @@
 |------|-------------------|---------|
 | `01-er-full.mmd` | Рисунок 1 — ER-диаграмма | Mermaid `erDiagram` |
 | `02-architecture.mmd` | Рисунок 2 — Развёртывание | Mermaid `flowchart` |
-| `03-bpmn-complete-task.bpmn` | Рисунок 3 — BPMN завершения задачи | BPMN 2.0 XML |
-| `04-bpmn-pattern-habit.bpmn` | Рисунок 4 — BPMN паттерна habit | BPMN 2.0 XML |
+| `03-bpmn-complete-task.bpmn` | Рисунок 3 — BPMN завершения задачи | BPMN 2.0 XML → PNG скриптом |
+| `04-bpmn-pattern-habit.bpmn` | Рисунок 4 — BPMN паттерна habit | BPMN 2.0 XML → PNG скриптом |
+| `png/03-*.png`, `png/04-*.png` | готовые рис. 3–4 | после `render-diagrams-fedora.sh` |
 | `05-state-task.puml` | Рисунок 5 — Диаграмма состояний задачи | PlantUML state |
 | `06-state-pattern-log.puml` | Рисунок 6 — Состояния pattern_logs | PlantUML state |
 | `07-activity-daily.puml` | Рисунок 7 — Суточный цикл планировщика | PlantUML activity |
