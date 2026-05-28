@@ -23,7 +23,7 @@ SELECT
     (SELECT id FROM topics WHERE user_id = 1 ORDER BY id LIMIT 1),
     'Bench #' || g,
     'Load test for EXPLAIN',
-    (ARRAY['pending','in_progress','done','overdue'])[1 + (g % 4)],
+    (ARRAY['pending','in_progress','done','overdue']::task_status_enum[])[1 + (g % 4)],
     (ARRAY['low','medium','high','urgent']::task_priority_enum[])[1 + (g % 4)],
     (date '2024-01-01' + (g % 730))::timestamptz + time '18:00',
     30 + (g % 90),
