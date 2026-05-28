@@ -1,20 +1,9 @@
 -- =============================================================================
--- EXPLAIN (ANALYZE, BUFFERS) для раздела «Экспериментальная оценка» курсовой.
+-- УСТАРЕВШИЙ КОРОТКИЙ СКРИПТ (без Q2a/Q2b и без подготовки данных).
 --
--- Подготовка:
---   1) scripts/benchmark_load_tasks.sql  (10k или 100k задач)
---   2) Несколько записей дневника с длинным текстом (или demo seed)
---
--- Запуск:
---   docker cp scripts/benchmark_explain.sql ptt-db:/tmp/
---   docker exec ptt-db psql -U ptt -d ptt -f /tmp/benchmark_explain.sql > explain_out.txt
---
--- Сравнение «до/после» для GIN:
---   DROP INDEX idx_diary_fts_gin;
---   \i benchmark_explain.sql   -- запрос 2
---   CREATE INDEX idx_diary_fts_gin ON diary_entries USING gin (content_tsv);
---   ANALYZE diary_entries;
---   \i benchmark_explain.sql   -- запрос 2 снова
+-- Для курсовой используйте полный прогон:
+--   ./scripts/benchmark_run_for_kursovaya.sh
+--   или scripts/benchmark_for_kursovaya.sql (см. комментарии в файле).
 -- =============================================================================
 
 \timing on

@@ -1129,12 +1129,17 @@ sequenceDiagram
 | `scripts/benchmark_report.sh` | **автоматический прогон** → `docs/benchmark_results.md` (таблица 9) |
 | `scripts/benchmark_report.py` | движок (вызывается из `.sh`) |
 | `scripts/benchmark_load_tasks.sql` | вставка N задач (вызывается из `.sh`) |
-| `scripts/benchmark_explain.sql` | ручной прогон EXPLAIN (опционально) |
+| `scripts/benchmark_run_for_kursovaya.sh` | **рекомендуемый** прогон EXPLAIN → `docs/benchmark_explain_out.txt` |
+| `scripts/benchmark_for_kursovaya.sql` | те же запросы Q1–Q6, Q2a/Q2b (вызывается из `.sh`) |
+| `scripts/benchmark_explain.sql` | короткий legacy-вариант без Q2a/Q2b |
 
 ```bash
 docker compose up -d
-./scripts/benchmark_report.sh --count 10000
+./scripts/benchmark_run_for_kursovaya.sh 10000
+# результат: docs/benchmark_explain_out.txt → отправить в чат для таблицы 9
 ```
+
+Альтернатива с автоматическим разбором JSON: `./scripts/benchmark_report.sh --count 10000` → `docs/benchmark_results.md`.
 
 После наполнения выполняется `ANALYZE` автоматически.
 
