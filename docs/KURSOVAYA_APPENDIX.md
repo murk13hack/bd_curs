@@ -31,12 +31,8 @@
 
 #### Рисунок 14 — Схема развёртывания Docker Compose
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  [ ВСТАВИТЬ: схема контейнеров db / backend / frontend ]     │
-│  Подпись: Рисунок 14 — Развёртывание системы ПТТ (Compose)   │
-└──────────────────────────────────────────────────────────────┘
-```
+> **[Вставить рисунок 14]** — схема контейнеров `db` / `backend` / `frontend`, сеть, volume `pgdata` (см. [DEPLOY.md](./DEPLOY.md)).  
+> *Подпись в Word: «Рисунок 14 — Развёртывание системы ПТТ (Docker Compose)».*
 
 ---
 
@@ -57,7 +53,10 @@ OpenAPI 3.1: `http://localhost:8000/docs` после `docker compose up -d`.
 | Статистика / OLAP | `v_olap_daily_facts`, `POST /stats/olap` |
 | Цели | `goals`, `fn_goal_progress` |
 
-*(Скриншоты вставляются по требованию кафедры; рисунок 10 — OLAP — в глава 9 текста.)*
+| № | Подпись | Заглушка в тексте |
+|---|---------|-------------------|
+| — | Задачи, дневник, паттерны, календарь, цели | по требованию кафедры |
+| 10 | OLAP-конструктор | **рисунок 10** — § 9.4 [KURSOVAYA_BD.md](./KURSOVAYA_BD.md) |
 
 ---
 
@@ -142,43 +141,18 @@ CREATE TRIGGER trg_task_overdue_check
 
 #### Рисунок 11 — План `fn_get_calendar_stats` (Q1, набор S2)
 
-```text
-Merge Left Join  (cost=510.53..9104.87 ... actual time=5.352..5.564 rows=31)
-  Buffers: shared hit=463 read=5
-  -> GroupAggregate  Group Key: ((t.deadline)::date)  (actual time=2.190..2.253)
-        -> Seq Scan on tasks t
-              Filter: user_id = 1 AND deadline::date в диапазоне мая 2025
-              Rows Removed by Filter: 9632
-Execution Time: 5.816 ms
-```
-
-*Подпись: Рисунок 11 — План выполнения `fn_get_calendar_stats` при ~10 000 задач.*
+> **[Вставить рисунок 11]** — листинг из `docs/benchmark_explain_out.txt`, блок `Q1` (полный план).  
+> *Подпись в Word: «Рисунок 11 — План выполнения `fn_get_calendar_stats` при ~10 000 задач».*
 
 #### Рисунок 12 — Планы FTS дневника (до/после GIN)
 
-```text
--- Q2a (без idx_diary_fts_gin), 578 записей
-Seq Scan on diary_entries
-  Filter: content_tsv @@ 'продуктивн' AND user_id = 1
-Execution Time: 1.102 ms
-
--- Q2b (индекс восстановлен) — тот же Seq Scan, 1.064 ms
-```
-
-*Подпись: Рисунок 12 — `fn_search_diary` на S2; при малом объёме планировщик не переключается на GIN (см. гл. 10).*
+> **[Вставить рисунок 12]** — листинги `Q2a` и `Q2b` из `docs/benchmark_explain_out.txt`.  
+> *Подпись в Word: «Рисунок 12 — Планы `fn_search_diary` до и после индекса GIN».*
 
 #### Рисунок 13 — План выборки задач по индексу (Q3)
 
-```text
-Limit  (actual time=1.052..1.070 rows=200)
-  -> Bitmap Heap Scan on tasks
-        Recheck Cond: (topic_id = $0) AND (status = 'pending')
-        -> Bitmap Index Scan on idx_tasks_topic_status
-              Index Cond: (topic_id = $0) AND (status = 'pending')
-Execution Time: 1.120 ms
-```
-
-*Подпись: Рисунок 13 — План фильтра задач по `idx_tasks_topic_status`.*
+> **[Вставить рисунок 13]** — листинг `Q3` из `docs/benchmark_explain_out.txt`.  
+> *Подпись в Word: «Рисунок 13 — План фильтра задач по `idx_tasks_topic_status`».*
 
 Результаты сводятся в **таблицу 9** основного текста (глава 10).
 
