@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "timestamp": "2026-05-28T11:26:56+03:00",
+    "container": "ptt-db",
+    "database": "ptt",
+    "user": "ptt",
+    "counts": {
+      "tasks": 0,
+      "diary": 0,
+      "pattern_logs": 0
+    },
+    "load_count": 10000
+  },
+  "rows": [
+    {
+      "id": "Q1",
+      "query": "fn_get_calendar_stats(1, 2025, 5)",
+      "index": "агрегат по tasks.deadline, idx_tasks_user_completed_at",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "—",
+      "conclusion": "календарь месяца; сравнить с лимитом ТЗ 250 мс",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q3",
+      "query": "tasks по topic_id + status",
+      "index": "idx_tasks_topic_status",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "—",
+      "conclusion": "типовой список задач в UI",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q4",
+      "query": "fn_calculate_streak(pattern_id)",
+      "index": "idx_pattern_logs_pattern_date",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "—",
+      "conclusion": "расчёт серии паттерна",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q5",
+      "query": "OLAP v_olap_daily_facts по неделям",
+      "index": "view → tasks, diary, pattern_logs, task_time_logs",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "—",
+      "conclusion": "срез OLAP за год",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q6",
+      "query": "FTS tasks (bench)",
+      "index": "idx_tasks_search_gin",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "—",
+      "conclusion": "поиск по задачам на нагрузочном наборе",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q2a",
+      "query": "fn_search_diary(1, 'продуктивность') (без GIN)",
+      "index": "— (idx_diary_fts_gin снят)",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "",
+      "conclusion": "базовый Seq Scan / медленнее",
+      "error": "Не удалось разобрать JSON плана"
+    },
+    {
+      "id": "Q2b",
+      "query": "fn_search_diary(1, 'продуктивность') (с GIN)",
+      "index": "idx_diary_fts_gin",
+      "shared_read": 0,
+      "exec_ms": null,
+      "nodes": "",
+      "conclusion": "Bitmap Index Scan, ускорение FTS",
+      "error": "Не удалось разобрать JSON плана"
+    }
+  ]
+}
