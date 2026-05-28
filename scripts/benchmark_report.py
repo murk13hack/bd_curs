@@ -89,7 +89,8 @@ def docker_psql(
         "ON_ERROR_STOP=1",
     ]
     if tuples_only:
-        cmd.extend(["-t", "-A"])
+        # -q: без NOTICE; -F: явный разделитель (иначе на части сборок psql пустые поля)
+        cmd.extend(["-t", "-A", "-q", "-F", "|", "--no-psqlrc"])
     proc = subprocess.run(
         cmd,
         input=sql,
@@ -215,19 +216,39 @@ def plan_to_text(plan_root: dict) -> str:
 
 
 def get_counts(container: str, user: str, database: str) -> dict[str, int]:
+    """Счётчики строк; устойчив к разным форматам вывода psql -t -A."""
     sql = """
-SELECT
-  (SELECT COUNT(*)::bigint FROM tasks WHERE user_id = 1) AS tasks,
-  (SELECT COUNT(*)::bigint FROM diary_entries WHERE user_id = 1) AS diary,
-  (SELECT COUNT(*)::bigint FROM pattern_logs) AS pattern_logs;
+SELECT 'tasks' AS k, COUNT(*)::text AS v FROM tasks WHERE user_id = 1
+UNION ALL
+SELECT 'diary', COUNT(*)::text FROM diary_entries WHERE user_id = 1
+UNION ALL
+SELECT 'pattern_logs', COUNT(*)::text FROM pattern_logs;
 """
     out = docker_psql(container, user, database, sql, tuples_only=True)
-    parts = out.strip().split("|")
-    return {
-        "tasks": int(parts[0]),
-        "diary": int(parts[1]),
-        "pattern_logs": int(parts[2]),
-    }
+    counts = {"tasks": 0, "diary": 0, "pattern_logs": 0}
+    for line in out.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "|" in line:
+            key, _, val = line.partition("|")
+        elif "\t" in line:
+            key, _, val = line.partition("\t")
+        else:
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            key, val = parts[0], parts[-1]
+        key = key.strip()
+        val = val.strip()
+        if key in counts and val.isdigit():
+            counts[key] = int(val)
+
+    if not any(counts.values()) and out.strip():
+        raise RuntimeError(
+            "Не удалось разобрать счётчики из psql. Вывод:\n" + out[:500]
+        )
+    return counts
 
 
 def build_queries() -> list[QuerySpec]:
