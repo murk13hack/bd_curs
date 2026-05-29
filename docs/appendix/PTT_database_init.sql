@@ -1,26 +1,35 @@
-﻿
+-- =============================================================================
+-- ПТТ. Сводный SQL-скрипт инициализации базы данных
+--
+-- Собран автоматически из каталога db/init/ (01..09) в кодировке UTF-8.
+-- Пересборка: python scripts/build_ptt_database_init_sql.py
+--
+-- Применение на пустой БД:
+--   psql -U <user> -d <db> -f PTT_database_init.sql
+-- =============================================================================
+
 
 -- ===== 00-readme.sql =====
 
 -- =============================================================================
--- РџРўРў. РљР°С‚Р°Р»РѕРі РёРЅРёС†РёР°Р»РёР·Р°С†РёРѕРЅРЅС‹С… СЃРєСЂРёРїС‚РѕРІ Р‘Р”.
+-- ПТТ. Каталог инициализационных скриптов БД.
 --
--- Р¤Р°Р№Р»С‹ РёР· СЌС‚РѕРіРѕ РєР°С‚Р°Р»РѕРіР° РІС‹РїРѕР»РЅСЏСЋС‚СЃСЏ РѕР±СЂР°Р·РѕРј postgres:16-alpine РїСЂРё РџР•Р Р’РћРњ
--- Р·Р°РїСѓСЃРєРµ РєРѕРЅС‚РµР№РЅРµСЂР° РІ РђР›Р¤РђР’РРўРќРћРњ РїРѕСЂСЏРґРєРµ РёРјС‘РЅ. РџРѕСЃР»Рµ СЃРѕР·РґР°РЅРёСЏ С‚РѕРјР° (volume
--- pgdata) РїРѕРІС‚РѕСЂРЅРѕ СЃРєСЂРёРїС‚С‹ РЅРµ Р·Р°РїСѓСЃРєР°СЋС‚СЃСЏ.
+-- Файлы из этого каталога выполняются образом postgres:16-alpine при ПЕРВОМ
+-- запуске контейнера в АЛФАВИТНОМ порядке имён. После создания тома (volume
+-- pgdata) повторно скрипты не запускаются.
 --
--- РџР»Р°РЅ РЅР°РїРѕР»РЅРµРЅРёСЏ РєР°С‚Р°Р»РѕРіР° СЃРѕРіР»Р°СЃРЅРѕ РўР— (СЂР°Р·РґРµР» 4.3.1, РїСЂРёР»РѕР¶РµРЅРёРµ Р’):
+-- План наполнения каталога согласно ТЗ (раздел 4.3.1, приложение В):
 --   01-extensions.sql   -- CREATE EXTENSION pg_trgm, btree_gist
 --   02-types.sql        -- CREATE TYPE / CREATE DOMAIN
---   03-tables.sql       -- CREATE TABLE + РєРѕРЅСЃС‚СЂРµР№РЅС‚С‹
+--   03-tables.sql       -- CREATE TABLE + констрейнты
 --   04-indexes.sql      -- CREATE INDEX (B-tree, GIN, BRIN, partial, exclusion)
 --   05-functions.sql    -- CREATE FUNCTION
 --   06-views.sql        -- CREATE VIEW / MATERIALIZED VIEW
 --   07-procedures.sql   -- CREATE PROCEDURE
 --   08-triggers.sql     -- CREATE TRIGGER
---   09-seed.sql         -- РЅР°РїРѕР»РЅРµРЅРёРµ СЃРїСЂР°РІРѕС‡РЅРёРєРѕРІ (topics, holidays, ...)
+--   09-seed.sql         -- наполнение справочников (topics, holidays, ...)
 --
--- РљРѕРјР°РЅРґР° РїСЂРёРјРµРЅРµРЅРёСЏ РІСЂСѓС‡РЅСѓСЋ (РµСЃР»Рё volume СѓР¶Рµ СЃСѓС‰РµСЃС‚РІРѕРІР°Р»):
+-- Команда применения вручную (если volume уже существовал):
 --   docker compose exec db psql -U $POSTGRES_USER -d $POSTGRES_DB -f /docker-entrypoint-initdb.d/<file>.sql
 -- =============================================================================
 
@@ -29,16 +38,15 @@ BEGIN
     RAISE NOTICE 'PTT init scripts placeholder loaded at %', now();
 END $$;
 
-
 -- ===== 01-extensions.sql =====
 
 -- =============================================================================
--- 01 вЂ” Р Р°СЃС€РёСЂРµРЅРёСЏ PostgreSQL.
+-- 01 — Расширения PostgreSQL.
 --
--- РСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ:
---   pg_trgm    вЂ” РЅРµС‡С‘С‚РєРёР№ РїРѕРёСЃРє/С‚СЂРёРіСЂР°РјРјРЅС‹Рµ РёРЅРґРµРєСЃС‹ РїРѕ С‚РµРіР°Рј Рё С‚РµРјР°Рј;
---   btree_gist вЂ” РїРѕРґРґРµСЂР¶РєР° EXCLUSION-РєРѕРЅСЃС‚СЂРµР№РЅС‚РѕРІ РІРјРµСЃС‚Рµ СЃ gist (СЃРј. 03);
---   unaccent   вЂ” РїРѕРёСЃРє Р±РµР· РґРёР°РєСЂРёС‚РёРєРё (РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ РґР»СЏ FTS).
+-- Используются:
+--   pg_trgm    — нечёткий поиск/триграммные индексы по тегам и темам;
+--   btree_gist — поддержка EXCLUSION-констрейнтов вместе с gist (см. 03);
+--   unaccent   — поиск без диакритики (вспомогательная для FTS).
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -50,24 +58,23 @@ BEGIN
     RAISE NOTICE 'PTT 01-extensions: pg_trgm, btree_gist, unaccent installed';
 END $$;
 
-
 -- ===== 02-types.sql =====
 
 -- =============================================================================
--- 02 вЂ” РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ С‚РёРїС‹ РґР°РЅРЅС‹С…: РїРµСЂРµС‡РёСЃР»РµРЅРёСЏ (ENUM) Рё РґРѕРјРµРЅРЅС‹Рµ (DOMAIN).
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.3.
+-- 02 — Пользовательские типы данных: перечисления (ENUM) и доменные (DOMAIN).
+-- См. ТЗ.md, раздел 4.3.1.3.
 -- =============================================================================
 
 -- ---------- ENUM ----------------------------------------------------------
 
 CREATE TYPE task_status_enum AS ENUM (
-    'pending',      -- Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅР°, РЅРµ РЅР°С‡Р°С‚Р°
-    'in_progress',  -- РІ СЂР°Р±РѕС‚Рµ
-    'done',         -- СѓСЃРїРµС€РЅРѕ Р·Р°РІРµСЂС€РµРЅР°
-    'overdue',      -- РїСЂРѕСЃСЂРѕС‡РµРЅР° (РІС‹СЃС‚Р°РІР»СЏРµС‚СЃСЏ С‚СЂРёРіРіРµСЂРѕРј trg_task_overdue_check)
-    'cancelled'     -- РѕС‚РјРµРЅРµРЅР° РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј
+    'pending',      -- запланирована, не начата
+    'in_progress',  -- в работе
+    'done',         -- успешно завершена
+    'overdue',      -- просрочена (выставляется триггером trg_task_overdue_check)
+    'cancelled'     -- отменена пользователем
 );
-COMMENT ON TYPE task_status_enum IS 'РЎС‚Р°С‚СѓСЃ Р·Р°РґР°С‡Рё. РџРµСЂРµС…РѕРґС‹: pending в†’ in_progress в†’ done; pending в†’ cancelled; done в†’ overdue (С‚СЂРёРіРіРµСЂ).';
+COMMENT ON TYPE task_status_enum IS 'Статус задачи. Переходы: pending → in_progress → done; pending → cancelled; done → overdue (триггер).';
 
 CREATE TYPE task_priority_enum AS ENUM (
     'low',
@@ -75,42 +82,42 @@ CREATE TYPE task_priority_enum AS ENUM (
     'high',
     'urgent'
 );
-COMMENT ON TYPE task_priority_enum IS 'РџСЂРёРѕСЂРёС‚РµС‚ Р·Р°РґР°С‡Рё.';
+COMMENT ON TYPE task_priority_enum IS 'Приоритет задачи.';
 
 CREATE TYPE pattern_type_enum AS ENUM (
-    'positive',  -- С„РѕСЂРјРёСЂРѕРІР°РЅРёРµ РїСЂРёРІС‹С‡РєРё (Р·Р°СЂСЏРґРєР°, С‡С‚РµРЅРёРµ, ...)
-    'negative'   -- РѕС‚РєР°Р· РѕС‚ РїСЂРёРІС‹С‡РєРё (РєСѓСЂРµРЅРёРµ, СЃРѕС†. СЃРµС‚Рё, ...)
+    'positive',  -- формирование привычки (зарядка, чтение, ...)
+    'negative'   -- отказ от привычки (курение, соц. сети, ...)
 );
-COMMENT ON TYPE pattern_type_enum IS 'РўРёРї РїР°С‚С‚РµСЂРЅР° РїРѕРІРµРґРµРЅРёСЏ.';
+COMMENT ON TYPE pattern_type_enum IS 'Тип паттерна поведения.';
 
 CREATE TYPE pattern_log_status_enum AS ENUM (
-    'pending',   -- РѕР¶РёРґР°РµРј РѕС‚РІРµС‚Р° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
-    'answered',  -- РѕС‚РІРµС‚ РїРѕР»СѓС‡РµРЅ
-    'missed'     -- РїСЂРѕРїСѓС‰РµРЅ (Р·Р°РєСЂС‹С‚ sp_close_overdue_pattern_logs)
+    'pending',   -- ожидаем ответа пользователя
+    'answered',  -- ответ получен
+    'missed'     -- пропущен (закрыт sp_close_overdue_pattern_logs)
 );
-COMMENT ON TYPE pattern_log_status_enum IS 'РЎС‚Р°С‚СѓСЃ Р·Р°РїРёСЃРё Р¶СѓСЂРЅР°Р»Р° РѕС‚РєР»РёРєРѕРІ РЅР° РїР°С‚С‚РµСЂРЅ.';
+COMMENT ON TYPE pattern_log_status_enum IS 'Статус записи журнала откликов на паттерн.';
 
 CREATE TYPE pattern_mode_enum AS ENUM (
-    'habit',     -- Р±С‹СЃС‚СЂС‹Р№ С‡РµРєР»РёСЃС‚ (СЃРґРµР»Р°Р» / СѓРґРµСЂР¶Р°Р»СЃСЏ)
-    'scenario',  -- РїРѕС€Р°РіРѕРІС‹Р№ СЃС†РµРЅР°СЂРёР№ РґРЅСЏ
-    'markers'    -- С‚РѕС‡РµС‡РЅС‹Рµ РѕС‚РјРµС‚РєРё (P3)
+    'habit',     -- быстрый чеклист (сделал / удержался)
+    'scenario',  -- пошаговый сценарий дня
+    'markers'    -- точечные отметки (P3)
 );
-COMMENT ON TYPE pattern_mode_enum IS 'Р РµР¶РёРј РїР°С‚С‚РµСЂРЅР° РїРѕРІРµРґРµРЅРёСЏ.';
+COMMENT ON TYPE pattern_mode_enum IS 'Режим паттерна поведения.';
 
 CREATE TYPE pattern_step_kind_enum AS ENUM (
     'check', 'single_choice', 'note'
 );
-COMMENT ON TYPE pattern_step_kind_enum IS 'РўРёРї С€Р°РіР° СЃС†РµРЅР°СЂРёСЏ.';
+COMMENT ON TYPE pattern_step_kind_enum IS 'Тип шага сценария.';
 
 CREATE TYPE pattern_step_role_enum AS ENUM (
     'context', 'trigger', 'choice', 'action', 'outcome'
 );
-COMMENT ON TYPE pattern_step_role_enum IS 'Р РѕР»СЊ С€Р°РіР° РІ СЃС†РµРЅР°СЂРёРё (РґР»СЏ Р°РЅР°Р»РёС‚РёРєРё).';
+COMMENT ON TYPE pattern_step_role_enum IS 'Роль шага в сценарии (для аналитики).';
 
 CREATE TYPE pattern_session_status_enum AS ENUM (
     'in_progress', 'completed', 'abandoned'
 );
-COMMENT ON TYPE pattern_session_status_enum IS 'РЎС‚Р°С‚СѓСЃ РїСЂРѕС…РѕР¶РґРµРЅРёСЏ СЃС†РµРЅР°СЂРёСЏ Р·Р° РґРµРЅСЊ.';
+COMMENT ON TYPE pattern_session_status_enum IS 'Статус прохождения сценария за день.';
 
 CREATE TYPE recurrence_freq_enum AS ENUM (
     'daily',
@@ -118,44 +125,43 @@ CREATE TYPE recurrence_freq_enum AS ENUM (
     'monthly',
     'custom'
 );
-COMMENT ON TYPE recurrence_freq_enum IS 'Р§Р°СЃС‚РѕС‚Р° РїРѕРІС‚РѕСЂРµРЅРёСЏ. custom: params.interval_days (РєР°Р¶РґС‹Рµ N РґРЅРµР№, N>=1).';
+COMMENT ON TYPE recurrence_freq_enum IS 'Частота повторения. custom: params.interval_days (каждые N дней, N>=1).';
 
 CREATE TYPE audit_action_enum AS ENUM (
     'insert',
     'update',
     'delete'
 );
-COMMENT ON TYPE audit_action_enum IS 'Р”РµР№СЃС‚РІРёРµ РІ Р¶СѓСЂРЅР°Р»Рµ Р°СѓРґРёС‚Р°.';
+COMMENT ON TYPE audit_action_enum IS 'Действие в журнале аудита.';
 
 -- ---------- DOMAIN --------------------------------------------------------
 
 CREATE DOMAIN mood_score AS SMALLINT
     CHECK (VALUE IS NULL OR (VALUE BETWEEN 1 AND 5));
-COMMENT ON DOMAIN mood_score IS 'РЁРєР°Р»Р° 1..5 РґР»СЏ РЅР°СЃС‚СЂРѕРµРЅРёСЏ Рё СѓСЂРѕРІРЅСЏ СЌРЅРµСЂРіРёРё.';
+COMMENT ON DOMAIN mood_score IS 'Шкала 1..5 для настроения и уровня энергии.';
 
 CREATE DOMAIN percentage AS NUMERIC(5,2)
     CHECK (VALUE IS NULL OR (VALUE BETWEEN 0 AND 100));
-COMMENT ON DOMAIN percentage IS 'РџСЂРѕС†РµРЅС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РІ РґРёР°РїР°Р·РѕРЅРµ 0..100.';
+COMMENT ON DOMAIN percentage IS 'Процентное значение в диапазоне 0..100.';
 
 CREATE DOMAIN positive_int AS INTEGER
     CHECK (VALUE IS NULL OR VALUE > 0);
-COMMENT ON DOMAIN positive_int IS 'РЎС‚СЂРѕРіРѕ РїРѕР»РѕР¶РёС‚РµР»СЊРЅРѕРµ С†РµР»РѕРµ С‡РёСЃР»Рѕ.';
+COMMENT ON DOMAIN positive_int IS 'Строго положительное целое число.';
 
 CREATE DOMAIN hex_color AS CHAR(7)
     CHECK (VALUE ~ '^#[0-9A-Fa-f]{6}$');
-COMMENT ON DOMAIN hex_color IS 'HEX-С†РІРµС‚ РІ С„РѕСЂРјР°С‚Рµ #RRGGBB.';
+COMMENT ON DOMAIN hex_color IS 'HEX-цвет в формате #RRGGBB.';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 02-types: ENUM and DOMAIN types created';
 END $$;
 
-
 -- ===== 03-tables.sql =====
 
 -- =============================================================================
--- 03 вЂ” РўР°Р±Р»РёС†С‹ Рё РґРµРєР»Р°СЂР°С‚РёРІРЅС‹Рµ РєРѕРЅСЃС‚СЂРµР№РЅС‚С‹.
--- 23 С‚Р°Р±Р»РёС†С‹: 18 Р±Р°Р·РѕРІС‹С… РїРѕ РўР— + 5 РґР»СЏ СЂРµР¶РёРјРѕРІ РїР°С‚С‚РµСЂРЅРѕРІ (scenario/markers).
+-- 03 — Таблицы и декларативные констрейнты.
+-- 23 таблицы: 18 базовых по ТЗ + 5 для режимов паттернов (scenario/markers).
 -- =============================================================================
 
 -- ---------- 1. users ------------------------------------------------------
@@ -167,7 +173,7 @@ CREATE TABLE users (
     timezone      TEXT        NOT NULL DEFAULT 'Europe/Moscow',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE users IS 'РџРѕР»СЊР·РѕРІР°С‚РµР»Рё СЃРёСЃС‚РµРјС‹. Р’ РѕРґРЅРѕ-РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРј СЂРµР¶РёРјРµ вЂ” РѕРґРЅР° Р·Р°РїРёСЃСЊ.';
+COMMENT ON TABLE users IS 'Пользователи системы. В одно-пользовательском режиме — одна запись.';
 
 -- ---------- 2. topics -----------------------------------------------------
 
@@ -179,7 +185,7 @@ CREATE TABLE topics (
     CONSTRAINT topics_user_name_uniq UNIQUE (user_id, name),
     CONSTRAINT topics_name_not_empty CHECK (length(btrim(name)) > 0)
 );
-COMMENT ON TABLE topics IS 'РўРµРјС‹ (РєР°С‚РµРіРѕСЂРёРё) Р·Р°РґР°С‡ Рё РїР°С‚С‚РµСЂРЅРѕРІ.';
+COMMENT ON TABLE topics IS 'Темы (категории) задач и паттернов.';
 
 -- ---------- 3. tags -------------------------------------------------------
 
@@ -190,7 +196,7 @@ CREATE TABLE tags (
     CONSTRAINT tags_user_name_uniq UNIQUE (user_id, name),
     CONSTRAINT tags_name_not_empty CHECK (length(btrim(name)) > 0)
 );
-COMMENT ON TABLE tags IS 'РЈРЅРёРІРµСЂСЃР°Р»СЊРЅС‹Рµ С‚РµРіРё РґР»СЏ Р·Р°РґР°С‡ Рё Р·Р°РїРёСЃРµР№ РґРЅРµРІРЅРёРєР°.';
+COMMENT ON TABLE tags IS 'Универсальные теги для задач и записей дневника.';
 
 -- ---------- 4. recurring_rules -------------------------------------------
 
@@ -202,7 +208,7 @@ CREATE TABLE recurring_rules (
     is_active   BOOLEAN              NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMPTZ          NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE recurring_rules IS 'РџСЂР°РІРёР»Р° РїРѕРІС‚РѕСЂРµРЅРёСЏ Р·Р°РґР°С‡. params вЂ” JSONB СЃ РїРѕР»СЏРјРё weekly_mask, monthly_day, custom_cron Рё С‚.Рґ.';
+COMMENT ON TABLE recurring_rules IS 'Правила повторения задач. params — JSONB с полями weekly_mask, monthly_day, custom_cron и т.д.';
 
 -- ---------- 5. tasks ------------------------------------------------------
 
@@ -231,10 +237,10 @@ CREATE TABLE tasks (
     CONSTRAINT tasks_completed_after_created CHECK (completed_at IS NULL OR completed_at >= created_at),
     CONSTRAINT tasks_no_self_parent CHECK (parent_task_id IS NULL OR parent_task_id <> id)
 );
-COMMENT ON TABLE tasks IS 'Р—Р°РґР°С‡Рё. РџРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ РёРµСЂР°СЂС…РёСЏ (parent_task_id) Рё РїСЂРёРІСЏР·РєР° Рє РїСЂР°РІРёР»Сѓ РїРѕРІС‚РѕСЂРµРЅРёСЏ.';
-COMMENT ON COLUMN tasks.start_at IS 'РќРµ СЂР°РЅСЊС€Рµ РєР°РєРѕРіРѕ РјРѕРјРµРЅС‚Р° Р·Р°РґР°С‡Сѓ РёРјРµРµС‚ СЃРјС‹СЃР» РЅР°С‡РёРЅР°С‚СЊ (РЅР°С‡Р°Р»Рѕ РѕРєРЅР° РІС‹РїРѕР»РЅРµРЅРёСЏ).';
-COMMENT ON COLUMN tasks.deadline IS 'РљСЂР°Р№РЅРёР№ СЃСЂРѕРє РѕРєРѕРЅС‡Р°РЅРёСЏ (РєРѕРЅРµС† РѕРєРЅР° РІС‹РїРѕР»РЅРµРЅРёСЏ).';
-COMMENT ON COLUMN tasks.planned_minutes IS 'РџР»Р°РЅРѕРІР°СЏ РѕС†РµРЅРєР° С‚СЂСѓРґРѕР·Р°С‚СЂР°С‚ РІ РјРёРЅСѓС‚Р°С…, РЅРµ РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ РёРЅС‚РµСЂРІР°Р»Р° start_atвЂ“deadline.';
+COMMENT ON TABLE tasks IS 'Задачи. Поддерживается иерархия (parent_task_id) и привязка к правилу повторения.';
+COMMENT ON COLUMN tasks.start_at IS 'Не раньше какого момента задачу имеет смысл начинать (начало окна выполнения).';
+COMMENT ON COLUMN tasks.deadline IS 'Крайний срок окончания (конец окна выполнения).';
+COMMENT ON COLUMN tasks.planned_minutes IS 'Плановая оценка трудозатрат в минутах, не длительность интервала start_at–deadline.';
 
 -- ---------- 6. task_tags --------------------------------------------------
 
@@ -243,7 +249,7 @@ CREATE TABLE task_tags (
     tag_id  BIGINT NOT NULL REFERENCES tags(id)  ON DELETE CASCADE,
     PRIMARY KEY (task_id, tag_id)
 );
-COMMENT ON TABLE task_tags IS 'РЎРІСЏР·РєР° M:N Р·Р°РґР°С‡Р°-С‚РµРі.';
+COMMENT ON TABLE task_tags IS 'Связка M:N задача-тег.';
 
 -- ---------- 7. task_time_logs --------------------------------------------
 
@@ -260,7 +266,7 @@ CREATE TABLE task_time_logs (
     note             TEXT,
     CONSTRAINT task_time_logs_ended_after_started CHECK (ended_at > started_at)
 );
-COMMENT ON TABLE task_time_logs IS 'Р–СѓСЂРЅР°Р» РѕС‚СЂРµР·РєРѕРІ РІСЂРµРјРµРЅРё РїРѕ Р·Р°РґР°С‡Р°Рј. РџРµСЂРµСЃРµС‡РµРЅРёСЏ РёРЅС‚РµСЂРІР°Р»РѕРІ Сѓ РѕРґРЅРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґРѕРїСѓСЃС‚РёРјС‹ (exclusion СЃРЅСЏС‚ РјРёРіСЂР°С†РёРµР№ 012).';
+COMMENT ON TABLE task_time_logs IS 'Журнал отрезков времени по задачам. Пересечения интервалов у одного пользователя допустимы (exclusion снят миграцией 012).';
 
 -- ---------- 8. diary_entries ---------------------------------------------
 
@@ -277,7 +283,7 @@ CREATE TABLE diary_entries (
     CONSTRAINT diary_entries_user_date_uniq UNIQUE (user_id, entry_date),
     CONSTRAINT diary_entries_content_not_empty CHECK (length(btrim(content)) > 0)
 );
-COMMENT ON TABLE diary_entries IS 'Р—Р°РїРёСЃРё РґРЅРµРІРЅРёРєР°, РѕРґРЅР° Р·Р°РїРёСЃСЊ РІ РґРµРЅСЊ РЅР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ. content_tsv РѕР±РЅРѕРІР»СЏРµС‚СЃСЏ С‚СЂРёРіРіРµСЂРѕРј.';
+COMMENT ON TABLE diary_entries IS 'Записи дневника, одна запись в день на пользователя. content_tsv обновляется триггером.';
 
 -- ---------- 9. diary_tags -------------------------------------------------
 
@@ -286,7 +292,7 @@ CREATE TABLE diary_tags (
     tag_id   BIGINT NOT NULL REFERENCES tags(id)          ON DELETE CASCADE,
     PRIMARY KEY (entry_id, tag_id)
 );
-COMMENT ON TABLE diary_tags IS 'РЎРІСЏР·РєР° M:N Р·Р°РїРёСЃСЊ РґРЅРµРІРЅРёРєР° вЂ” С‚РµРі.';
+COMMENT ON TABLE diary_tags IS 'Связка M:N запись дневника — тег.';
 
 -- ---------- 10. behavior_patterns ----------------------------------------
 
@@ -305,7 +311,7 @@ CREATE TABLE behavior_patterns (
     updated_at       TIMESTAMPTZ        NOT NULL DEFAULT now(),
     CONSTRAINT behavior_patterns_title_not_empty CHECK (length(btrim(title)) > 0)
 );
-COMMENT ON TABLE behavior_patterns IS 'РџР°С‚С‚РµСЂРЅС‹ РїРѕРІРµРґРµРЅРёСЏ. is_boolean=true вЂ” РґРІР° РІР°СЂРёР°РЅС‚Р° Y/N (СЃРѕР·РґР°СЋС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё).';
+COMMENT ON TABLE behavior_patterns IS 'Паттерны поведения. is_boolean=true — два варианта Y/N (создаются автоматически).';
 
 -- ---------- 11. pattern_response_options ---------------------------------
 
@@ -317,7 +323,7 @@ CREATE TABLE pattern_response_options (
     sort_order INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT pattern_response_options_label_not_empty CHECK (length(btrim(label)) > 0)
 );
-COMMENT ON TABLE pattern_response_options IS 'Р’Р°СЂРёР°РЅС‚С‹ РѕС‚РІРµС‚Р° РЅР° РїР°С‚С‚РµСЂРЅ. is_success вЂ” СѓС‡РёС‚С‹РІР°РµС‚СЃСЏ Р»Рё РѕС‚РІРµС‚ РєР°Рє СѓСЃРїРµС€РЅС‹Р№.';
+COMMENT ON TABLE pattern_response_options IS 'Варианты ответа на паттерн. is_success — учитывается ли ответ как успешный.';
 
 -- ---------- 12. pattern_schedules ----------------------------------------
 
@@ -330,8 +336,8 @@ CREATE TABLE pattern_schedules (
     CONSTRAINT pattern_schedules_dow_mask_valid CHECK (dow_mask BETWEEN 0 AND 127),
     CONSTRAINT pattern_schedules_dom_valid     CHECK (day_of_month IS NULL OR day_of_month BETWEEN 1 AND 31)
 );
-COMMENT ON TABLE pattern_schedules  IS 'Р Р°СЃРїРёСЃР°РЅРёСЏ СѓРІРµРґРѕРјР»РµРЅРёР№ РїРѕ РїР°С‚С‚РµСЂРЅР°Рј.';
-COMMENT ON COLUMN pattern_schedules.dow_mask IS 'Р‘РёС‚РѕРІР°СЏ РјР°СЃРєР° РґРЅРµР№ РЅРµРґРµР»Рё: 1=Mon, 2=Tue, 4=Wed, 8=Thu, 16=Fri, 32=Sat, 64=Sun. 127 = РµР¶РµРґРЅРµРІРЅРѕ.';
+COMMENT ON TABLE pattern_schedules  IS 'Расписания уведомлений по паттернам.';
+COMMENT ON COLUMN pattern_schedules.dow_mask IS 'Битовая маска дней недели: 1=Mon, 2=Tue, 4=Wed, 8=Thu, 16=Fri, 32=Sat, 64=Sun. 127 = ежедневно.';
 
 -- ---------- 13. pattern_logs ---------------------------------------------
 
@@ -347,7 +353,7 @@ CREATE TABLE pattern_logs (
         OR status <> 'answered'
     )
 );
-COMMENT ON TABLE pattern_logs IS 'Р–СѓСЂРЅР°Р» РѕС‚РєР»РёРєРѕРІ РїРѕ РїР°С‚С‚РµСЂРЅР°Рј (СЂРµР¶РёРј habit).';
+COMMENT ON TABLE pattern_logs IS 'Журнал откликов по паттернам (режим habit).';
 
 -- ---------- 13a. pattern_steps (scenario) --------------------------------
 
@@ -364,7 +370,7 @@ CREATE TABLE pattern_steps (
     choices       JSONB NOT NULL DEFAULT '[]'::jsonb,
     CONSTRAINT pattern_steps_title_not_empty CHECK (length(btrim(title)) > 0)
 );
-COMMENT ON TABLE pattern_steps IS 'РЁР°РіРё СЃС†РµРЅР°СЂРёСЏ (СЂРµР¶РёРј scenario). choices: [{id,label,is_success}]';
+COMMENT ON TABLE pattern_steps IS 'Шаги сценария (режим scenario). choices: [{id,label,is_success}]';
 
 -- ---------- 13b. pattern_day_sessions ------------------------------------
 
@@ -378,7 +384,7 @@ CREATE TABLE pattern_day_sessions (
     completed_at    TIMESTAMPTZ,
     CONSTRAINT pattern_day_sessions_uniq UNIQUE (pattern_id, session_date)
 );
-COMMENT ON TABLE pattern_day_sessions IS 'РЎРµСЃСЃРёСЏ РїСЂРѕС…РѕР¶РґРµРЅРёСЏ СЃС†РµРЅР°СЂРёСЏ Р·Р° РєР°Р»РµРЅРґР°СЂРЅС‹Р№ РґРµРЅСЊ.';
+COMMENT ON TABLE pattern_day_sessions IS 'Сессия прохождения сценария за календарный день.';
 
 -- ---------- 13c. pattern_step_answers ------------------------------------
 
@@ -392,7 +398,7 @@ CREATE TABLE pattern_step_answers (
     answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pattern_step_answers_uniq UNIQUE (session_id, step_id)
 );
-COMMENT ON TABLE pattern_step_answers IS 'РћС‚РІРµС‚С‹ РЅР° С€Р°РіРё СЃС†РµРЅР°СЂРёСЏ РІ СЂР°РјРєР°С… СЃРµСЃСЃРёРё.';
+COMMENT ON TABLE pattern_step_answers IS 'Ответы на шаги сценария в рамках сессии.';
 
 -- ---------- 13d. pattern_markers (markers mode) --------------------------
 
@@ -404,7 +410,7 @@ CREATE TABLE pattern_markers (
     note             TEXT
 );
 CREATE INDEX idx_pattern_markers_pattern_occurred ON pattern_markers (pattern_id, occurred_at DESC);
-COMMENT ON TABLE pattern_markers IS 'РўРѕС‡РµС‡РЅС‹Рµ РѕС‚РјРµС‚РєРё СЌРїРёР·РѕРґРѕРІ (СЂРµР¶РёРј markers). РњРЅРѕРіРѕ Р·Р°РїРёСЃРµР№ РІ РґРµРЅСЊ.';
+COMMENT ON TABLE pattern_markers IS 'Точечные отметки эпизодов (режим markers). Много записей в день.';
 
 -- ---------- 13e. pattern_marker_day_closures ------------------------------
 
@@ -415,7 +421,7 @@ CREATE TABLE pattern_marker_day_closures (
     declared_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pattern_marker_day_closures_uniq UNIQUE (pattern_id, closure_date)
 );
-COMMENT ON TABLE pattern_marker_day_closures IS 'РЇРІРЅРѕ: Р·Р° РґРµРЅСЊ РЅРµ Р±С‹Р»Рѕ СЌРїРёР·РѕРґРѕРІ (markers).';
+COMMENT ON TABLE pattern_marker_day_closures IS 'Явно: за день не было эпизодов (markers).';
 
 -- ---------- 14. goals -----------------------------------------------------
 
@@ -436,7 +442,7 @@ CREATE TABLE goals (
         (is_completed = FALSE AND completed_at IS NULL)
     )
 );
-COMMENT ON TABLE goals IS 'Р”РѕР»РіРѕСЃСЂРѕС‡РЅС‹Рµ С†РµР»Рё.';
+COMMENT ON TABLE goals IS 'Долгосрочные цели.';
 
 -- ---------- 15. goal_links -----------------------------------------------
 
@@ -446,7 +452,7 @@ CREATE TABLE goal_links (
     target_id   BIGINT NOT NULL,
     PRIMARY KEY (goal_id, target_type, target_id)
 );
-COMMENT ON TABLE goal_links IS 'РџСЂРёРІСЏР·РєР° С†РµР»Рё Рє Р·Р°РґР°С‡Р°Рј/РїР°С‚С‚РµСЂРЅР°Рј. target_type РѕРїСЂРµРґРµР»СЏРµС‚, РІ РєР°РєСѓСЋ С‚Р°Р±Р»РёС†Сѓ СЃРјРѕС‚СЂРёС‚ target_id.';
+COMMENT ON TABLE goal_links IS 'Привязка цели к задачам/паттернам. target_type определяет, в какую таблицу смотрит target_id.';
 
 -- ---------- 16. holidays --------------------------------------------------
 
@@ -457,7 +463,7 @@ CREATE TABLE holidays (
     is_official  BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT holidays_name_not_empty CHECK (length(btrim(name)) > 0)
 );
-COMMENT ON TABLE holidays IS 'Р“РѕСЃСѓРґР°СЂСЃС‚РІРµРЅРЅС‹Рµ Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ РїСЂР°Р·РґРЅРёРєРё. is_official=false вЂ” СЃРѕР±СЃС‚РІРµРЅРЅС‹Рµ РїР°РјСЏС‚РЅС‹Рµ РґР°С‚С‹.';
+COMMENT ON TABLE holidays IS 'Государственные и пользовательские праздники. is_official=false — собственные памятные даты.';
 
 -- ---------- 17. audit_log -------------------------------------------------
 
@@ -470,7 +476,7 @@ CREATE TABLE audit_log (
     diff       JSONB,
     changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE audit_log IS 'Р–СѓСЂРЅР°Р» РёР·РјРµРЅРµРЅРёР№ РєР»СЋС‡РµРІС‹С… С‚Р°Р±Р»РёС†. Р—Р°РїРѕР»РЅСЏРµС‚СЃСЏ С‚СЂРёРіРіРµСЂРѕРј trg_audit_changes.';
+COMMENT ON TABLE audit_log IS 'Журнал изменений ключевых таблиц. Заполняется триггером trg_audit_changes.';
 
 -- ---------- 18. app_settings ---------------------------------------------
 
@@ -482,20 +488,19 @@ CREATE TABLE app_settings (
     CONSTRAINT app_settings_user_key_uniq UNIQUE (user_id, key),
     CONSTRAINT app_settings_key_not_empty CHECK (length(btrim(key)) > 0)
 );
-COMMENT ON TABLE app_settings IS 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ РЅР°СЃС‚СЂРѕР№РєРё РІ РІРёРґРµ key/value.';
+COMMENT ON TABLE app_settings IS 'Пользовательские настройки в виде key/value.';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 03-tables: 23 tables created';
 END $$;
 
-
 -- ===== 04-indexes.sql =====
 
 -- =============================================================================
--- 04 вЂ” РРЅРґРµРєСЃС‹.
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.5.
--- РўРёРїС‹ РёРЅРґРµРєСЃРѕРІ: B-tree, СЃРѕСЃС‚Р°РІРЅС‹Рµ, partial, GIN (FTS), BRIN (Р¶СѓСЂРЅР°Р»С‹).
+-- 04 — Индексы.
+-- См. ТЗ.md, раздел 4.3.1.5.
+-- Типы индексов: B-tree, составные, partial, GIN (FTS), BRIN (журналы).
 -- =============================================================================
 
 -- ---------- tasks ---------------------------------------------------------
@@ -503,128 +508,127 @@ END $$;
 CREATE INDEX idx_tasks_deadline
     ON tasks (deadline)
     WHERE deadline IS NOT NULL;
-COMMENT ON INDEX idx_tasks_deadline IS 'РЎРѕСЂС‚РёСЂРѕРІРєР°/С„РёР»СЊС‚СЂ В«Р±Р»РёР¶Р°Р№С€РёРµ Р·Р°РґР°С‡РёВ».';
+COMMENT ON INDEX idx_tasks_deadline IS 'Сортировка/фильтр «ближайшие задачи».';
 
 CREATE INDEX idx_tasks_start_at
     ON tasks (start_at)
     WHERE start_at IS NOT NULL;
-COMMENT ON INDEX idx_tasks_start_at IS 'Р¤РёР»СЊС‚СЂ Р·Р°РґР°С‡ РїРѕ РЅР°С‡Р°Р»Сѓ РѕРєРЅР° РІС‹РїРѕР»РЅРµРЅРёСЏ.';
+COMMENT ON INDEX idx_tasks_start_at IS 'Фильтр задач по началу окна выполнения.';
 
 CREATE INDEX idx_tasks_topic_status
     ON tasks (topic_id, status);
-COMMENT ON INDEX idx_tasks_topic_status IS 'Р“СЂСѓРїРїРёСЂРѕРІРєР° Р·Р°РґР°С‡ РїРѕ С‚РµРјР°Рј СЃ С„РёР»СЊС‚СЂРѕРј РїРѕ СЃС‚Р°С‚СѓСЃСѓ.';
+COMMENT ON INDEX idx_tasks_topic_status IS 'Группировка задач по темам с фильтром по статусу.';
 
 CREATE INDEX idx_tasks_user_completed_at
     ON tasks (user_id, completed_at)
     WHERE completed_at IS NOT NULL;
-COMMENT ON INDEX idx_tasks_user_completed_at IS 'РљР°Р»РµРЅРґР°СЂСЊ Рё СЂР°СЃС‡С‘С‚ СЃРµСЂРёР№ РІС‹РїРѕР»РЅРµРЅРёСЏ.';
+COMMENT ON INDEX idx_tasks_user_completed_at IS 'Календарь и расчёт серий выполнения.';
 
 CREATE INDEX idx_tasks_overdue_partial
     ON tasks (deadline)
     WHERE status = 'overdue';
-COMMENT ON INDEX idx_tasks_overdue_partial IS 'РЈР·РєР°СЏ РІС‹Р±РѕСЂРєР° РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹С… Р·Р°РґР°С‡.';
+COMMENT ON INDEX idx_tasks_overdue_partial IS 'Узкая выборка просроченных задач.';
 
 CREATE INDEX idx_tasks_parent
     ON tasks (parent_task_id)
     WHERE parent_task_id IS NOT NULL;
-COMMENT ON INDEX idx_tasks_parent IS 'РџРѕРёСЃРє РїРѕРґР·Р°РґР°С‡ РїРѕ СЂРѕРґРёС‚РµР»СЋ (СЂРµРєСѓСЂСЃРёРІРЅС‹Р№ CTE РІ v_task_subtree_progress).';
+COMMENT ON INDEX idx_tasks_parent IS 'Поиск подзадач по родителю (рекурсивный CTE в v_task_subtree_progress).';
 
 CREATE INDEX idx_tasks_recurring
     ON tasks (recurring_rule_id)
     WHERE recurring_rule_id IS NOT NULL;
-COMMENT ON INDEX idx_tasks_recurring IS 'РџРѕРёСЃРє СЌРєР·РµРјРїР»СЏСЂРѕРІ РїРѕРІС‚РѕСЂСЏСЋС‰РµР№СЃСЏ Р·Р°РґР°С‡Рё.';
+COMMENT ON INDEX idx_tasks_recurring IS 'Поиск экземпляров повторяющейся задачи.';
 
 CREATE INDEX idx_tasks_search_gin
     ON tasks
     USING gin (to_tsvector('russian', coalesce(title, '') || ' ' || coalesce(description, '')));
-COMMENT ON INDEX idx_tasks_search_gin IS 'РџРѕР»РЅРѕС‚РµРєСЃС‚РѕРІС‹Р№ РїРѕРёСЃРє РїРѕ Р·Р°РґР°С‡Р°Рј (СЂСѓСЃСЃРєРёР№ СЃР»РѕРІР°СЂСЊ).';
+COMMENT ON INDEX idx_tasks_search_gin IS 'Полнотекстовый поиск по задачам (русский словарь).';
 
 -- ---------- task_tags / task_time_logs -----------------------------------
 
 CREATE INDEX idx_task_tags_tag
     ON task_tags (tag_id, task_id);
-COMMENT ON INDEX idx_task_tags_tag IS 'РџРѕРёСЃРє Р·Р°РґР°С‡ РїРѕ С‚РµРіСѓ.';
+COMMENT ON INDEX idx_task_tags_tag IS 'Поиск задач по тегу.';
 
 CREATE INDEX idx_task_time_logs_task
     ON task_time_logs (task_id, started_at DESC);
-COMMENT ON INDEX idx_task_time_logs_task IS 'Р–СѓСЂРЅР°Р» РІСЂРµРјРµРЅРё РїРѕ Р·Р°РґР°С‡Рµ РІ РѕР±СЂР°С‚РЅРѕРј С…СЂРѕРЅРѕР»РѕРіРёС‡РµСЃРєРѕРј РїРѕСЂСЏРґРєРµ.';
+COMMENT ON INDEX idx_task_time_logs_task IS 'Журнал времени по задаче в обратном хронологическом порядке.';
 
 -- ---------- diary_entries / diary_tags -----------------------------------
 
 CREATE INDEX idx_diary_fts_gin
     ON diary_entries USING gin (content_tsv);
-COMMENT ON INDEX idx_diary_fts_gin IS 'РџРѕР»РЅРѕС‚РµРєСЃС‚РѕРІС‹Р№ РїРѕРёСЃРє РїРѕ РґРЅРµРІРЅРёРєСѓ.';
+COMMENT ON INDEX idx_diary_fts_gin IS 'Полнотекстовый поиск по дневнику.';
 
 CREATE INDEX idx_diary_tags_tag
     ON diary_tags (tag_id, entry_id);
-COMMENT ON INDEX idx_diary_tags_tag IS 'РџРѕРёСЃРє Р·Р°РїРёСЃРµР№ РґРЅРµРІРЅРёРєР° РїРѕ С‚РµРіСѓ.';
+COMMENT ON INDEX idx_diary_tags_tag IS 'Поиск записей дневника по тегу.';
 
 -- ---------- pattern_logs -------------------------------------------------
 
 CREATE INDEX idx_pattern_logs_brin
     ON pattern_logs USING brin (scheduled_at);
-COMMENT ON INDEX idx_pattern_logs_brin IS 'BRIN-РёРЅРґРµРєСЃ РґР»СЏ Р±РѕР»СЊС€РѕР№ С‚Р°Р±Р»РёС†С‹ Р¶СѓСЂРЅР°Р»Р° РїРѕ РІСЂРµРјРµРЅРё (СЂР°СЃС‚С‘С‚ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ).';
+COMMENT ON INDEX idx_pattern_logs_brin IS 'BRIN-индекс для большой таблицы журнала по времени (растёт последовательно).';
 
 CREATE INDEX idx_pattern_logs_pattern_date
     ON pattern_logs (pattern_id, scheduled_at DESC);
-COMMENT ON INDEX idx_pattern_logs_pattern_date IS 'Р Р°СЃС‡С‘С‚ С‚РµРєСѓС‰РµР№ СЃРµСЂРёРё (РІС‹Р±РѕСЂРєР° РїРѕСЃР»РµРґРЅРёС… N).';
+COMMENT ON INDEX idx_pattern_logs_pattern_date IS 'Расчёт текущей серии (выборка последних N).';
 
 CREATE INDEX idx_pattern_logs_pending
     ON pattern_logs (scheduled_at)
     WHERE status = 'pending';
-COMMENT ON INDEX idx_pattern_logs_pending IS 'Р‘С‹СЃС‚СЂС‹Р№ РїРѕРёСЃРє РѕР¶РёРґР°СЋС‰РёС… РѕС‚РІРµС‚Р° Р·Р°РїРёСЃРµР№ (РґР»СЏ sp_close_overdue_pattern_logs).';
+COMMENT ON INDEX idx_pattern_logs_pending IS 'Быстрый поиск ожидающих ответа записей (для sp_close_overdue_pattern_logs).';
 
 -- ---------- pattern_steps / pattern_markers ------------------------------
 
 CREATE INDEX idx_pattern_steps_pattern ON pattern_steps (pattern_id);
-COMMENT ON INDEX idx_pattern_steps_pattern IS 'РЁР°РіРё СЃС†РµРЅР°СЂРёСЏ РїРѕ РїР°С‚С‚РµСЂРЅСѓ.';
+COMMENT ON INDEX idx_pattern_steps_pattern IS 'Шаги сценария по паттерну.';
 
 -- ---------- audit_log ----------------------------------------------------
 
 CREATE INDEX idx_audit_log_brin
     ON audit_log USING brin (changed_at);
-COMMENT ON INDEX idx_audit_log_brin IS 'BRIN-РёРЅРґРµРєСЃ РґР»СЏ Р±РѕР»СЊС€РѕРіРѕ Р¶СѓСЂРЅР°Р»Р° Р°СѓРґРёС‚Р°.';
+COMMENT ON INDEX idx_audit_log_brin IS 'BRIN-индекс для большого журнала аудита.';
 
 CREATE INDEX idx_audit_log_table_row
     ON audit_log (table_name, row_id);
-COMMENT ON INDEX idx_audit_log_table_row IS 'РџРѕРёСЃРє РёСЃС‚РѕСЂРёРё РёР·РјРµРЅРµРЅРёР№ РєРѕРЅРєСЂРµС‚РЅРѕР№ СЃС‚СЂРѕРєРё.';
+COMMENT ON INDEX idx_audit_log_table_row IS 'Поиск истории изменений конкретной строки.';
 
 -- ---------- goals --------------------------------------------------------
 
 CREATE INDEX idx_goals_deadline_active
     ON goals (deadline)
     WHERE is_completed = FALSE;
-COMMENT ON INDEX idx_goals_deadline_active IS 'РЎРїРёСЃРѕРє Р°РєС‚РёРІРЅС‹С… С†РµР»РµР№.';
+COMMENT ON INDEX idx_goals_deadline_active IS 'Список активных целей.';
 
 -- ---------- recurring_rules ----------------------------------------------
 
 CREATE INDEX idx_recurring_rules_next_run
     ON recurring_rules (next_run_at)
     WHERE is_active = TRUE;
-COMMENT ON INDEX idx_recurring_rules_next_run IS 'РџР»Р°РЅРёСЂРѕРІС‰РёРє РїРѕРІС‚РѕСЂСЏСЋС‰РёС…СЃСЏ Р·Р°РґР°С‡.';
+COMMENT ON INDEX idx_recurring_rules_next_run IS 'Планировщик повторяющихся задач.';
 
--- ---------- С‚СЂРёРіСЂР°РјРјРЅС‹Рµ РёРЅРґРµРєСЃС‹ РґР»СЏ РЅРµС‡С‘С‚РєРѕРіРѕ РїРѕРёСЃРєР° РїРѕ СЃРїСЂР°РІРѕС‡РЅРёРєР°Рј -----
+-- ---------- триграммные индексы для нечёткого поиска по справочникам -----
 
 CREATE INDEX idx_topics_name_trgm
     ON topics USING gin (name gin_trgm_ops);
-COMMENT ON INDEX idx_topics_name_trgm IS 'РќРµС‡С‘С‚РєРёР№ РїРѕРёСЃРє С‚РµРј (autocomplete).';
+COMMENT ON INDEX idx_topics_name_trgm IS 'Нечёткий поиск тем (autocomplete).';
 
 CREATE INDEX idx_tags_name_trgm
     ON tags USING gin (name gin_trgm_ops);
-COMMENT ON INDEX idx_tags_name_trgm IS 'РќРµС‡С‘С‚РєРёР№ РїРѕРёСЃРє С‚РµРіРѕРІ.';
+COMMENT ON INDEX idx_tags_name_trgm IS 'Нечёткий поиск тегов.';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 04-indexes: indexes created';
 END $$;
 
-
 -- ===== 05-functions.sql =====
 
 -- =============================================================================
--- 05 вЂ” Р¤СѓРЅРєС†РёРё.
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.7. Р Р°Р·РјРµС‰РµРЅС‹ РґРѕ РїСЂРµРґСЃС‚Р°РІР»РµРЅРёР№, С‚.Рє. РЅРµРєРѕС‚РѕСЂС‹Рµ view
--- РёСЃРїРѕР»СЊР·СѓСЋС‚ С„СѓРЅРєС†РёРё (РЅР°РїСЂРёРјРµСЂ, fn_day_color).
+-- 05 — Функции.
+-- См. ТЗ.md, раздел 4.3.1.7. Размещены до представлений, т.к. некоторые view
+-- используют функции (например, fn_day_color).
 -- =============================================================================
 
 -- ---------- 1. fn_day_color ----------------------------------------------
@@ -640,7 +644,7 @@ DECLARE
     b INT;
     ratio NUMERIC;
 BEGIN
-    -- Р›РёРЅРµР№РЅР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ РјРµР¶РґСѓ #E5E7EB (СЃРµСЂС‹Р№, 0%) Рё #16A34A (РЅР°СЃС‹С‰. Р·РµР»С‘РЅС‹Р№, 100%).
+    -- Линейная интерполяция между #E5E7EB (серый, 0%) и #16A34A (насыщ. зелёный, 100%).
     ratio := COALESCE(p_ratio, 0);
     IF ratio < 0   THEN ratio := 0;   END IF;
     IF ratio > 100 THEN ratio := 100; END IF;
@@ -656,7 +660,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_day_color(NUMERIC)
-    IS 'HEX-С†РІРµС‚ РґР»СЏ РґРЅСЏ РІ РєР°Р»РµРЅРґР°СЂРµ (РіСЂР°РґРёРµРЅС‚ СЃРµСЂС‹Р№ в†’ Р·РµР»С‘РЅС‹Р№ РїРѕ РїСЂРѕС†РµРЅС‚Сѓ РІС‹РїРѕР»РЅРµРЅРёСЏ).';
+    IS 'HEX-цвет для дня в календаре (градиент серый → зелёный по проценту выполнения).';
 
 -- ---------- 2. fn_pattern_is_scheduled -----------------------------------
 
@@ -854,7 +858,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_streak(BIGINT)
-    IS 'РўРµРєСѓС‰Р°СЏ СЃРµСЂРёСЏ СѓСЃРїРµС€РЅС‹С… РґРЅРµР№. is_success РЅР° РѕРїС†РёСЏС… СѓР¶Рµ Р·Р°РґР°С‘С‚ СЃРµРјР°РЅС‚РёРєСѓ РґР»СЏ negative.';
+    IS 'Текущая серия успешных дней. is_success на опциях уже задаёт семантику для negative.';
 
 -- ---------- 5. fn_calculate_max_streak -----------------------------------
 
@@ -898,7 +902,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_max_streak(BIGINT)
-    IS 'РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ СЃРµСЂРёСЏ СѓСЃРїРµС€РЅС‹С… РґРЅРµР№ РІ РёСЃС‚РѕСЂРёРё РїР°С‚С‚РµСЂРЅР°.';
+    IS 'Максимальная серия успешных дней в истории паттерна.';
 
 -- ---------- 6. fn_pattern_clean_days_30d ---------------------------------
 
@@ -985,7 +989,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_pattern_day_is_failure(BIGINT, DATE)
-    IS 'Р”РµРЅСЊ СЃ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Рј СЃСЂС‹РІРѕРј/РїСЂРѕРїСѓСЃРєРѕРј (РґР»СЏ anti_streak).';
+    IS 'День с зафиксированным срывом/пропуском (для anti_streak).';
 
 -- ---------- 8. fn_calculate_anti_streak ----------------------------------
 
@@ -1031,7 +1035,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_calculate_anti_streak(BIGINT)
-    IS 'РўРµРєСѓС‰Р°СЏ СЃРµСЂРёСЏ РїРѕРґСЂСЏРґ РёРґСѓС‰РёС… РґРЅРµР№ СЃРѕ СЃСЂС‹РІРѕРј/РїСЂРѕРїСѓСЃРєРѕРј (negative).';
+    IS 'Текущая серия подряд идущих дней со срывом/пропуском (negative).';
 
 -- ---------- 5. fn_completion_rate ----------------------------------------
 
@@ -1058,7 +1062,7 @@ AS $$
        AND (p_topic_id IS NULL OR t.topic_id = p_topic_id);
 $$;
 COMMENT ON FUNCTION fn_completion_rate(BIGINT, DATE, DATE, BIGINT)
-    IS 'РџСЂРѕС†РµРЅС‚ РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РґР°С‡ Р·Р° РїРµСЂРёРѕРґ СЃ РѕРїС†РёРѕРЅР°Р»СЊРЅРѕР№ С„РёР»СЊС‚СЂР°С†РёРµР№ РїРѕ С‚РµРјРµ.';
+    IS 'Процент выполнения задач за период с опциональной фильтрацией по теме.';
 
 -- ---------- 6. fn_search_diary -------------------------------------------
 
@@ -1091,9 +1095,9 @@ AS $$
      LIMIT GREATEST(COALESCE(p_limit, 50), 1);
 $$;
 COMMENT ON FUNCTION fn_search_diary(BIGINT, TEXT, INT)
-    IS 'РџРѕР»РЅРѕС‚РµРєСЃС‚РѕРІС‹Р№ РїРѕРёСЃРє РїРѕ РґРЅРµРІРЅРёРєСѓ СЃ РїРѕРґСЃРІРµС‚РєРѕР№ СЃРѕРІРїР°РґРµРЅРёР№.';
+    IS 'Полнотекстовый поиск по дневнику с подсветкой совпадений.';
 
--- РљРѕСЂСЂРµР»СЏС†РёСЏ РЅР°СЃС‚СЂРѕРµРЅРёСЏ: v_mood_productivity_correlation (API GET /stats/correlation).
+-- Корреляция настроения: v_mood_productivity_correlation (API GET /stats/correlation).
 
 -- ---------- 7. fn_goal_progress ------------------------------------------
 
@@ -1112,14 +1116,14 @@ BEGIN
         RETURN 0::percentage;
     END IF;
 
-    -- Р”Р»СЏ tasks СѓС‡РёС‚С‹РІР°РµРј РІС‹РїРѕР»РЅРµРЅРЅС‹Рµ.
+    -- Для tasks учитываем выполненные.
     SELECT COUNT(*) INTO v_done
       FROM goal_links gl
       JOIN tasks t ON gl.target_type = 'task' AND t.id = gl.target_id
      WHERE gl.goal_id = p_goal_id
        AND t.status = 'done';
 
-    -- Р”Р»СЏ patterns: habit + markers + scenario (С‡РµСЂРµР· fn_pattern_day_success / sessions).
+    -- Для patterns: habit + markers + scenario (через fn_pattern_day_success / sessions).
     v_done := v_done + COALESCE(
         (
             SELECT COUNT(DISTINCT day)::INT FROM (
@@ -1161,7 +1165,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_goal_progress(BIGINT)
-    IS 'РџСЂРѕРіСЂРµСЃСЃ С†РµР»Рё: Р·Р°РґР°С‡Рё done + СѓСЃРїРµС€РЅС‹Рµ РґРЅРё habit/markers/scenario.';
+    IS 'Прогресс цели: задачи done + успешные дни habit/markers/scenario.';
 
 -- ---------- 8. fn_next_recurring_date ------------------------------------
 
@@ -1192,7 +1196,7 @@ BEGIN
         v_mask := COALESCE((v_params->>'weekly_mask')::INT, 127);
         v_d := p_from + 1;
         FOR i IN 0..6 LOOP
-            -- isodow: 1=Mon..7=Sun; РїСЂРµРѕР±СЂР°Р·СѓРµРј РІ bit position 0..6
+            -- isodow: 1=Mon..7=Sun; преобразуем в bit position 0..6
             v_dow := EXTRACT(isodow FROM v_d)::INT - 1;
             IF (v_mask & (1 << v_dow)) <> 0 THEN
                 RETURN v_d;
@@ -1213,9 +1217,9 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION fn_next_recurring_date(BIGINT, DATE)
-    IS 'РЎР»РµРґСѓСЋС‰Р°СЏ РґР°С‚Р° РїРѕРІС‚РѕСЂРµРЅРёСЏ: daily/weekly/monthly/custom (params.interval_days).';
+    IS 'Следующая дата повторения: daily/weekly/monthly/custom (params.interval_days).';
 
--- Р’СЂРµРјСЏ РїРѕ С‚РµРјР°Рј: v_topic_time_distribution (API GET /stats/time-distribution).
+-- Время по темам: v_topic_time_distribution (API GET /stats/time-distribution).
 
 -- ---------- 9. fn_get_calendar_stats -------------------------------------
 
@@ -1279,22 +1283,21 @@ AS $$
      ORDER BY d.day;
 $$;
 COMMENT ON FUNCTION fn_get_calendar_stats(BIGINT, INT, INT)
-    IS 'Р”Р°РЅРЅС‹Рµ РґР»СЏ РѕС‚СЂРёСЃРѕРІРєРё РјРµСЃСЏС†Р° РєР°Р»РµРЅРґР°СЂСЏ.';
+    IS 'Данные для отрисовки месяца календаря.';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 05-functions: business functions created';
 END $$;
 
-
 -- ===== 06-views.sql =====
 
 -- =============================================================================
--- 06 вЂ” РџСЂРµРґСЃС‚Р°РІР»РµРЅРёСЏ (VIEW Рё MATERIALIZED VIEW).
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.6.
+-- 06 — Представления (VIEW и MATERIALIZED VIEW).
+-- См. ТЗ.md, раздел 4.3.1.6.
 -- =============================================================================
 
--- РљР°Р»РµРЅРґР°СЂСЊ РјРµСЃСЏС†Р°: fn_get_calendar_stats (API /calendar/{y}/{m}).
+-- Календарь месяца: fn_get_calendar_stats (API /calendar/{y}/{m}).
 
 -- ---------- 1. v_task_topic_breakdown ------------------------------------
 
@@ -1317,7 +1320,7 @@ SELECT
  GROUP BY t.user_id, t.topic_id, tp.name;
 
 COMMENT ON VIEW v_task_topic_breakdown
-    IS 'РђРіСЂРµРіР°С‚С‹ РїРѕ С‚РµРјР°Рј: total, done, overdue, % РІС‹РїРѕР»РЅРµРЅРёСЏ, СЃСЂРµРґРЅРµРµ РїР»Р°РЅРѕРІРѕРµ, СЃСЂРµРґРЅСЏСЏ РїСЂРѕСЃСЂРѕС‡РєР°.';
+    IS 'Агрегаты по темам: total, done, overdue, % выполнения, среднее плановое, средняя просрочка.';
 
 -- ---------- 3. v_pattern_streaks -----------------------------------------
 
@@ -1343,7 +1346,7 @@ SELECT
   CROSS JOIN LATERAL fn_pattern_clean_days_30d(bp.id) cd;
 
 COMMENT ON VIEW v_pattern_streaks
-    IS 'РЎРµСЂРёРё: current/max вЂ” СѓСЃРїРµС€РЅС‹Рµ РґРЅРё; anti_streak вЂ” РїРѕРґСЂСЏРґ СЃСЂС‹РІРѕРІ (negative).';
+    IS 'Серии: current/max — успешные дни; anti_streak — подряд срывов (negative).';
 
 -- ---------- 4. v_overdue_tasks (MATERIALIZED) ----------------------------
 
@@ -1365,7 +1368,7 @@ CREATE UNIQUE INDEX v_overdue_tasks_pk ON v_overdue_tasks (id);
 CREATE INDEX        v_overdue_tasks_user ON v_overdue_tasks (user_id, deadline);
 
 COMMENT ON MATERIALIZED VIEW v_overdue_tasks
-    IS 'РЎРїРёСЃРѕРє РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹С… Р·Р°РґР°С‡. РћР±РЅРѕРІР»СЏРµС‚СЃСЏ sp_recalc_calendar_cache.';
+    IS 'Список просроченных задач. Обновляется sp_recalc_calendar_cache.';
 
 -- ---------- 5. v_mood_productivity_correlation ---------------------------
 
@@ -1407,7 +1410,7 @@ SELECT
  GROUP BY user_id, date_trunc('week', day);
 
 COMMENT ON VIEW v_mood_productivity_correlation
-    IS 'РџРѕ РЅРµРґРµР»СЏРј: СЃСЂРµРґРЅРёРµ mood/energy, % РІС‹РїРѕР»РЅРµРЅРёСЏ, РєРѕСЂСЂРµР»СЏС†РёРё РџРёСЂСЃРѕРЅР°.';
+    IS 'По неделям: средние mood/energy, % выполнения, корреляции Пирсона.';
 
 -- ---------- 5b. OLAP daily facts + holistic + task priority ------------
 
@@ -1525,7 +1528,7 @@ SELECT
   LEFT JOIN marker_m mm ON mm.user_id = ad.user_id AND mm.day = ad.day;
 
 COMMENT ON VIEW v_olap_daily_facts IS
-    'OLAP-С„Р°РєС‚С‹: grain userГ—day. Р—Р°РґР°С‡Рё, РІСЂРµРјСЏ, РґРЅРµРІРЅРёРє, РїР°С‚С‚РµСЂРЅС‹, РјРµС‚РєРё.';
+    'OLAP-факты: grain user×day. Задачи, время, дневник, паттерны, метки.';
 
 CREATE OR REPLACE VIEW v_mood_holistic_correlation AS
 WITH base AS (
@@ -1559,7 +1562,7 @@ SELECT
  GROUP BY user_id, date_trunc('week', day);
 
 COMMENT ON VIEW v_mood_holistic_correlation IS
-    'РќРµРґРµР»СЊРЅР°СЏ РєРѕСЂСЂРµР»СЏС†РёСЏ: РЅР°СЃС‚СЂРѕРµРЅРёРµ/СЌРЅРµСЂРіРёСЏ в†” Р·Р°РґР°С‡Рё Рё РїР°С‚С‚РµСЂРЅС‹.';
+    'Недельная корреляция: настроение/энергия ↔ задачи и паттерны.';
 
 CREATE OR REPLACE VIEW v_stats_task_priority AS
 SELECT
@@ -1648,7 +1651,7 @@ SELECT
   LEFT JOIN pattern_week pw ON pw.user_id = w.user_id AND pw.week_start = w.week_start;
 
 COMMENT ON VIEW v_weekly_summary
-    IS 'РЎРІРѕРґРєР° Р·Р° РЅРµРґРµР»СЋ: Р·Р°РґР°С‡Рё, РІСЂРµРјСЏ, РґРЅРµРІРЅРёРє, РїР°С‚С‚РµСЂРЅС‹, markers.';
+    IS 'Сводка за неделю: задачи, время, дневник, паттерны, markers.';
 
 -- ---------- 7. v_year_heatmap --------------------------------------------
 
@@ -1673,11 +1676,11 @@ SELECT user_id, day, SUM(activity)::INT AS activity
  GROUP BY user_id, day;
 
 COMMENT ON VIEW v_year_heatmap
-    IS 'РўРµРїР»РѕРІР°СЏ РєР°СЂС‚Р° Р°РєС‚РёРІРЅРѕСЃС‚Рё: Р·Р°РґР°С‡Рё, РґРЅРµРІРЅРёРє, РїР°С‚С‚РµСЂРЅС‹, РјРµС‚РєРё, СЃРµСЃСЃРёРё, РІСЂРµРјСЏ.';
+    IS 'Тепловая карта активности: задачи, дневник, паттерны, метки, сессии, время.';
 
--- РџСЂРѕРіСЂРµСЃСЃ С†РµР»РµР№: fn_goal_progress (API GET /goals/{id}/progress).
+-- Прогресс целей: fn_goal_progress (API GET /goals/{id}/progress).
 
--- ---------- 8. v_task_subtree_progress (СЂРµРєСѓСЂСЃРёРІРЅС‹Р№ CTE) -----------------
+-- ---------- 8. v_task_subtree_progress (рекурсивный CTE) -----------------
 
 CREATE OR REPLACE VIEW v_task_subtree_progress AS
 WITH RECURSIVE tree AS (
@@ -1712,7 +1715,7 @@ SELECT
  GROUP BY root_id;
 
 COMMENT ON VIEW v_task_subtree_progress
-    IS 'РџСЂРѕРіСЂРµСЃСЃ РєРѕСЂРЅРµРІРѕР№ Р·Р°РґР°С‡Рё РЅР° РѕСЃРЅРѕРІРµ РµС‘ РїРѕРґР·Р°РґР°С‡ (СЂРµРєСѓСЂСЃРёРІРЅС‹Р№ CTE).';
+    IS 'Прогресс корневой задачи на основе её подзадач (рекурсивный CTE).';
 
 -- ---------- 9. v_topic_time_distribution ---------------------------------
 
@@ -1729,19 +1732,18 @@ SELECT
  GROUP BY t.user_id, t.topic_id, tp.name;
 
 COMMENT ON VIEW v_topic_time_distribution
-    IS 'Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ С„Р°РєС‚РёС‡РµСЃРєРѕРіРѕ РІСЂРµРјРµРЅРё РїРѕ С‚РµРјР°Рј (РІСЃС‘ РІСЂРµРјСЏ Рё РѕС‚РґРµР»СЊРЅРѕ Pomodoro).';
+    IS 'Распределение фактического времени по темам (всё время и отдельно Pomodoro).';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 06-views: 11 views (incl. 1 materialized) created';
 END $$;
 
-
 -- ===== 07-procedures.sql =====
 
 -- =============================================================================
--- 07 вЂ” РҐСЂР°РЅРёРјС‹Рµ РїСЂРѕС†РµРґСѓСЂС‹ (CREATE PROCEDURE).
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.8.
+-- 07 — Хранимые процедуры (CREATE PROCEDURE).
+-- См. ТЗ.md, раздел 4.3.1.8.
 -- =============================================================================
 
 -- ---------- 1. sp_complete_task ------------------------------------------
@@ -1756,14 +1758,14 @@ BEGIN
            updated_at   = now()
      WHERE id = p_task_id
        AND status NOT IN ('done', 'cancelled');
-    -- РўСЂРёРіРіРµСЂ trg_task_overdue_check РІС‹СЃС‚Р°РІРёС‚ 'overdue' РїСЂРё РЅР°СЂСѓС€РµРЅРёРё РґРµРґР»Р°Р№РЅР°.
+    -- Триггер trg_task_overdue_check выставит 'overdue' при нарушении дедлайна.
     IF NOT FOUND THEN
-        RAISE NOTICE 'sp_complete_task: Р·Р°РґР°С‡Р° % СѓР¶Рµ РІС‹РїРѕР»РЅРµРЅР°/РѕС‚РјРµРЅРµРЅР° РёР»Рё РЅРµ РЅР°Р№РґРµРЅР°', p_task_id;
+        RAISE NOTICE 'sp_complete_task: задача % уже выполнена/отменена или не найдена', p_task_id;
     END IF;
 END;
 $$;
 COMMENT ON PROCEDURE sp_complete_task(BIGINT)
-    IS 'РђС‚РѕРјР°СЂРЅРѕ РѕС‚РјРµС‚РёС‚СЊ Р·Р°РґР°С‡Сѓ РІС‹РїРѕР»РЅРµРЅРЅРѕР№ СЃ РїСЂРѕСЃС‚Р°РІР»РµРЅРёРµРј completed_at = now().';
+    IS 'Атомарно отметить задачу выполненной с проставлением completed_at = now().';
 
 -- ---------- 1b. sp_reopen_task -------------------------------------------
 
@@ -1778,12 +1780,12 @@ BEGIN
      WHERE id = p_task_id
        AND status IN ('done', 'overdue');
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'sp_reopen_task: Р·Р°РґР°С‡Р° % РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РЅРµ РІ СЃС‚Р°С‚СѓСЃРµ done/overdue', p_task_id;
+        RAISE EXCEPTION 'sp_reopen_task: задача % не найдена или не в статусе done/overdue', p_task_id;
     END IF;
 END;
 $$;
 COMMENT ON PROCEDURE sp_reopen_task(BIGINT)
-    IS 'Р’РµСЂРЅСѓС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅСѓСЋ/РїСЂРѕСЃСЂРѕС‡РµРЅРЅСѓСЋ Р·Р°РґР°С‡Сѓ РІ СЂР°Р±РѕС‚Сѓ, СЃР±СЂРѕСЃРёРІ completed_at.';
+    IS 'Вернуть выполненную/просроченную задачу в работу, сбросив completed_at.';
 
 -- ---------- 2. sp_log_pattern_response -----------------------------------
 
@@ -1819,7 +1821,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_log_pattern_response(BIGINT, BIGINT, TIMESTAMPTZ)
-    IS 'Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РѕС‚РІРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РЅР° РїР°С‚С‚РµСЂРЅ. РћР±РЅРѕРІР»СЏРµС‚ pending РёР»Рё РІСЃС‚Р°РІР»СЏРµС‚ РЅРѕРІСѓСЋ Р·Р°РїРёСЃСЊ.';
+    IS 'Зафиксировать ответ пользователя на паттерн. Обновляет pending или вставляет новую запись.';
 
 -- ---------- 3. sp_spawn_recurring_tasks ----------------------------------
 
@@ -1830,8 +1832,8 @@ DECLARE
     rec  RECORD;
     v_next DATE;
 BEGIN
-    -- Р”Р»СЏ РєР°Р¶РґРѕРіРѕ Р°РєС‚РёРІРЅРѕРіРѕ РїСЂР°РІРёР»Р°, С‡РµР№ next_run_at <= p_date, СЃРѕР·РґР°С‘Рј СЌРєР·РµРјРїР»СЏСЂ-Р·Р°РґР°С‡Сѓ
-    -- РїСѓС‚С‘Рј РєРѕРїРёСЂРѕРІР°РЅРёСЏ РїРѕСЃР»РµРґРЅРµР№ СЃРІСЏР·Р°РЅРЅРѕР№ Р·Р°РґР°С‡Рё (РµС‘ title/description/topic_id).
+    -- Для каждого активного правила, чей next_run_at <= p_date, создаём экземпляр-задачу
+    -- путём копирования последней связанной задачи (её title/description/topic_id).
     FOR rec IN
         SELECT rr.id AS rule_id,
                (
@@ -1866,7 +1868,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_spawn_recurring_tasks(DATE)
-    IS 'РџРѕСЂРѕРґРёС‚СЊ СЌРєР·РµРјРїР»СЏСЂС‹ РїРѕРІС‚РѕСЂСЏСЋС‰РёС…СЃСЏ Р·Р°РґР°С‡ РЅР° РґР°С‚Сѓ.';
+    IS 'Породить экземпляры повторяющихся задач на дату.';
 
 -- ---------- 4. sp_close_overdue_pattern_logs -----------------------------
 
@@ -1883,7 +1885,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_close_overdue_pattern_logs(TIMESTAMPTZ)
-    IS 'РџРµСЂРµРІРµСЃС‚Рё РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Рµ РѕР¶РёРґР°РЅРёСЏ РѕС‚РІРµС‚Р° РІ СЃС‚Р°С‚СѓСЃ missed.';
+    IS 'Перевести просроченные ожидания ответа в статус missed.';
 
 -- ---------- 4b. sp_ensure_habit_logs_for_day ------------------------------
 
@@ -1922,7 +1924,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_ensure_habit_logs_for_day(DATE)
-    IS 'РЎРѕР·РґР°С‚СЊ pending-Р·Р°РїРёСЃСЊ habit РЅР° РґРµРЅСЊ РїРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ (РґР»СЏ sp_close_overdue_pattern_logs).';
+    IS 'Создать pending-запись habit на день по расписанию (для sp_close_overdue_pattern_logs).';
 
 -- ---------- 5. sp_archive_old_audit --------------------------------------
 
@@ -1935,7 +1937,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_archive_old_audit(INT)
-    IS 'РЈРґР°Р»РёС‚СЊ Р·Р°РїРёСЃРё Р¶СѓСЂРЅР°Р»Р° Р°СѓРґРёС‚Р° СЃС‚Р°СЂС€Рµ N РґРЅРµР№.';
+    IS 'Удалить записи журнала аудита старше N дней.';
 
 -- ---------- 6. sp_recalc_calendar_cache ----------------------------------
 
@@ -1947,7 +1949,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_recalc_calendar_cache()
-    IS 'РџРµСЂРµСЃС‡РёС‚Р°С‚СЊ РјР°С‚РµСЂРёР°Р»РёР·РѕРІР°РЅРЅРѕРµ РїСЂРµРґСЃС‚Р°РІР»РµРЅРёРµ РїСЂРѕСЃСЂРѕС‡РµРє.';
+    IS 'Пересчитать материализованное представление просрочек.';
 
 -- ---------- 7. sp_export_user_data ---------------------------------------
 
@@ -2025,7 +2027,7 @@ BEGIN
 END;
 $$;
 COMMENT ON PROCEDURE sp_export_user_data(BIGINT, JSONB)
-    IS 'Р­РєСЃРїРѕСЂС‚ РІСЃРµС… РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РІ РѕРґРёРЅ JSONB-РґРѕРєСѓРјРµРЅС‚.';
+    IS 'Экспорт всех данных пользователя в один JSONB-документ.';
 
 -- ---------- 8. sp_import_user_data ---------------------------------------
 
@@ -2039,7 +2041,7 @@ DECLARE
     v_topic JSONB;
     v_tag   JSONB;
 BEGIN
-    -- РРґРµРјРїРѕС‚РµРЅС‚РЅР°СЏ РІСЃС‚Р°РІРєР° РїРѕ РЅР°С‚СѓСЂР°Р»СЊРЅС‹Рј РєР»СЋС‡Р°Рј (РёРјСЏ С‚РµРјС‹/С‚РµРіР° РІ СЂР°РјРєР°С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ).
+    -- Идемпотентная вставка по натуральным ключам (имя темы/тега в рамках пользователя).
     FOR v_topic IN SELECT * FROM jsonb_array_elements(COALESCE(p_json->'topics', '[]'::jsonb)) LOOP
         INSERT INTO topics (user_id, name, color)
         VALUES (p_user_id, v_topic->>'name', COALESCE((v_topic->>'color')::hex_color, '#3B82F6'))
@@ -2053,28 +2055,27 @@ BEGIN
         ON CONFLICT (user_id, name) DO NOTHING;
     END LOOP;
 
-    -- РџРѕР»РЅР°СЏ СЂРµР°Р»РёР·Р°С†РёСЏ РѕСЃС‚Р°Р»СЊРЅС‹С… С‚Р°Р±Р»РёС† вЂ” Р·Р°РґР°С‡Р° СЂР°СЃС€РёСЂРµРЅРёСЏ. РќР° СЌС‚РѕР№ СЃС‚Р°РґРёРё
-    -- РёРјРїРѕСЂС‚РёСЂСѓСЋС‚СЃСЏ СЃРїСЂР°РІРѕС‡РЅРёРєРё, РѕСЃС‚Р°Р»СЊРЅС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё С‡РµСЂРµР· REST API.
+    -- Полная реализация остальных таблиц — задача расширения. На этой стадии
+    -- импортируются справочники, остальные сущности через REST API.
 END;
 $$;
 COMMENT ON PROCEDURE sp_import_user_data(BIGINT, JSONB)
-    IS 'РРґРµРјРїРѕС‚РµРЅС‚РЅС‹Р№ РёРјРїРѕСЂС‚ СЃРїСЂР°РІРѕС‡РЅРёРєРѕРІ РёР· JSON-РґРѕРєСѓРјРµРЅС‚Р°.';
+    IS 'Идемпотентный импорт справочников из JSON-документа.';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 07-procedures: stored procedures created';
 END $$;
 
-
 -- ===== 08-triggers.sql =====
 
 -- =============================================================================
--- 08 вЂ” РўСЂРёРіРіРµСЂС‹.
--- РЎРј. РўР—.md, СЂР°Р·РґРµР» 4.3.1.9.
--- РўСЂРёРіРіРµСЂС‹ СЂРµР°Р»РёР·РѕРІР°РЅС‹ РїР°СЂР°РјРё В«С„СѓРЅРєС†РёСЏ-РѕР±СЂР°Р±РѕС‚С‡РёРє + CREATE TRIGGERВ».
+-- 08 — Триггеры.
+-- См. ТЗ.md, раздел 4.3.1.9.
+-- Триггеры реализованы парами «функция-обработчик + CREATE TRIGGER».
 -- =============================================================================
 
--- ---------- 1. trg_set_updated_at (РѕР±С‰РёР№ РѕР±СЂР°Р±РѕС‚С‡РёРє) ---------------------
+-- ---------- 1. trg_set_updated_at (общий обработчик) ---------------------
 
 CREATE OR REPLACE FUNCTION fn_set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -2096,7 +2097,7 @@ CREATE TRIGGER trg_behavior_patterns_updated_at  BEFORE UPDATE ON behavior_patte
 CREATE TRIGGER trg_goals_updated_at              BEFORE UPDATE ON goals
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
-COMMENT ON FUNCTION fn_set_updated_at() IS 'РћР±СЂР°Р±РѕС‚С‡РёРє BEFORE UPDATE РґР»СЏ РїРѕРґРґРµСЂР¶Р°РЅРёСЏ updated_at.';
+COMMENT ON FUNCTION fn_set_updated_at() IS 'Обработчик BEFORE UPDATE для поддержания updated_at.';
 
 -- ---------- 2. trg_task_set_completed_at ---------------------------------
 
@@ -2118,7 +2119,7 @@ CREATE TRIGGER trg_task_set_completed_at
     EXECUTE FUNCTION fn_task_set_completed_at();
 
 COMMENT ON FUNCTION fn_task_set_completed_at()
-    IS 'РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїСЂРѕСЃС‚Р°РІР»СЏРµС‚ completed_at = now() РїСЂРё РїРµСЂРµС…РѕРґРµ СЃС‚Р°С‚СѓСЃР° РІ done.';
+    IS 'Автоматически проставляет completed_at = now() при переходе статуса в done.';
 
 -- ---------- 3. trg_task_overdue_check ------------------------------------
 
@@ -2143,7 +2144,7 @@ CREATE TRIGGER trg_task_overdue_check
     EXECUTE FUNCTION fn_task_overdue_check();
 
 COMMENT ON FUNCTION fn_task_overdue_check()
-    IS 'Р•СЃР»Рё Р·Р°РґР°С‡Р° Р·Р°РІРµСЂС€РµРЅР° РїРѕР·Р¶Рµ РґРµРґР»Р°Р№РЅР° Рё Р±С‹Р» СѓРєР°Р·Р°РЅ РїР»Р°РЅРѕРІС‹Р№ РїРµСЂРёРѕРґ вЂ” СЃС‚Р°С‚СѓСЃ overdue.';
+    IS 'Если задача завершена позже дедлайна и был указан плановый период — статус overdue.';
 
 -- ---------- 4. trg_diary_tsv_update --------------------------------------
 
@@ -2161,9 +2162,9 @@ CREATE TRIGGER trg_diary_tsv_update
     EXECUTE FUNCTION fn_diary_tsv_update();
 
 COMMENT ON FUNCTION fn_diary_tsv_update()
-    IS 'РџРѕРґРґРµСЂР¶РєР° content_tsv = to_tsvector(russian, content).';
+    IS 'Поддержка content_tsv = to_tsvector(russian, content).';
 
--- ---------- 5. trg_audit_changes (РѕР±С‰РёР№ РѕР±СЂР°Р±РѕС‚С‡РёРє) ----------------------
+-- ---------- 5. trg_audit_changes (общий обработчик) ----------------------
 
 CREATE OR REPLACE FUNCTION fn_audit_log()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -2229,7 +2230,7 @@ CREATE TRIGGER trg_audit_pattern_logs
     FOR EACH ROW EXECUTE FUNCTION fn_audit_log();
 
 COMMENT ON FUNCTION fn_audit_log()
-    IS 'РЈРЅРёРІРµСЂСЃР°Р»СЊРЅС‹Р№ РѕР±СЂР°Р±РѕС‚С‡РёРє AFTER INSERT/UPDATE/DELETE РґР»СЏ Р·Р°РїРёСЃРё РёР·РјРµРЅРµРЅРёР№ РІ audit_log.';
+    IS 'Универсальный обработчик AFTER INSERT/UPDATE/DELETE для записи изменений в audit_log.';
 
 -- ---------- 6. trg_recurring_spawn_on_complete ---------------------------
 
@@ -2272,9 +2273,9 @@ CREATE TRIGGER trg_recurring_spawn_on_complete
     FOR EACH ROW EXECUTE FUNCTION fn_recurring_spawn_on_complete();
 
 COMMENT ON FUNCTION fn_recurring_spawn_on_complete()
-    IS 'РџСЂРё Р·Р°РІРµСЂС€РµРЅРёРё РїРѕРІС‚РѕСЂСЏСЋС‰РµР№СЃСЏ Р·Р°РґР°С‡Рё РїРѕСЂРѕР¶РґР°РµС‚ СЃР»РµРґСѓСЋС‰РёР№ СЌРєР·РµРјРїР»СЏСЂ.';
+    IS 'При завершении повторяющейся задачи порождает следующий экземпляр.';
 
--- ---------- 8. trg_tag_user_match (Р·Р°С‰РёС‚Р° РѕС‚ РїРµСЂРµСЃРµС‡РµРЅРёСЏ РґР°РЅРЅС‹С…) ---------
+-- ---------- 8. trg_tag_user_match (защита от пересечения данных) ---------
 
 CREATE OR REPLACE FUNCTION fn_tag_user_match_for_task()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -2333,7 +2334,7 @@ CREATE TRIGGER trg_goal_completed
     FOR EACH ROW EXECUTE FUNCTION fn_goal_check_completion();
 
 COMMENT ON FUNCTION fn_goal_check_completion()
-    IS 'РџРѕРґРґРµСЂР¶РёРІР°РµС‚ РєРѕРЅСЃРёСЃС‚РµРЅС‚РЅРѕСЃС‚СЊ is_completed/completed_at С†РµР»Рё.';
+    IS 'Поддерживает консистентность is_completed/completed_at цели.';
 
 -- ---------- 10. trg_pattern_to_task_on_response --------------------------
 
@@ -2369,7 +2370,7 @@ BEGIN
             v_pattern.user_id,
             COALESCE(v_pattern.topic_id, (SELECT id FROM topics WHERE user_id = v_pattern.user_id LIMIT 1)),
             v_pattern.title,
-            'РђРІС‚Рѕ-Р·Р°РґР°С‡Р° РёР· РїР°С‚С‚РµСЂРЅР° #' || v_pattern.id,
+            'Авто-задача из паттерна #' || v_pattern.id,
             'medium',
             v_day::timestamptz + TIME '23:59:00',
             v_day::timestamptz + TIME '00:05:00'
@@ -2384,71 +2385,70 @@ CREATE TRIGGER trg_pattern_to_task_on_response
     FOR EACH ROW EXECUTE FUNCTION fn_pattern_to_task_on_response();
 
 COMMENT ON FUNCTION fn_pattern_to_task_on_response()
-    IS 'auto_create_task: СЃРѕР·РґР°С‘С‚ Р·Р°РґР°С‡Сѓ РїСЂРё РѕС‚РІРµС‚Рµ habit (1 СЂР°Р· РІ РґРµРЅСЊ).';
+    IS 'auto_create_task: создаёт задачу при ответе habit (1 раз в день).';
 
 DO $$
 BEGIN
     RAISE NOTICE 'PTT 08-triggers: triggers created';
 END $$;
 
-
 -- ===== 09-seed.sql =====
 
 -- =============================================================================
--- 09 вЂ” РќР°РїРѕР»РЅРµРЅРёРµ СЃРїСЂР°РІРѕС‡РЅРёРєРѕРІ Рё СЃРѕР·РґР°РЅРёРµ РµРґРёРЅСЃС‚РІРµРЅРЅРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
+-- 09 — Наполнение справочников и создание единственного пользователя.
 -- =============================================================================
 
--- ---------- РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ --------------------------------------------------
+-- ---------- пользователь --------------------------------------------------
 
 INSERT INTO users (id, username, timezone)
 VALUES (1, 'me', 'Europe/Moscow')
 ON CONFLICT (id) DO NOTHING;
 
--- РЎРґРІРёРіР°РµРј sequence, С‡С‚РѕР±С‹ Р±СѓРґСѓС‰РёРµ insert-С‹ РЅРµ РєРѕРЅС„Р»РёРєС‚РѕРІР°Р»Рё.
+-- Сдвигаем sequence, чтобы будущие insert-ы не конфликтовали.
 SELECT setval(pg_get_serial_sequence('users', 'id'),
               GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), 1), TRUE);
 
--- ---------- С‚РµРјС‹ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ --------------------------------------------
+-- ---------- темы по умолчанию --------------------------------------------
 
 INSERT INTO topics (user_id, name, color) VALUES
-    (1, 'Р Р°Р±РѕС‚Р°',    '#3B82F6'),
-    (1, 'РЈС‡С‘Р±Р°',     '#8B5CF6'),
-    (1, 'Р—РґРѕСЂРѕРІСЊРµ',  '#10B981'),
-    (1, 'Р›РёС‡РЅРѕРµ',    '#F59E0B'),
-    (1, 'РџСЂРёРІС‹С‡РєРё',  '#EC4899'),
-    (1, 'РџСЂРѕС‡РµРµ',    '#6B7280')
+    (1, 'Работа',    '#3B82F6'),
+    (1, 'Учёба',     '#8B5CF6'),
+    (1, 'Здоровье',  '#10B981'),
+    (1, 'Личное',    '#F59E0B'),
+    (1, 'Привычки',  '#EC4899'),
+    (1, 'Прочее',    '#6B7280')
 ON CONFLICT (user_id, name) DO NOTHING;
 
--- ---------- РґРµРјРѕ-С‚РµРіРё -----------------------------------------------------
+-- ---------- демо-теги -----------------------------------------------------
 
 INSERT INTO tags (user_id, name) VALUES
-    (1, 'РІР°Р¶РЅРѕРµ'),
-    (1, 'СЃСЂРѕС‡РЅРѕРµ'),
-    (1, 'РёРґРµСЏ'),
-    (1, 'РѕР±СѓС‡РµРЅРёРµ'),
-    (1, 'СЃРїРѕСЂС‚')
+    (1, 'важное'),
+    (1, 'срочное'),
+    (1, 'идея'),
+    (1, 'обучение'),
+    (1, 'спорт')
 ON CONFLICT (user_id, name) DO NOTHING;
 
--- ---------- РїСЂР°Р·РґРЅРёРєРё Р Р¤ РЅР° 2026 -----------------------------------------
+-- ---------- праздники РФ на 2026 -----------------------------------------
 
 INSERT INTO holidays (holiday_date, name, is_official) VALUES
-    ('2026-01-01', 'РќРѕРІС‹Р№ РіРѕРґ',                                TRUE),
-    ('2026-01-02', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-01-03', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-01-04', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-01-05', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-01-06', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-01-07', 'Р РѕР¶РґРµСЃС‚РІРѕ РҐСЂРёСЃС‚РѕРІРѕ',                       TRUE),
-    ('2026-01-08', 'РќРѕРІРѕРіРѕРґРЅРёРµ РєР°РЅРёРєСѓР»С‹',                      TRUE),
-    ('2026-02-23', 'Р”РµРЅСЊ Р·Р°С‰РёС‚РЅРёРєР° РћС‚РµС‡РµСЃС‚РІР°',                 TRUE),
-    ('2026-03-08', 'РњРµР¶РґСѓРЅР°СЂРѕРґРЅС‹Р№ Р¶РµРЅСЃРєРёР№ РґРµРЅСЊ',               TRUE),
-    ('2026-05-01', 'РџСЂР°Р·РґРЅРёРє Р’РµСЃРЅС‹ Рё РўСЂСѓРґР°',                   TRUE),
-    ('2026-05-09', 'Р”РµРЅСЊ РџРѕР±РµРґС‹',                              TRUE),
-    ('2026-06-12', 'Р”РµРЅСЊ Р РѕСЃСЃРёРё',                              TRUE),
-    ('2026-11-04', 'Р”РµРЅСЊ РЅР°СЂРѕРґРЅРѕРіРѕ РµРґРёРЅСЃС‚РІР°',                  TRUE)
+    ('2026-01-01', 'Новый год',                                TRUE),
+    ('2026-01-02', 'Новогодние каникулы',                      TRUE),
+    ('2026-01-03', 'Новогодние каникулы',                      TRUE),
+    ('2026-01-04', 'Новогодние каникулы',                      TRUE),
+    ('2026-01-05', 'Новогодние каникулы',                      TRUE),
+    ('2026-01-06', 'Новогодние каникулы',                      TRUE),
+    ('2026-01-07', 'Рождество Христово',                       TRUE),
+    ('2026-01-08', 'Новогодние каникулы',                      TRUE),
+    ('2026-02-23', 'День защитника Отечества',                 TRUE),
+    ('2026-03-08', 'Международный женский день',               TRUE),
+    ('2026-05-01', 'Праздник Весны и Труда',                   TRUE),
+    ('2026-05-09', 'День Победы',                              TRUE),
+    ('2026-06-12', 'День России',                              TRUE),
+    ('2026-11-04', 'День народного единства',                  TRUE)
 ON CONFLICT (holiday_date) DO NOTHING;
 
--- ---------- РЅР°СЃС‚СЂРѕР№РєРё РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ ---------------------------------------
+-- ---------- настройки по умолчанию ---------------------------------------
 
 INSERT INTO app_settings (user_id, key, value) VALUES
     (1, 'theme',                  '"system"'::jsonb),
@@ -2463,4 +2463,3 @@ DO $$
 BEGIN
     RAISE NOTICE 'PTT 09-seed: user(me), topics, tags, holidays, settings populated';
 END $$;
-
